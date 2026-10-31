@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react"
+import { Toaster } from "react-hot-toast"
 import {
   LayoutDashboard,
   Stethoscope,
@@ -1875,6 +1876,7 @@ export default function App() {
         zoom: zoomLevel,
       }}
     >
+      <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
       {!loggedIn ? (
         <Login onLogin={handleLogin} />
       ) : (

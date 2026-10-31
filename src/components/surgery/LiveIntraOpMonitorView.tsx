@@ -48,6 +48,24 @@ export default function LiveIntraOpMonitorView({
 
   // WHO Checklist interactive state
   const [whoPhase, setWhoPhase] = useState<"signIn" | "timeOut" | "signOut">("timeOut")
+
+  useEffect(() => {
+    if (currentCase) {
+      if (currentCase.currentTelemetry) {
+        setHr(currentCase.currentTelemetry.hr || 74)
+        setBpSys(currentCase.currentTelemetry.bpSys || 118)
+        setBpDia(currentCase.currentTelemetry.bpDia || 76)
+        setSpo2(currentCase.currentTelemetry.spo2 || 99)
+        setEtco2(currentCase.currentTelemetry.etco2 || 36)
+        setTemp(currentCase.currentTelemetry.temp || 36.8)
+        setAgent(currentCase.currentTelemetry.anestheticAgent || "Sevoflurane")
+        setAgentPct(currentCase.currentTelemetry.agentConcentration || "2.0%")
+      }
+      if (currentCase.whoChecklist) {
+        setWhoForm(currentCase.whoChecklist)
+      }
+    }
+  }, [currentCase?.id])
   const [whoForm, setWhoForm] = useState(
     currentCase?.whoChecklist || {
       signIn: {

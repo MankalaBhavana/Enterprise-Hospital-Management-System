@@ -48,6 +48,24 @@ export default function PacuRecoveryView({
   const totalAldrete = activity + respiration + circulation + consciousness + o2Sat
   const isCleared = totalAldrete >= 9
 
+  React.useEffect(() => {
+    if (selectedCase?.recoveryAldrete?.aldreteScore) {
+      const s = selectedCase.recoveryAldrete.aldreteScore
+      setActivity(s.activity ?? 2)
+      setRespiration(s.respiration ?? 2)
+      setCirculation(s.circulation ?? 2)
+      setConsciousness(s.consciousness ?? 2)
+      setO2Sat(s.o2Saturation ?? 2)
+      const anyRec = selectedCase.recoveryAldrete as any
+      if (anyRec.painScoreVas !== undefined) {
+        setPainScore(anyRec.painScoreVas)
+      }
+      if (anyRec.drainOutputMl !== undefined) {
+        setDrainOutput(anyRec.drainOutputMl)
+      }
+    }
+  }, [selectedCase?.id])
+
   const handleSaveScore = async () => {
     if (!selectedCase) return
     const rec: RecoveryAldreteDetail = {

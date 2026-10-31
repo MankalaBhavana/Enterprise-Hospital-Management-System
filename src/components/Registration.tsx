@@ -193,12 +193,22 @@ export default function Registration({
   // 1. Handle New Patient Registration Flow -> Creates Record -> Generates Patient ID (UMR) & OP No -> Next Step
   const handleRegisterNewPatient = (e: React.FormEvent) => {
     e.preventDefault()
-    if (
-      !formData.firstName.trim() ||
-      !formData.lastName.trim() ||
-      !formData.dob
-    )
+    if (!formData.firstName.trim()) {
+      alert("Please enter patient First Name.")
       return
+    }
+    if (!formData.lastName.trim()) {
+      alert("Please enter patient Last Name.")
+      return
+    }
+    if (!formData.dob) {
+      alert("Please enter patient Date of Birth.")
+      return
+    }
+    if (!formData.sex) {
+      alert("Please select patient Sex at Birth.")
+      return
+    }
     if (formData.phone.length !== 10) {
       alert("Please enter a valid 10-digit mobile phone number (numbers only).")
       return
@@ -873,13 +883,6 @@ export default function Registration({
                 <Btn
                   variant="primary"
                   type="submit"
-                  disabled={
-                    !formData.firstName.trim() ||
-                    !formData.lastName.trim() ||
-                    !formData.dob ||
-                    !formData.sex ||
-                    formData.phone.length !== 10
-                  }
                 >
                   <span>✓</span> Create Patient Record, Generate Patient ID
                   &amp; Proceed to Next Step →

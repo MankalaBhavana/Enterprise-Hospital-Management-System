@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
 import { Btn, TabBar, StatusBadge } from "./shared";
 import { SurgeryDatabase, SurgicalCase, SurgeryStatus } from "../services/surgeryDb";
 import { OtPackageLink } from "./insurance/integrations";
 
 // Subcomponents
-import SurgicalFlowStepper from "./surgery/SurgicalFlowStepper";
+import SurgicalFlowStepper, { SURGICAL_FLOW_STAGES } from "./surgery/SurgicalFlowStepper";
 import OrLiveBoardView from "./surgery/OrLiveBoardView";
 import PatientJourneyKanbanView from "./surgery/PatientJourneyKanbanView";
 import LiveIntraOpMonitorView from "./surgery/LiveIntraOpMonitorView";
@@ -23,7 +24,7 @@ export default function Surgery() {
   const [activeTab, setActiveTab] = useState<string>("OR Live Board");
   const [searchQuery, setSearchQuery] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("All Specialities");
-  const [selectedStageFilter, setSelectedStageFilter] = useState<SurgeryStatus | "All">("All");
+  const [selectedStageFilter, setSelectedStageFilter] = useState<string>("All");
 
   // Selection states for dedicated tab views
   const [selectedMonitorCase, setSelectedMonitorCase] = useState<SurgicalCase | undefined>(undefined);
@@ -99,8 +100,11 @@ export default function Surgery() {
     const matchesSpecialty =
       specialtyFilter === "All Specialities" || c.specialty === specialtyFilter;
 
+    const activeStage = SURGICAL_FLOW_STAGES.find((s) => s.id === selectedStageFilter);
     const matchesStage =
-      selectedStageFilter === "All" || c.status === selectedStageFilter;
+      !selectedStageFilter ||
+      selectedStageFilter === "All" ||
+      (activeStage ? (activeStage.matchStatuses as readonly string[]).includes(c.status) : c.status === selectedStageFilter);
 
     return matchesSearch && matchesSpecialty && matchesStage;
   });
@@ -127,7 +131,15 @@ export default function Surgery() {
   };
 
   const handleStatusChange = async (caseId: string, newStatus: SurgeryStatus) => {
-    await SurgeryDatabase.updateCaseStatus(caseId, newStatus);
+    try {
+      await SurgeryDatabase.updateCaseStatus(caseId, newStatus);
+      const allCases = SurgeryDatabase.getCases();
+      setCases(allCases);
+      initDefaults(allCases);
+      toast.success(`Patient moved to ${newStatus}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
+    }
   };
 
   const handleBookRoom = (room: string) => {
@@ -245,7 +257,7 @@ export default function Surgery() {
           cases={cases}
           activeStageFilter={selectedStageFilter === "All" ? null : selectedStageFilter}
           onSelectStage={(stage: string | null) =>
-            setSelectedStageFilter(stage ? (stage as SurgeryStatus) : "All")
+            setSelectedStageFilter(stage || "All")
           }
         />
       </div>

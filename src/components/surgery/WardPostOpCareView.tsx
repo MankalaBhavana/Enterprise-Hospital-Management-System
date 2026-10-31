@@ -49,6 +49,19 @@ export default function WardPostOpCareView({
   )
   const [author, setAuthor] = useState(`Dr. ${selectedCase?.surgeon || "Adams"} (Attending Surgeon)`)
 
+  React.useEffect(() => {
+    if (selectedCase?.wardTransfer) {
+      setPod((selectedCase.wardTransfer.postOpDay ?? 0) + 1)
+      if (selectedCase.wardTransfer.drainStatus) setDrainStatus(selectedCase.wardTransfer.drainStatus)
+      if (selectedCase.wardTransfer.drainOutputMl !== undefined) setDrainOutputMl(selectedCase.wardTransfer.drainOutputMl)
+      if (selectedCase.wardTransfer.woundStatus) setWoundStatus(selectedCase.wardTransfer.woundStatus)
+      if (selectedCase.wardTransfer.dietStatus) setDietStatus(selectedCase.wardTransfer.dietStatus)
+      if (selectedCase.wardTransfer.mobilizationStatus) setMobilizationStatus(selectedCase.wardTransfer.mobilizationStatus)
+      if (selectedCase.wardTransfer.painScoreVas !== undefined) setPainScoreVas(selectedCase.wardTransfer.painScoreVas)
+      setAuthor(`Dr. ${selectedCase.surgeon || "Adams"} (Attending Surgeon)`)
+    }
+  }, [selectedCase?.id])
+
   const handleRecordMilestone = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedCase) return

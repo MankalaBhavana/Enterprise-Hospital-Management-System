@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-hot-toast";
 import { Btn } from "../shared";
 import { SurgeryDatabase, SurgicalCase } from "../../services/surgeryDb";
 
@@ -73,11 +74,11 @@ export const StatEmergencyModal: React.FC<StatEmergencyModalProps> = ({
         },
       });
 
+      toast.success(`Emergency STAT OR reserved for ${patientName} in ${targetSuite}!`);
       if (onSuccess) onSuccess(newCase);
       onClose();
-    } catch (err) {
-      console.error("Failed to reserve STAT OT:", err);
-      onClose();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to reserve STAT OT.");
     } finally {
       setIsSubmitting(false);
     }

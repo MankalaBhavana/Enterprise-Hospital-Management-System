@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-hot-toast";
 import { Btn } from "../shared";
 import { SurgeryDatabase, SurgicalCase } from "../../services/surgeryDb";
 
@@ -90,9 +91,11 @@ export const OtBookletModal: React.FC<OtBookletModalProps> = ({
         }
       });
       setSaveStatusMsg("Progress saved to clinical record!");
+      toast.success("Progress saved to clinical record!");
       setTimeout(() => setSaveStatusMsg(null), 3000);
     } catch (err) {
       console.error("Failed to save booklet progress:", err);
+      toast.error("Failed to save booklet progress.");
     }
   };
 
