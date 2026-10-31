@@ -10,7 +10,7 @@ import { useState } from "react"
 // rather than http://localhost:3005 directly: only this app's own port is
 // forwarded to the browser, so a cross-port iframe src is unreachable from
 // outside this sandbox even though it resolves fine from inside it.
-const OCR_APP_URL = import.meta.env.VITE_DPI_OCR_URL || "/keppler-ocr/"
+const OCR_APP_URL = (import.meta as any)?.env?.VITE_DPI_OCR_URL || "/keppler-ocr/"
 
 export default function DpiOcrPortal() {
   const [failed, setFailed] = useState(false)

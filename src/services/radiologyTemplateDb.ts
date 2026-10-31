@@ -1,12 +1,11 @@
 import { BillingDatabase } from "./billingDb"
 import { AuditDatabase } from "./auditDb"
 import * as pdfjsLib from "pdfjs-dist"
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import mammoth from "mammoth"
 
 if (typeof window !== "undefined") {
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href
   } catch {}
 }
 
@@ -278,7 +277,9 @@ export async function extractTextFromWordBuffer(arrayBuffer: ArrayBuffer, fileNa
   return ""
 }
 
-export function extractCleanTemplateText(fileName: string, rawText: string): string {
+export function extractCleanTemplateText(fileNameOrRaw: string, maybeRawText?: string): string {
+  const fileName = maybeRawText !== undefined ? fileNameOrRaw : "template.txt"
+  const rawText = maybeRawText !== undefined ? maybeRawText : fileNameOrRaw
   const lowerName = fileName.toLowerCase()
   if (lowerName.endsWith(".txt") || lowerName.endsWith(".json") || lowerName.endsWith(".csv") || lowerName.endsWith(".md")) {
     return rawText
