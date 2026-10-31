@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import toast from "react-hot-toast"
 import { useStickyState } from "../hooks/useStickyState"
 import { AppointmentBookingModal } from "./Appointments"
 import {
@@ -131,6 +132,23 @@ export default function Registration({
     }))
   }
 
+  // Handle Age Change -> Dynamically updates DOB
+  const handleAgeChange = (val: string) => {
+    const parsedAge = parseInt(val, 10)
+    if (isNaN(parsedAge) || parsedAge < 0) {
+      setFormData((prev) => ({ ...prev, age: 0 }))
+      return
+    }
+    const currentYear = new Date().getFullYear()
+    const birthYear = Math.max(1900, currentYear - parsedAge)
+    const defaultDob = `${birthYear}-01-01`
+    setFormData((prev) => ({
+      ...prev,
+      age: parsedAge,
+      dob: prev.dob && calculateAge(prev.dob) === parsedAge ? prev.dob : defaultDob,
+    }))
+  }
+
   // Handle Numeric Only Phone Input (strictly numbers only, max 10 digits)
   const handlePhoneChange = (val: string) => {
     const digitsOnly = val.replace(/\D/g, "").slice(0, 10)
@@ -193,50 +211,73 @@ export default function Registration({
   // 1. Handle New Patient Registration Flow -> Creates Record -> Generates Patient ID (UMR) & OP No -> Next Step
   const handleRegisterNewPatient = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.firstName.trim()) {
-      alert("Please enter patient First Name.")
+    const firstName = formData.firstName.trim()
+    const lastName = formData.lastName.trim()
+    if (!firstName) {
+      toast.error("Please enter patient First Name.")
       return
     }
-    if (!formData.lastName.trim()) {
-      alert("Please enter patient Last Name.")
+    if (!lastName) {
+      toast.error("Please enter patient Last Name.")
       return
     }
-    if (!formData.dob) {
-      alert("Please enter patient Date of Birth.")
+
+    let finalDob = formData.dob
+    let finalAge = formData.age
+    if (!finalDob && (!finalAge || finalAge <= 0)) {
+      toast.error("Please enter patient Date of Birth or Age.")
       return
     }
+    if (!finalDob && finalAge > 0) {
+      const birthYear = Math.max(1900, new Date().getFullYear() - finalAge)
+      finalDob = `${birthYear}-01-01`
+    } else if (finalDob && (!finalAge || finalAge <= 0)) {
+      finalAge = calculateAge(finalDob)
+    }
+
     if (!formData.sex) {
-      alert("Please select patient Sex at Birth.")
+      toast.error("Please select patient Sex at Birth.")
       return
     }
-    if (formData.phone.length !== 10) {
-      alert("Please enter a valid 10-digit mobile phone number (numbers only).")
+
+    const rawPhone = formData.phone || ""
+    const cleanPhone = rawPhone.replace(/\D/g, "")
+    const finalPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone
+    if (finalPhone.length < 10) {
+      toast.error("Please enter a valid 10-digit mobile phone number.")
       return
     }
 
     // If ALL entered details match an existing record -> Route through Revisit under existing UMR
     if (matchingExistingPatient) {
       handleCreateRevisitEncounter(matchingExistingPatient)
+      toast.success(
+        `Revisit encounter generated for ${matchingExistingPatient.name} (${matchingExistingPatient.umr})`,
+      )
       resetForm()
       return
     }
 
-    const computedAge = calculateAge(formData.dob)
+    const computedAge = finalAge || (finalDob ? calculateAge(finalDob) : 30)
 
     const { patient: createdPatient, encounter: createdEncounter } =
       db.registerNewPatient({
-        firstName: formData.firstName.trim(),
+        firstName,
         middleName: formData.middleName.trim() || undefined,
-        lastName: formData.lastName.trim(),
-        dob: formData.dob,
+        lastName,
+        dob: finalDob,
         age: computedAge,
-        sex: formData.sex as "Male" | "Female" | "Other" || "Male",
-        phone: formData.phone.trim() || "9876543210",
-        address: formData.address.trim() || "Boston, MA",
+        sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
+        phone: finalPhone || "9876543210",
+        address: formData.address.trim() || "Local Address",
       })
 
     setSelectedEncounter(createdEncounter)
     notifyOpRegistered(createdEncounter)
+    refreshFromDb()
+    toast.success(
+      `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
+    )
     setGenerationAlert({
       type: "new",
       umr: createdPatient.umr,
@@ -713,8 +754,7 @@ export default function Registration({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
-                      Date of Birth (DOB){" "}
-                      <span className="text-red-500">*</span>
+                      Date of Birth (DOB)
                     </label>
                     <input
                       type="date"
@@ -722,22 +762,30 @@ export default function Registration({
                       onChange={(e) => handleDobChange(e.target.value)}
                       max={new Date().toISOString().split("T")[0]}
                       className="w-full border border-[#94A3B8] rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-blue-100 font-medium text-gray-900"
-                      required
                     />
                   </div>
                   <div>
-                    <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
-                      Age
-                    </label>
-                    <div className="w-full border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg px-3 py-2 text-[13px] font-bold text-[#1B4FD8] flex items-center justify-between">
-                      <span>
-                        {formData.age > 0 ? `${formData.age} yrs` : "—"}
-                      </span>
+                    <label className="text-[12px] font-semibold text-gray-800 block mb-1.5 flex items-center justify-between">
+                      <span>Age (Years)</span>
                       {formData.age > 0 && formData.age < 18 && (
                         <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
                           Pediatric
                         </span>
                       )}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="130"
+                        value={formData.age > 0 ? formData.age : ""}
+                        onChange={(e) => handleAgeChange(e.target.value)}
+                        placeholder="Age"
+                        className="w-full border border-[#94A3B8] rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-blue-100 font-bold text-gray-900 pr-12"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-semibold">
+                        yrs
+                      </span>
                     </div>
                   </div>
                   <div>

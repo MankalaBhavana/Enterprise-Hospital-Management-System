@@ -968,6 +968,35 @@ async function handleLocalErMock<T = any>(
     return res as T
   }
 
+  // POST /api/patients (Register new patient offline-resilient handler)
+  if (pathname === "/api/patients" && method === "POST") {
+    const erPatient = ErDatabase.addPatient({
+      name: body.name || "Emergency Patient",
+      last_name: body.last_name || "",
+      age: body.age ? parseInt(String(body.age), 10) : 35,
+      gender: body.gender || "Male",
+      phone: body.phone || "(617) 555-0199",
+      address: body.address || "Boston, MA",
+    })
+    return {
+      id: Date.now(),
+      patient_id: erPatient.patient_id,
+      patient: erPatient,
+      name: erPatient.name,
+      last_name: erPatient.last_name,
+    } as T
+  }
+
+  // GET /api/patients/:id
+  const patientDetailMatch = pathname.match(/^\/api\/patients\/([^/]+)$/)
+  if (patientDetailMatch && method === "GET") {
+    const pId = decodeURIComponent(patientDetailMatch[1])
+    const ep = ErDatabase.getPatient(pId)
+    if (ep) return ep as T
+    const cp = db.getPatientByUmr(pId)
+    if (cp) return cp as T
+  }
+
   // GET /api/patients
 
   if (pathname === "/api/patients" && method === "GET") {

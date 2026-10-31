@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react"
+import toast from "react-hot-toast"
 import { db, DBPatient } from "../../services/db"
 import { IMAGING_CATALOG } from "../Radiology"
 import { RadiologyWorkflowDb } from "../../services/radiologyWorkflowDb"
@@ -84,20 +85,25 @@ export default function NewInvestigationOrderModal({
     setErrorMessage(null)
 
     if (!selectedPatient) {
-      setErrorMessage("Please select a valid patient.")
+      const msg = "Please select a valid patient."
+      setErrorMessage(msg)
+      toast.error(msg)
       return
     }
 
     if (!indication.trim()) {
-      setErrorMessage("Clinical indication is required for radiology examination.")
+      const msg = "Clinical indication is required for radiology examination."
+      setErrorMessage(msg)
+      toast.error(msg)
       return
     }
 
     if (duplicateCheck.isDuplicate) {
-      setErrorMessage(
+      const msg =
         duplicateCheck.message ||
-          "Duplicate investigation prevented: This patient already has an active order for this test.",
-      )
+        "Duplicate investigation prevented: This patient already has an active order for this test."
+      setErrorMessage(msg)
+      toast.error(msg)
       return
     }
 
@@ -127,16 +133,18 @@ export default function NewInvestigationOrderModal({
         nurseName: autoVerifyNurse ? nurseName : undefined,
       })
 
-      onOrderCreated(
-        `✓ Radiology investigation "${selectedCatalogItem.study}" prescribed for ${selectedPatient.name} (UMR: ${selectedPatient.umr}). ${
-          autoVerifyNurse
-            ? "Verified by nurse & forwarded to Billing & Radiology."
-            : "Awaiting nurse verification."
-        }`,
-      )
+      const successMsg = `✓ Radiology investigation "${selectedCatalogItem.study}" prescribed for ${selectedPatient.name} (UMR: ${selectedPatient.umr}). ${
+        autoVerifyNurse
+          ? "Verified by nurse & forwarded to Billing & Radiology."
+          : "Awaiting nurse verification."
+      }`
+      toast.success(successMsg)
+      onOrderCreated(successMsg)
       onClose()
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to create radiology order.")
+      const msg = err.message || "Failed to create radiology order."
+      setErrorMessage(msg)
+      toast.error(msg)
     }
   }
 

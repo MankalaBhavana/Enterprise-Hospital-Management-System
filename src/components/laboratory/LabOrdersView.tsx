@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
+import toast from "react-hot-toast"
 import {
   Plus,
   Search,
@@ -172,8 +173,11 @@ export default function LabOrdersView({ onOpenReport, onOpenBench, onCollectSamp
       setSelectedTests([])
       setPatientSearch("")
       setClinicalNotes("")
+      toast.success(`Lab order ${newOrder.id} created successfully!`)
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to create lab order.")
+      const msg = err.message || "Failed to create lab order."
+      setErrorMessage(msg)
+      toast.error(msg)
     }
   }
 

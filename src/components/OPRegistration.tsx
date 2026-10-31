@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"
+import toast from "react-hot-toast"
 import { Icon } from "./icons"
 import { StatusBadge, Btn, Input } from "./shared"
 import {
@@ -96,6 +97,23 @@ export default function OPRegistration({
     }))
   }
 
+  // Handle Age Change -> Dynamically updates DOB
+  const handleAgeChange = (val: string) => {
+    const parsedAge = parseInt(val, 10)
+    if (isNaN(parsedAge) || parsedAge < 0) {
+      setFormData((prev) => ({ ...prev, age: 0 }))
+      return
+    }
+    const currentYear = new Date().getFullYear()
+    const birthYear = Math.max(1900, currentYear - parsedAge)
+    const defaultDob = `${birthYear}-01-01`
+    setFormData((prev) => ({
+      ...prev,
+      age: parsedAge,
+      dob: prev.dob && calculateAge(prev.dob) === parsedAge ? prev.dob : defaultDob,
+    }))
+  }
+
   // Duplicate / Existing Patient Check via Robust Matching Logic
   const enteredFullName = [
     formData.firstName,
@@ -120,16 +138,49 @@ export default function OPRegistration({
   // 1. Handle New Patient Registration -> Generates UMR -> then generates Global OP Number
   const handleRegisterNewPatient = (e: React.FormEvent) => {
     e.preventDefault()
-    if (
-      !formData.firstName.trim() ||
-      !formData.lastName.trim() ||
-      !formData.dob
-    )
+    const firstName = formData.firstName.trim()
+    const lastName = formData.lastName.trim()
+    if (!firstName) {
+      toast.error("Please enter patient First Name.")
       return
+    }
+    if (!lastName) {
+      toast.error("Please enter patient Last Name.")
+      return
+    }
+
+    let finalDob = formData.dob
+    let finalAge = formData.age
+    if (!finalDob && (!finalAge || finalAge <= 0)) {
+      toast.error("Please enter patient Date of Birth or Age.")
+      return
+    }
+    if (!finalDob && finalAge > 0) {
+      const birthYear = Math.max(1900, new Date().getFullYear() - finalAge)
+      finalDob = `${birthYear}-01-01`
+    } else if (finalDob && (!finalAge || finalAge <= 0)) {
+      finalAge = calculateAge(finalDob)
+    }
+
+    if (!formData.sex) {
+      toast.error("Please select patient Gender / Sex.")
+      return
+    }
+
+    const rawPhone = formData.phone || ""
+    const cleanPhone = rawPhone.replace(/\D/g, "")
+    const finalPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone
+    if (finalPhone.length < 10) {
+      toast.error("Please enter a valid 10-digit mobile phone number.")
+      return
+    }
 
     // If ALL entered details match an existing record with 0 mismatches -> Revisit under existing UMR
     if (matchingExistingPatient) {
       handleCreateRevisitEncounter(matchingExistingPatient)
+      toast.success(
+        `Revisit encounter generated for ${matchingExistingPatient.name} (${matchingExistingPatient.umr})`,
+      )
       // Reset Form
       setFormData({
         firstName: "",
@@ -144,21 +195,25 @@ export default function OPRegistration({
     }
 
     // If new patient OR if ANY detail mismatches from database -> Register as a BRAND NEW patient with new permanent UMR
-    const computedAge = calculateAge(formData.dob)
+    const computedAge = finalAge || (finalDob ? calculateAge(finalDob) : 30)
 
     const { patient: createdPatient, encounter: createdEncounter } =
       db.registerNewPatient({
-        firstName: formData.firstName.trim(),
+        firstName,
         middleName: formData.middleName.trim() || undefined,
-        lastName: formData.lastName.trim(),
-        dob: formData.dob,
+        lastName,
+        dob: finalDob,
         age: computedAge,
-        sex: formData.sex as "Male" | "Female" | "Other" || "Male",
-        phone: formData.phone.trim() || "(617) 555-0199",
+        sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
+        phone: finalPhone || "(617) 555-0199",
       })
 
     setSelectedEncounter(createdEncounter)
     notifyOpRegistered(createdEncounter)
+    refreshFromDb()
+    toast.success(
+      `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
+    )
     setGenerationAlert({
       type: "new",
       umr: createdPatient.umr,
@@ -183,6 +238,9 @@ export default function OPRegistration({
       dob: "",
       age: 0,
       sex: "",
+      phone: "",
+    })
+  }
       phone: "",
     })
   }
@@ -388,11 +446,11 @@ export default function OPRegistration({
                 </div>
               </div>
 
-              {/* DOB, Age (Locked), Gender, Phone Number */}
+              {/* DOB, Age (Editable & Bidirectional), Gender, Phone Number */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
-                    Date of Birth (DOB) <span className="text-red-500">*</span>
+                    Date of Birth (DOB)
                   </label>
                   <input
                     type="date"
@@ -400,21 +458,27 @@ export default function OPRegistration({
                     onChange={(e) => handleDobChange(e.target.value)}
                     max={new Date().toISOString().split("T")[0]}
                     className="w-full border border-[#94A3B8] rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-blue-100 font-medium text-gray-900"
-                    required
                   />
                 </div>
 
                 <div>
-                  <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
-                    Age (Years)
+                  <label className="text-[12px] font-semibold text-gray-800 block mb-1.5 flex items-center justify-between">
+                    <span>Age (Years)</span>
+                    {formData.age > 0 && formData.age < 18 && (
+                      <span className="text-[9.5px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
+                        Pediatric
+                      </span>
+                    )}
                   </label>
                   <div className="relative">
                     <input
                       type="number"
-                      value={formData.age}
-                      readOnly
-                      disabled
-                      className="w-full border border-[#CBD5E1] rounded-lg px-3 py-2 text-[13px] bg-[#F1F5F9] text-gray-800 font-bold font-mono cursor-not-allowed select-none"
+                      min="0"
+                      max="130"
+                      value={formData.age > 0 ? formData.age : ""}
+                      onChange={(e) => handleAgeChange(e.target.value)}
+                      placeholder="Age"
+                      className="w-full border border-[#94A3B8] rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-blue-100 font-bold text-gray-900 pr-12"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-semibold">
                       yrs

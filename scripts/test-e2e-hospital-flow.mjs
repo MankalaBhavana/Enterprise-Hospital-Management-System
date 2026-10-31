@@ -822,8 +822,10 @@ console.log(`📊 TEST SUITE SUMMARY: ${passedTests}/${totalTests} TESTS PASSED`
 if (passedTests === totalTests) {
   console.log("🎉 ALL END-TO-END HOSPITAL FLOW TESTS PASSED SUCCESSFULLY!");
   console.log("🚀 THE SYSTEM IS FULLY VALIDATED AND READY FOR MANUAL FLOW TESTING!");
+  console.log("=================================================================\n");
+  process.exit(0);
 } else {
   console.error(`⚠️ ${totalTests - passedTests} TESTS FAILED!`);
+  console.log("=================================================================\n");
   process.exit(1);
 }
-console.log("=================================================================\n");

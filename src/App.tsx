@@ -2770,7 +2770,7 @@ export default function App() {
                   }}
                 />
               )}
-              {module === "register" && (
+              {(module === "register" || module === "op_registration") && (
                 <Registration
                   onBookAppointment={(patient) => {
                     if (patient?.id) setSelectedWorkflowEncounterId(patient.id)

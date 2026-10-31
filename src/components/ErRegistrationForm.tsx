@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react"
+import toast from "react-hot-toast"
 import {
   FiArrowRight,
   FiUserPlus,
@@ -143,17 +144,21 @@ export default function ErRegistrationForm({
 
   const submit = async (confirmDuplicate = false) => {
     if (!esi || !chiefComplaint) {
+      const msg = "Please enter chief complaint and select Triage ESI level."
       setNotice({
         type: "error",
-        message: "Please enter chief complaint and select Triage ESI level.",
+        message: msg,
       })
+      toast.error(msg)
       return
     }
     if (patientMode === "existing" && !selectedExisting) {
+      const msg = "Search for and select the existing patient before registering."
       setNotice({
         type: "error",
-        message: "Search for and select the existing patient before registering.",
+        message: msg,
       })
+      toast.error(msg)
       return
     }
     setSaving(true)
@@ -187,11 +192,12 @@ export default function ErRegistrationForm({
           const duplicate = createErr?.payload?.duplicate
           if (createErr?.status === 409 && duplicate) {
             setDuplicateMatch(duplicate)
+            const dupMsg = "A matching patient already exists -- use the existing-patient search instead, or confirm below to register anyway."
             setNotice({
               type: "error",
-              message:
-                "A matching patient already exists -- use the existing-patient search instead, or confirm below to register anyway.",
+              message: dupMsg,
             })
+            toast.error(dupMsg)
             setSaving(false)
             return
           }
@@ -251,8 +257,10 @@ export default function ErRegistrationForm({
           reason: chiefComplaint,
         }),
       })
+      toast.success("Emergency patient registered and triaged successfully!")
       onCreated(visitId)
     } catch (error: any) {
+      toast.error(error?.message || "Failed to complete ER registration.")
       reportError(setNotice, error, "Failed to complete ER registration.")
     } finally {
       setSaving(false)
