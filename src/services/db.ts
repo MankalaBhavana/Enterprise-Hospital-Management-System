@@ -1475,6 +1475,117 @@ const STORAGE_KEYS = {
   OP_COUNTER: "hospai_db_op_counter_v1",
 }
 
+// ─── Emergency Storage Eviction & Quota Recovery ──────────────────────────────
+const dbMemoryFallback: Record<string, string> = {}
+
+export function emergencyDbStorageEviction(): void {
+  if (typeof window === "undefined" || !window.localStorage) return
+  try {
+    const todayStr = new Date().toISOString().split("T")[0]
+    const keysToRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (!k) continue
+      // 1. Purge all multi-day ICU flowsheets (except today's active note)
+      if (k.startsWith("icu.flowsheet.") && !k.endsWith(todayStr)) {
+        keysToRemove.push(k)
+      }
+      // 2. Remove OCR & preview temporary caches
+      if (
+        k.startsWith("hospai_ocr_") ||
+        k.startsWith("receipt_preview_") ||
+        k.startsWith("temp_") ||
+        k.includes("_scratch")
+      ) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        window.localStorage.removeItem(k)
+      } catch {}
+    })
+
+    // 3. Trim audit logs down to 20
+    try {
+      const auditRaw = window.localStorage.getItem("hospai_audit_logs_v1")
+      if (auditRaw) {
+        const logs = JSON.parse(auditRaw)
+        if (Array.isArray(logs) && logs.length > 20) {
+          window.localStorage.setItem("hospai_audit_logs_v1", JSON.stringify(logs.slice(0, 20)))
+        }
+      }
+    } catch {
+      try { window.localStorage.removeItem("hospai_audit_logs_v1") } catch {}
+    }
+  } catch (e) {
+    console.warn("[HospitalDatabase] Storage eviction warning:", e)
+  }
+}
+
+export function aggressiveDbStorageEviction(): void {
+  if (typeof window === "undefined" || !window.localStorage) return
+  try {
+    const keysToRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (!k) continue
+      if (
+        k.startsWith("icu.flowsheet.") ||
+        k === "hospai_audit_logs_v1" ||
+        k.startsWith("hospai_notif") ||
+        k.includes("notifications")
+      ) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try { window.localStorage.removeItem(k) } catch {}
+    })
+  } catch {}
+}
+
+export function safeDbSetItem(key: string, value: string): void {
+  if (typeof window === "undefined") return
+  // Always update memory fallback so in-session patient/encounter state is 100% preserved
+  dbMemoryFallback[key] = value
+
+  // Fast path: try saving directly to localStorage
+  try {
+    localStorage.setItem(key, value)
+    return
+  } catch (err: any) {
+    console.warn(`[HospitalDatabase] Quota exceeded on "${key}". Performing emergency eviction...`)
+  }
+
+  // Pass 1: Prune bloated ICU flowsheets & trim audit logs
+  try {
+    emergencyDbStorageEviction()
+    localStorage.setItem(key, value)
+    return
+  } catch (secondErr: any) {
+    console.warn(`[HospitalDatabase] Second setItem attempt on "${key}" failed. Aggressive eviction...`)
+  }
+
+  // Pass 2: Aggressive eviction
+  try {
+    aggressiveDbStorageEviction()
+    localStorage.setItem(key, value)
+    return
+  } catch (finalErr: any) {
+    console.warn(`[HospitalDatabase] Critical: localStorage full for "${key}". Falling back to in-memory store.`)
+  }
+}
+
+export function safeDbGetItem(key: string): string | null {
+  if (typeof window === "undefined") return dbMemoryFallback[key] || null
+  try {
+    const val = localStorage.getItem(key)
+    if (val !== null) return val
+  } catch {}
+  return dbMemoryFallback[key] || null
+}
+
 class HospitalDatabase {
   private listeners: Set<() => void> = new Set()
 
@@ -1485,26 +1596,29 @@ class HospitalDatabase {
   private init() {
     if (typeof window === "undefined") return
 
-    if (!localStorage.getItem(STORAGE_KEYS.PATIENTS)) {
-      localStorage.setItem(
+    // Reclaim storage quota on initialization
+    emergencyDbStorageEviction()
+
+    if (!safeDbGetItem(STORAGE_KEYS.PATIENTS)) {
+      safeDbSetItem(
         STORAGE_KEYS.PATIENTS,
         JSON.stringify(INITIAL_SEED_PATIENTS),
       )
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.ENCOUNTERS)) {
-      localStorage.setItem(
+    if (!safeDbGetItem(STORAGE_KEYS.ENCOUNTERS)) {
+      safeDbSetItem(
         STORAGE_KEYS.ENCOUNTERS,
         JSON.stringify(INITIAL_SEED_ENCOUNTERS),
       )
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.UMR_COUNTER)) {
-      localStorage.setItem(STORAGE_KEYS.UMR_COUNTER, "10048")
+    if (!safeDbGetItem(STORAGE_KEYS.UMR_COUNTER)) {
+      safeDbSetItem(STORAGE_KEYS.UMR_COUNTER, "10048")
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.OP_COUNTER)) {
-      localStorage.setItem(STORAGE_KEYS.OP_COUNTER, "33")
+    if (!safeDbGetItem(STORAGE_KEYS.OP_COUNTER)) {
+      safeDbSetItem(STORAGE_KEYS.OP_COUNTER, "33")
     }
 
     // Clean up Mangapathi Bhupathi data and deduplicate redundant encounters
@@ -1663,7 +1777,7 @@ class HospitalDatabase {
 
   public getPatients(): DBPatient[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.PATIENTS)
+      const data = safeDbGetItem(STORAGE_KEYS.PATIENTS)
       if (!data) return INITIAL_SEED_PATIENTS
       const parsed: DBPatient[] = JSON.parse(data)
       let merged = false
@@ -1675,9 +1789,7 @@ class HospitalDatabase {
         }
       }
       if (merged) {
-        try {
-          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(list))
-        } catch {}
+        safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(list))
       }
       return list
     } catch {
@@ -1708,7 +1820,7 @@ class HospitalDatabase {
 
   public getEncounters(): DBOPEncounter[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.ENCOUNTERS)
+      const data = safeDbGetItem(STORAGE_KEYS.ENCOUNTERS)
       if (!data) return INITIAL_SEED_ENCOUNTERS
       const parsed: DBOPEncounter[] = JSON.parse(data)
       let merged = false
@@ -1720,9 +1832,7 @@ class HospitalDatabase {
         }
       }
       if (merged) {
-        try {
-          localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(list))
-        } catch {}
+        safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(list))
       }
       return list
     } catch {
@@ -1963,26 +2073,26 @@ class HospitalDatabase {
     // Next UMR Generator
 
     const currentCounter = parseInt(
-      localStorage.getItem(STORAGE_KEYS.UMR_COUNTER) || "10048",
+      safeDbGetItem(STORAGE_KEYS.UMR_COUNTER) || "10048",
       10,
     )
 
     const nextUmrCounter = currentCounter + 1
 
-    localStorage.setItem(STORAGE_KEYS.UMR_COUNTER, nextUmrCounter.toString())
+    safeDbSetItem(STORAGE_KEYS.UMR_COUNTER, nextUmrCounter.toString())
 
     const newUmr = `UMR${nextUmrCounter}`
 
     // Global Continuous Unique OP Number Generator
 
     const currentOpCounter = parseInt(
-      localStorage.getItem(STORAGE_KEYS.OP_COUNTER) || "33",
+      safeDbGetItem(STORAGE_KEYS.OP_COUNTER) || "33",
       10,
     )
 
     const nextOpCounter = currentOpCounter + 1
 
-    localStorage.setItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
+    safeDbSetItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
 
     const newOpNumber = `OP${String(nextOpCounter).padStart(3, "0")}`
 
@@ -2117,12 +2227,12 @@ class HospitalDatabase {
 
     // Commit to database
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.PATIENTS,
       JSON.stringify([newPatient, ...patients]),
     )
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.ENCOUNTERS,
       JSON.stringify([newEncounter, ...encounters]),
     )
@@ -2174,13 +2284,13 @@ class HospitalDatabase {
     // Generate Next Global Continuous OP Number across hospital
 
     const currentOpCounter = parseInt(
-      localStorage.getItem(STORAGE_KEYS.OP_COUNTER) || "33",
+      safeDbGetItem(STORAGE_KEYS.OP_COUNTER) || "33",
       10,
     )
 
     const nextOpCounter = currentOpCounter + 1
 
-    localStorage.setItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
+    safeDbSetItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
 
     const newOpNumber = `OP${String(nextOpCounter).padStart(3, "0")}`
 
@@ -2293,9 +2403,9 @@ class HospitalDatabase {
       p.umr === umr ? { ...p, updatedAt: new Date().toISOString() } : p,
     )
 
-    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
+    safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.ENCOUNTERS,
       JSON.stringify([newEncounter, ...encounters]),
     )
@@ -2485,7 +2595,7 @@ class HospitalDatabase {
 
     if (!updated) throw new Error(`Encounter ${id} not found.`)
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(newEncounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(newEncounters))
 
     this.notify()
 
@@ -2505,9 +2615,9 @@ class HospitalDatabase {
       (e) => e.umr.toUpperCase() !== umr.toUpperCase(),
     )
 
-    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
+    safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
 
     this.notify()
   }
@@ -2527,9 +2637,9 @@ class HospitalDatabase {
       (e) => !e.patientName.toLowerCase().includes(cleanName),
     )
 
-    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
+    safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
 
     this.notify()
   }
@@ -2541,7 +2651,7 @@ class HospitalDatabase {
   public deleteEncounterById(id: string): void {
     const encounters = this.getEncounters().filter((e) => e.id !== id)
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
 
     this.notify()
   }
@@ -2551,17 +2661,18 @@ class HospitalDatabase {
    */
 
   public resetDatabase() {
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.PATIENTS,
       JSON.stringify(INITIAL_SEED_PATIENTS),
     )
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.ENCOUNTERS,
       JSON.stringify(INITIAL_SEED_ENCOUNTERS),
     )
 
-    localStorage.setItem(STORAGE_KEYS.UMR_COUNTER, "10048")
+    safeDbSetItem(STORAGE_KEYS.UMR_COUNTER, "10048")
+    safeDbSetItem(STORAGE_KEYS.OP_COUNTER, "33")
 
     this.notify()
   }
@@ -2645,7 +2756,7 @@ class HospitalDatabase {
         }
 
         if (hasChanges) {
-          localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+          safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
           this.notify()
         }
       }

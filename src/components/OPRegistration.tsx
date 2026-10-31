@@ -197,52 +197,54 @@ export default function OPRegistration({
     // If new patient OR if ANY detail mismatches from database -> Register as a BRAND NEW patient with new permanent UMR
     const computedAge = finalAge || (finalDob ? calculateAge(finalDob) : 30)
 
-    const { patient: createdPatient, encounter: createdEncounter } =
-      db.registerNewPatient({
-        firstName,
-        middleName: formData.middleName.trim() || undefined,
-        lastName,
-        dob: finalDob,
+    try {
+      const { patient: createdPatient, encounter: createdEncounter } =
+        db.registerNewPatient({
+          firstName,
+          middleName: formData.middleName.trim() || undefined,
+          lastName,
+          dob: finalDob,
+          age: computedAge,
+          sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
+          phone: finalPhone || "(617) 555-0199",
+        })
+
+      setSelectedEncounter(createdEncounter)
+      notifyOpRegistered(createdEncounter)
+      refreshFromDb()
+      toast.success(
+        `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
+      )
+      setGenerationAlert({
+        type: "new",
+        umr: createdPatient.umr,
+        opNumber: createdEncounter.opNumber,
+        name: createdPatient.name,
         age: computedAge,
-        sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
-        phone: finalPhone || "(617) 555-0199",
+        phone: createdPatient.phone,
       })
+      setActiveTab("records")
+      setTimeout(() => {
+        cardPreviewRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        })
+      }, 100)
 
-    setSelectedEncounter(createdEncounter)
-    notifyOpRegistered(createdEncounter)
-    refreshFromDb()
-    toast.success(
-      `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
-    )
-    setGenerationAlert({
-      type: "new",
-      umr: createdPatient.umr,
-      opNumber: createdEncounter.opNumber,
-      name: createdPatient.name,
-      age: computedAge,
-      phone: createdPatient.phone,
-    })
-    setActiveTab("records")
-    setTimeout(() => {
-      cardPreviewRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+      // Reset Form
+      setFormData({
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        dob: "",
+        age: 0,
+        sex: "",
+        phone: "",
       })
-    }, 100)
-
-    // Reset Form
-    setFormData({
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      dob: "",
-      age: 0,
-      sex: "",
-      phone: "",
-    })
-  }
-      phone: "",
-    })
+    } catch (err: any) {
+      console.error("Patient registration error:", err)
+      toast.error(err?.message || "Failed to register patient.")
+    }
   }
 
   // 2. Handle Existing Patient Revisit -> Retains Permanent UMR -> generates new OP Number

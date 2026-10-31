@@ -260,43 +260,48 @@ export default function Registration({
 
     const computedAge = finalAge || (finalDob ? calculateAge(finalDob) : 30)
 
-    const { patient: createdPatient, encounter: createdEncounter } =
-      db.registerNewPatient({
-        firstName,
-        middleName: formData.middleName.trim() || undefined,
-        lastName,
-        dob: finalDob,
+    try {
+      const { patient: createdPatient, encounter: createdEncounter } =
+        db.registerNewPatient({
+          firstName,
+          middleName: formData.middleName.trim() || undefined,
+          lastName,
+          dob: finalDob,
+          age: computedAge,
+          sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
+          phone: finalPhone || "9876543210",
+          address: formData.address.trim() || "Local Address",
+        })
+
+      setSelectedEncounter(createdEncounter)
+      notifyOpRegistered(createdEncounter)
+      refreshFromDb()
+      toast.success(
+        `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
+      )
+      setGenerationAlert({
+        type: "new",
+        umr: createdPatient.umr,
+        opNumber: createdEncounter.opNumber,
+        name: createdPatient.name,
         age: computedAge,
-        sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
-        phone: finalPhone || "9876543210",
-        address: formData.address.trim() || "Local Address",
+        phone: createdPatient.phone,
       })
 
-    setSelectedEncounter(createdEncounter)
-    notifyOpRegistered(createdEncounter)
-    refreshFromDb()
-    toast.success(
-      `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
-    )
-    setGenerationAlert({
-      type: "new",
-      umr: createdPatient.umr,
-      opNumber: createdEncounter.opNumber,
-      name: createdPatient.name,
-      age: computedAge,
-      phone: createdPatient.phone,
-    })
+      // Directly display the Digital Card / OP Pass of the newly registered patient
+      setActiveTab("records")
+      setTimeout(() => {
+        cardPreviewRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        })
+      }, 100)
 
-    // Directly display the Digital Card / OP Pass of the newly registered patient
-    setActiveTab("records")
-    setTimeout(() => {
-      cardPreviewRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      })
-    }, 100)
-
-    resetForm()
+      resetForm()
+    } catch (err: any) {
+      console.error("Patient registration error:", err)
+      toast.error(err?.message || "Failed to register patient.")
+    }
   }
 
   const resetForm = () => {

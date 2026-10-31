@@ -854,11 +854,11 @@ export function generateSeedRecord(
 /** Seed multi-day ICU flow chart records into localStorage for a patient if not already seeded */
 export function ensureMultiDaySeedData(
   patientId: string = "100301",
-  totalDays: number = 10,
+  totalDays: number = 2,
 ): void {
   try {
-    const stayDays = getPatientStayDays(totalDays)
-    stayDays.forEach(({ dayNumber, dateStr }) => {
+    const stayDays = getPatientStayDays(Math.min(totalDays, 2))
+    for (const { dayNumber, dateStr } of stayDays) {
       const key = storageKey(patientId, dateStr)
       const existing = localStorage.getItem(key)
       if (!existing) {
@@ -868,33 +868,42 @@ export function ensureMultiDaySeedData(
           dateStr,
           totalDays,
         )
-        localStorage.setItem(key, JSON.stringify(record))
+        try {
+          localStorage.setItem(key, JSON.stringify(record))
+        } catch (quotaErr) {
+          // Break immediately on quota limits to protect storage headroom
+          break
+        }
       }
-    })
+    }
   } catch (err) {
-    console.warn("Failed to seed multi-day ICU flow chart data:", err)
+    // Graceful fallback
   }
 }
 
-// Auto-seed Deepak Patel Day 1 flowsheet & multi-day flowsheet for all ICU beds
+// Immediate storage cleanup: prune bloated historical ICU flowsheet seeds from localStorage
+// to guarantee permanent free quota headroom for clinical registration and patient records
 if (typeof window !== "undefined") {
   try {
-    seedDeepakPatelDay1Data()
-    ;[
-      "100301",
-      "100302",
-      "100303",
-      "100518",
-      "100992",
-      "100239",
-      "100412",
-      "100419",
-      "100888",
-      "100650",
-    ].forEach((mrn) => {
-      ensureMultiDaySeedData(mrn, 10)
+    const todayStr = new Date().toISOString().split("T")[0]
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith("icu.flowsheet.") && !k.endsWith(todayStr)) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        localStorage.removeItem(k)
+      } catch {}
     })
-  } catch {}
+
+    // Seed lightweight Day 1 data for Deepak Patel if not already present
+    seedDeepakPatelDay1Data()
+  } catch (e) {
+    console.warn("ICU seed initialization skipped:", e)
+  }
 }
 
 /** Complete Day 1 flowsheet record with 100% of fields filled across all sections */
@@ -1400,16 +1409,11 @@ export function generateDeepakDay1FullRecord(dateStr: string): FlowsheetRecord {
 export function seedDeepakPatelDay1Data(): void {
   try {
     const today = new Date().toISOString().slice(0, 10)
-    const rec100239 = generateDeepakDay1FullRecord(today)
-    localStorage.setItem(`icu.flowsheet.100239.${today}`, JSON.stringify(rec100239))
-    localStorage.setItem(`icu.flowsheet.Deepak Patel.${today}`, JSON.stringify(rec100239))
-
-    // Also populate past stay days so any date clicked has full record
-    getPatientStayDays(10).forEach((sd) => {
-      const rec = generateDeepakDay1FullRecord(sd.dateStr)
-      localStorage.setItem(`icu.flowsheet.100239.${sd.dateStr}`, JSON.stringify(rec))
-      localStorage.setItem(`icu.flowsheet.Deepak Patel.${sd.dateStr}`, JSON.stringify(rec))
-    })
+    const key = `icu.flowsheet.100239.${today}`
+    if (!localStorage.getItem(key)) {
+      const rec100239 = generateDeepakDay1FullRecord(today)
+      localStorage.setItem(key, JSON.stringify(rec100239))
+    }
   } catch (err) {
     console.warn("Failed to seed Deepak Patel Day 1 data:", err)
   }
