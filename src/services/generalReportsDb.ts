@@ -493,320 +493,98 @@ export class GeneralReportsService {
   /**
    * Ensure longitudinal realistic data across all stores
    */
-  public static ensureAllLongitudinalData(): void {
+  public static purgeDummyData(): void {
     if (typeof window === "undefined") return
-
-    // 1. Ensure OP data (plain localStorage writes, no broadcast -- safe inline)
-    OpReportsService.ensureLongitudinalData()
-
-    if (generalSeedScheduled) return
     try {
-      if (localStorage.getItem(STORAGE_GENERAL_REPORTS_SEEDED)) return
-    } catch {
-      return
-    }
-
-    // The report getters call this from inside a page's render (useMemo), and the
-    // seed below writes through stores that broadcast synchronously --
-    // PharmacyDatabase.saveBills dispatches a same-tab "storage" event. Mid-render,
-    // that set state in whatever was still subscribed (the Dashboard being
-    // navigated away from): React's "Cannot update a component while rendering a
-    // different component". Deferred past the commit, the same broadcast is what
-    // refreshes the report pages (useLiveClinic bumps on it).
-    generalSeedScheduled = true
-    window.setTimeout(() => {
-      generalSeedScheduled = false
-      this.seedGeneralReportsData()
-    }, 0)
-  }
-
-  private static seedGeneralReportsData(): void {
-    try {
-      const alreadySeeded = localStorage.getItem(STORAGE_GENERAL_REPORTS_SEEDED)
-      if (alreadySeeded) return
-
-      const now = new Date()
-      const doctors = getDoctorMaster()
-      const departments = this.getDepartments()
-
-      // 2. Ensure ER visits across past 60 days
-      const currentEr = ErDatabase.getVisits("all")
-      if (currentEr.length < 40) {
-        const triageCategories = [
-          "Resuscitation (Level 1)",
-          "Emergent (Level 2)",
-          "Urgent (Level 3)",
-          "Less Urgent (Level 4)",
-          "Non-Urgent (Level 5)",
-        ]
-        const dispositions = [
-          "Admitted to Inpatient",
-          "Discharged Home",
-          "Transferred to ICU",
-          "Under Observation",
-        ]
-        const erBeds = [
-          "Resus Bay 1",
-          "Resus Bay 2",
-          "Acute Bay 1",
-          "Acute Bay 2",
-          "Trauma Bay",
-          "Observation Bed 1",
-          "Observation Bed 2",
-        ]
-
-        for (let i = 1; i <= 60; i++) {
-          const daysAgo = Math.floor(Math.random() * 58)
-          const d = new Date(now)
-          d.setDate(d.getDate() - daysAgo)
-          d.setHours(
-            Math.floor(Math.random() * 23),
-            Math.floor(Math.random() * 59),
+      // Purge dummy ER visits
+      const erVisitsRaw = localStorage.getItem("hospai_er_visits_v8")
+      if (erVisitsRaw) {
+        const visits = JSON.parse(erVisitsRaw)
+        if (Array.isArray(visits)) {
+          const cleaned = visits.filter(
+            (v) =>
+              !(v.patient_name || "").startsWith("ER Patient 10") &&
+              !(v.patientDetails?.name || "").startsWith("ER Patient 10"),
           )
-          const doc = doctors[i % doctors.length]
-          const triage = triageCategories[i % triageCategories.length]
-          const disp = dispositions[i % dispositions.length]
-          const bed = erBeds[i % erBeds.length]
-
-          ErDatabase.createVisit({
-            patientDetails: {
-              name: `ER Patient ${1000 + i}`,
-              last_name: `Case`,
-              age: 20 + (i % 60),
-              gender: i % 2 === 0 ? "Male" : "Female",
-              phone: `(555) 019-${String(1000 + i).slice(-4)}`,
-            },
-            arrivalDate: d.toISOString().split("T")[0],
-            arrivalTime: d.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            complaintText:
-              i % 3 === 0
-                ? "Acute chest pain with diaphoresis"
-                : i % 3 === 1
-                  ? "Road traffic accident trauma"
-                  : "High grade pyrexia with breathlessness",
-            caseCategory:
-              i % 2 === 0 ? "Cardiac Emergency" : "Trauma & Surgical",
-            conditionAtArrival:
-              triage.includes("1") || triage.includes("2")
-                ? "Critical"
-                : "Stable",
-            // 60 demo visits fired at once used to mean 60 concurrent Qwen
-            // calls (and 60 console failures whenever vLLM was busy or down),
-            // for a triage that the .then() below overwrites anyway.
-            skipAiTriage: true,
-          })
-            .then((res) => {
-              if (res.visit) {
-                ErDatabase.updateVisit(res.visit.id, {
-                  assigned_doctor_name: doc.name,
-                  assigned_specialty: "Emergency (ER)",
-                  triage_category: triage,
-                  triage_bed_label: bed,
-                  status:
-                    disp === "Under Observation" ? "In Progress" : "Closed",
-                })
-              }
-            })
-            .catch(() => {})
-        }
-      }
-
-      // 3. Ensure Discharged Inpatient records across past 60 days
-      const currentDischarged = BedDatabase.getDischargedPatients()
-      if (currentDischarged.length < 30) {
-        const dischargeReasons = [
-          "Routine Discharge - Recovered",
-          "Routine Discharge - Stable",
-          "Transferred to Specialty Center",
-          "LAMA (Left Against Medical Advice)",
-          "Discharge on Request",
-        ]
-        const wards = [
-          "General Medical Ward",
-          "Surgical Ward",
-          "ICU",
-          "Pediatrics",
-          "Cardiac Care Unit",
-        ]
-
-        for (let i = 1; i <= 45; i++) {
-          const daysAgo = i <= 20 ? i % 14 : Math.floor(Math.random() * 45) + 14
-          const los = Math.floor(Math.random() * 7) + 2
-          const admDate = new Date(now)
-          admDate.setDate(admDate.getDate() - daysAgo - los)
-          const disDate = new Date(admDate)
-          disDate.setDate(disDate.getDate() + los)
-
-          const doc = doctors[i % doctors.length]
-          const ward = wards[i % wards.length]
-
-          const rec: DischargedPatientRecord = {
-            id: `DISC-${1000 + i}`,
-            patientId: `P-${10000 + i}`,
-            patientName: `Patient ${1000 + i} Inpatient`,
-            mrn: `MRN${20000 + i}`,
-            ward,
-            roomNo: `Room ${100 + (i % 20)}`,
-            bedNo: `Bed ${1 + (i % 10)}`,
-            admissionDate: admDate.toISOString().split("T")[0],
-            dischargeDate: disDate.toISOString().split("T")[0],
-            lengthOfStayDays: los,
-            dischargeReason: dischargeReasons[i % dischargeReasons.length],
-            roomChargesTotal: los * 3500,
-            attendingDoctor: doc.name,
+          if (cleaned.length !== visits.length) {
+            localStorage.setItem("hospai_er_visits_v8", JSON.stringify(cleaned))
           }
-          currentDischarged.push(rec)
         }
-        BedDatabase.saveDischarged(currentDischarged)
       }
 
-      // 4. Ensure Lab Orders across past 60 days
-      const currentLabOrders = LabOrderDatabase.getOrders()
-      if (currentLabOrders.length < 40) {
-        const tests = [
-          { name: "Complete Blood Count (CBC)", cat: "Hematology", price: 350 },
-          { name: "Lipid Profile Panel", cat: "Biochemistry", price: 800 },
-          {
-            name: "Liver Function Test (LFT)",
-            cat: "Biochemistry",
-            price: 750,
-          },
-          {
-            name: "Serum Electrolytes (Na/K/Cl)",
-            cat: "Biochemistry",
-            price: 500,
-          },
-          {
-            name: "Troponin I High-Sensitivity",
-            cat: "Cardiac Markers",
-            price: 1200,
-          },
-          {
-            name: "HbA1c Glycated Hemoglobin",
-            cat: "Endocrinology",
-            price: 600,
-          },
-          {
-            name: "Thyroid Profile (T3, T4, TSH)",
-            cat: "Endocrinology",
-            price: 900,
-          },
-          {
-            name: "Urine Routine Examination",
-            cat: "Clinical Pathology",
-            price: 250,
-          },
-        ]
-
-        for (let i = 1; i <= 60; i++) {
-          const daysAgo = i <= 20 ? i % 14 : Math.floor(Math.random() * 45) + 14
-          const d = new Date(now)
-          d.setDate(d.getDate() - daysAgo)
-          const doc = doctors[i % doctors.length]
-          const testItem = tests[i % tests.length]
-          const isCompleted = i % 5 !== 0
-          const isCancelled = i % 18 === 0
-
-          const order: any = {
-            id: `LAB-ORD-${1000 + i}`,
-            encounterId: `ENC-REP-${d.toISOString().split("T")[0].replace(/-/g, "")}-${i}`,
-            umr: `UMR${10000 + i}`,
-            patientName: `Patient ${1000 + i} Lab`,
-            age: 25 + (i % 55),
-            sex: i % 2 === 0 ? "Male" : "Female",
-            phone: `(555) 012-${String(1000 + i).slice(-4)}`,
-            opNumber: `OP${String(i).padStart(3, "0")}`,
-            doctorId: `DOC-${i % 10}`,
-            doctorName: doc.name,
-            tests: [
-              {
-                id: `T-${i}`,
-                name: testItem.name,
-                category: testItem.cat,
-                urgency: i % 4 === 0 ? "STAT" : "Routine",
-                price: testItem.price,
-                status: isCancelled
-                  ? "Ordered"
-                  : isCompleted
-                    ? "Completed"
-                    : "In Progress",
-                result: isCompleted ? "Normal / Analyzed" : undefined,
-                resultedAt: isCompleted ? d.toISOString() : undefined,
-              },
-            ],
-            billingStatus: "Paid",
-            status: isCancelled
-              ? "Cancelled"
-              : isCompleted
-                ? "Completed"
-                : "In Progress",
-            createdAt: d.toISOString(),
-            updatedAt: d.toISOString(),
+      // Purge dummy Discharged patients
+      const bedDischargedRaw = localStorage.getItem("hosp_discharged_patients_v1")
+      if (bedDischargedRaw) {
+        const discharged = JSON.parse(bedDischargedRaw)
+        if (Array.isArray(discharged)) {
+          const cleaned = discharged.filter(
+            (d) =>
+              !(String(d.id || "").startsWith("DISC-10") && String(d.patientName || "").includes("Inpatient")),
+          )
+          if (cleaned.length !== discharged.length) {
+            localStorage.setItem("hosp_discharged_patients_v1", JSON.stringify(cleaned))
           }
-          ;(currentLabOrders as any).push(order)
         }
-        localStorage.setItem(
-          "hospai_lab_orders_v1",
-          JSON.stringify(currentLabOrders),
-        )
       }
 
-      // 5. Ensure Radiology studies
-      const currentRad = BillingDatabase.getRadiologyStudies()
-      if (currentRad.length < 35) {
-        const radTypes = [
-          { study: "Chest X-Ray PA View", mod: "XR" as const, price: 600 },
-          { study: "CT Brain Plain", mod: "CT" as const, price: 4500 },
-          { study: "MRI Lumbar Spine", mod: "MR" as const, price: 8500 },
-          {
-            study: "USG Whole Abdomen & Pelvis",
-            mod: "US" as const,
-            price: 1500,
-          },
-          {
-            study: "CT Chest High Resolution (HRCT)",
-            mod: "CT" as const,
-            price: 5500,
-          },
-          { study: "X-Ray Knee Joint AP/Lat", mod: "XR" as const, price: 700 },
-        ]
-
-        for (let i = 1; i <= 50; i++) {
-          const daysAgo = i <= 20 ? i % 14 : Math.floor(Math.random() * 45) + 14
-          const d = new Date(now)
-          d.setDate(d.getDate() - daysAgo)
-          const rad = radTypes[i % radTypes.length]
-          const doc = doctors[i % doctors.length]
-          const isDone = i % 6 !== 0
-
-          currentRad.push({
-            id: `RAD-ST-${1000 + i}`,
-            patient: `Patient ${1000 + i} Rad`,
-            mrn: `MRN${20000 + i}`,
-            umr: `UMR${10000 + i}`,
-            department: departments[i % departments.length],
-            study: rad.study,
-            modality: rad.mod,
-            priority: i % 5 === 0 ? "STAT" : "Routine",
-            ordered: d.toISOString().split("T")[0],
-            provider: doc.name,
-            status: isDone ? "Final" : "Scheduled",
-            room: `Scan Suite ${1 + (i % 4)}`,
-            price: rad.price,
-            paymentStatus: "Paid",
-            reportStatus: isDone ? "Final" : "Draft",
-          })
+      // Purge dummy Lab orders
+      const labOrdersRaw = localStorage.getItem("hospai_lab_orders_v1")
+      if (labOrdersRaw) {
+        const orders = JSON.parse(labOrdersRaw)
+        if (Array.isArray(orders)) {
+          const cleaned = orders.filter(
+            (o) =>
+              !String(o.id || "").startsWith("LAB-ORD-10") &&
+              !String(o.id || "").startsWith("LAB-ORD-FB-") &&
+              !String(o.patientName || "").includes("Patient 100") &&
+              !String(o.patientName || "").includes("Patient 200"),
+          )
+          if (cleaned.length !== orders.length) {
+            localStorage.setItem("hospai_lab_orders_v1", JSON.stringify(cleaned))
+          }
         }
-        localStorage.setItem("hosp_rad_studies_v1", JSON.stringify(currentRad))
+      }
+
+      // Purge dummy Radiology studies
+      const radStudiesRaw = localStorage.getItem("hosp_rad_studies_v1")
+      if (radStudiesRaw) {
+        const rads = JSON.parse(radStudiesRaw)
+        if (Array.isArray(rads)) {
+          const cleaned = rads.filter(
+            (r) =>
+              !String(r.id || "").startsWith("RAD-ST-10") &&
+              !String(r.id || "").startsWith("RAD-FB-") &&
+              !String(r.patient || "").includes("Patient 100") &&
+              !String(r.patient || "").includes("Patient 300"),
+          )
+          if (cleaned.length !== rads.length) {
+            localStorage.setItem("hosp_rad_studies_v1", JSON.stringify(cleaned))
+          }
+        }
+      }
+
+      // Purge dummy OP encounters
+      const encRaw = localStorage.getItem("hospai_db_encounters_v1")
+      if (encRaw) {
+        const encs = JSON.parse(encRaw)
+        if (Array.isArray(encs)) {
+          const cleaned = encs.filter((e) => !String(e.id || "").startsWith("ENC-REP-"))
+          if (cleaned.length !== encs.length) {
+            localStorage.setItem("hospai_db_encounters_v1", JSON.stringify(cleaned))
+          }
+        }
       }
 
       localStorage.setItem(STORAGE_GENERAL_REPORTS_SEEDED, "true")
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn("Could not purge dummy report records:", e)
     }
+  }
+
+  public static ensureAllLongitudinalData(): void {
+    if (typeof window === "undefined") return
+    OpReportsService.ensureLongitudinalData()
+    this.purgeDummyData()
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -834,7 +612,7 @@ export class GeneralReportsService {
     const includeIp = isAllTypes || patientType === "IP"
 
     // Filter Encounters (OP)
-    const rawEncounters = db.getEncounters()
+    const rawEncounters = db.getEncounters().filter((e) => !e.id || !e.id.startsWith("ENC-REP-"))
     const currentEncounters = includeOp
       ? rawEncounters.filter((e) => {
           const eDate = OpReportsService.getEncounterDate(e)
@@ -890,7 +668,7 @@ export class GeneralReportsService {
       : []
 
     // Filter ER Visits
-    const rawEr = ErDatabase.getVisits("all")
+    const rawEr = ErDatabase.getVisits("all").filter((v) => !(v.patient_name || "").startsWith("ER Patient 10") && !(v.patientDetails?.name || "").startsWith("ER Patient 10"))
     const currentEr = includeEr
       ? rawEr.filter((v) => {
           const vDate = v.arrival_at ? v.arrival_at.split("T")[0] : ""
@@ -953,7 +731,7 @@ export class GeneralReportsService {
 
     // Inpatient Admissions & Discharges
     const rawBeds = BedDatabase.getBeds()
-    const rawDischarges = BedDatabase.getDischargedPatients()
+    const rawDischarges = BedDatabase.getDischargedPatients().filter((d) => !(String(d.id || "").startsWith("DISC-10") && String(d.patientName || "").includes("Inpatient")))
 
     const matchesBedDept = (b: BedRecord) => {
       if (!department || department === "All") return true
@@ -1127,63 +905,6 @@ export class GeneralReportsService {
       0,
     )
 
-    // If admissions or discharges are zero/sparse across the selected range (when IP is included and no narrow doctor/dept/status filter was applied),
-    // synthesize realistic daily trends matching hospital volume so the graph is NEVER flat/blank.
-    if (
-      includeIp &&
-      (!department || department === "All") &&
-      (!doctor || doctor === "All") &&
-      (!status || status === "All")
-    ) {
-      if (totalAdmInTrend === 0 && totalDisInTrend === 0) {
-        dateBuckets.forEach((b, idx) => {
-          const dNum = new Date(b.date).getDay()
-          const isWeekend = dNum === 0 || dNum === 6
-          const seedAdmissions = isWeekend
-            ? 1 + (idx % 2)
-            : 2 + ((idx * 3 + 1) % 4)
-          const seedDischarges = isWeekend
-            ? 1 + ((idx + 1) % 2)
-            : 1 + ((idx * 2 + 2) % 3)
-          admDisMap[b.date] = {
-            admissions: seedAdmissions,
-            discharges: seedDischarges,
-          }
-        })
-        totalAdmInTrend = Object.values(admDisMap).reduce(
-          (s, v) => s + v.admissions,
-          0,
-        )
-        totalDisInTrend = Object.values(admDisMap).reduce(
-          (s, v) => s + v.discharges,
-          0,
-        )
-      } else {
-        if (totalAdmInTrend === 0) {
-          dateBuckets.forEach((b, idx) => {
-            const dNum = new Date(b.date).getDay()
-            admDisMap[b.date].admissions =
-              dNum === 0 || dNum === 6 ? 1 : 2 + ((idx * 2 + 1) % 3)
-          })
-          totalAdmInTrend = Object.values(admDisMap).reduce(
-            (s, v) => s + v.admissions,
-            0,
-          )
-        }
-        if (totalDisInTrend === 0) {
-          dateBuckets.forEach((b, idx) => {
-            const dNum = new Date(b.date).getDay()
-            admDisMap[b.date].discharges =
-              dNum === 0 || dNum === 6 ? 1 : 1 + ((idx * 2 + 2) % 3)
-          })
-          totalDisInTrend = Object.values(admDisMap).reduce(
-            (s, v) => s + v.discharges,
-            0,
-          )
-        }
-      }
-    }
-
     const admVsDisTrend = dateBuckets.map((b) => ({
       date: b.date,
       period: b.label,
@@ -1194,12 +915,8 @@ export class GeneralReportsService {
     // Patients & Metrics
     const opCount = currentEncounters.length
     const erCount = currentEr.length
-    const admCount = includeIp
-      ? Math.max(currentAdmissions.length, totalAdmInTrend)
-      : 0
-    const disCount = includeIp
-      ? Math.max(currentDischarges.length, totalDisInTrend)
-      : 0
+    const admCount = includeIp ? currentAdmissions.length : 0
+    const disCount = includeIp ? currentDischarges.length : 0
     const apptCount = opCount
 
     const prevOpCount = prevEncounters.length
@@ -3310,70 +3027,7 @@ export class GeneralReportsService {
       return true
     })
 
-    if (filtered.length === 0) {
-      const doctors = getDoctorMaster()
-      const standardMeds = [
-        "Amoxicillin 500mg",
-        "Paracetamol 650mg",
-        "Metformin 500mg",
-        "Atorvastatin 20mg",
-        "Pantoprazole 40mg",
-        "Azithromycin 500mg",
-        "Amlodipine 5mg",
-        "Cefixime 200mg",
-      ]
-      const departments = [
-        "General Medicine",
-        "Cardiology",
-        "Emergency (ER)",
-        "Orthopedics",
-        "Pediatrics",
-      ]
-      const statuses = [
-        "Dispensed",
-        "Dispensed",
-        "Dispensed",
-        "Sent To Pharmacy",
-        "Preparing",
-      ]
-
-      const fallback: AppPrescription[] = []
-      dateBuckets.forEach((b, bIdx) => {
-        const dNum = new Date(b.date).getDay()
-        const rxCount = dNum === 0 || dNum === 6 ? 2 : 3 + (bIdx % 4)
-        for (let k = 0; k < rxCount; k++) {
-          const doc = doctors[(bIdx + k) % doctors.length]
-          const medName = standardMeds[(bIdx * 2 + k) % standardMeds.length]
-          fallback.push({
-            id: `RX-FALLBACK-${bIdx}-${k}`,
-            patientId: `P-${20000 + bIdx * 10 + k}`,
-            patientName: `Patient ${100 + bIdx * 5 + k}`,
-            uhid: `UMR${10000 + bIdx * 10 + k}`,
-            doctorId: doc.id || `DOC-${k}`,
-            doctorName: doc.name,
-            department: departments[(bIdx + k) % departments.length],
-            date: b.date,
-            sourceType: "DIGITAL",
-            priority: "Normal",
-            status: statuses[(bIdx + k) % statuses.length] as any,
-            dispensingStatus: "DISPENSED" as any,
-            createdAt: `${b.date}T10:00:00.000Z`,
-            items: [
-              {
-                id: `RXI-${bIdx}-${k}`,
-                medicineId: `MED-${k}`,
-                medicineName: medName,
-                dosage: "1 tab",
-                duration: "5 days",
-                quantity: 10,
-                substitutionAllowed: true,
-              },
-            ],
-          })
-        }
-      })
-      filtered = fallback
-    }
+    // Real pharmacy prescriptions only
 
     const totalRx = filtered.length
     const dispensed = filtered.filter((p) => p.status === "Dispensed").length
@@ -3609,110 +3263,7 @@ export class GeneralReportsService {
       return true
     })
 
-    if (filtered.length === 0) {
-      const doctors = getDoctorMaster()
-      const testsCatalog = [
-        {
-          name: "Complete Blood Count (CBC)",
-          category: "Hematology",
-          price: 350,
-        },
-        { name: "Lipid Profile Panel", category: "Biochemistry", price: 800 },
-        {
-          name: "Liver Function Test (LFT)",
-          category: "Biochemistry",
-          price: 750,
-        },
-        {
-          name: "Serum Electrolytes (Na/K/Cl)",
-          category: "Biochemistry",
-          price: 500,
-        },
-        {
-          name: "Troponin I High-Sensitivity",
-          category: "Cardiac Markers",
-          price: 1200,
-        },
-        {
-          name: "HbA1c Glycated Hemoglobin",
-          category: "Endocrinology",
-          price: 600,
-        },
-        {
-          name: "Thyroid Profile (T3, T4, TSH)",
-          category: "Endocrinology",
-          price: 900,
-        },
-        {
-          name: "Urine Routine Examination",
-          category: "Clinical Pathology",
-          price: 250,
-        },
-      ]
-      const departments = [
-        "General Medicine",
-        "Emergency (ER)",
-        "Cardiology",
-        "Inpatient Wards",
-        "Orthopedics",
-      ]
-      const statuses: any[] = [
-        "Completed",
-        "Completed",
-        "Completed",
-        "In Progress",
-        "Billed",
-      ]
-
-      const fallback: LabOrder[] = []
-      dateBuckets.forEach((b, bIdx) => {
-        const dNum = new Date(b.date).getDay()
-        const orderCount = dNum === 0 || dNum === 6 ? 2 : 3 + (bIdx % 3)
-        for (let k = 0; k < orderCount; k++) {
-          const doc = doctors[(bIdx + k) % doctors.length]
-          const testItem = testsCatalog[(bIdx * 2 + k) % testsCatalog.length]
-          const st = statuses[(bIdx + k) % statuses.length]
-          fallback.push({
-            id: `LAB-ORD-FB-${bIdx}-${k}`,
-            encounterId: `ENC-${bIdx}-${k}`,
-            umr: `UMR${30000 + bIdx * 10 + k}`,
-            patientName: `Patient ${200 + bIdx * 4 + k}`,
-            age: 30 + ((bIdx + k) % 45),
-            sex: (bIdx + k) % 2 === 0 ? "Male" : "Female",
-            phone: "(555) 012-3456",
-            opNumber: `OP-${100 + k}`,
-            doctorId: doc.id || `DOC-${k}`,
-            doctorName: doc.name,
-            department: departments[(bIdx + k) % departments.length],
-            diagnosis: "Diagnostic Investigation",
-            tests: [
-              {
-                id: `T-FB-${bIdx}-${k}`,
-                name: testItem.name,
-                category: testItem.category,
-                urgency: k % 3 === 0 ? "STAT" : "Routine",
-                price: testItem.price,
-                status: st === "Completed" ? "Completed" : "In Progress",
-                result: st === "Completed" ? "Normal / Analyzed" : undefined,
-                resultedAt:
-                  st === "Completed" ? `${b.date}T11:00:00.000Z` : undefined,
-              },
-            ],
-            billing: {
-              status: "Paid",
-              subtotal: testItem.price,
-              discount: 0,
-              total: testItem.price,
-            },
-            status: st,
-            history: [],
-            createdAt: `${b.date}T09:30:00.000Z`,
-            updatedAt: `${b.date}T11:00:00.000Z`,
-          })
-        }
-      })
-      filtered = fallback
-    }
+    // Real lab orders only
 
     const total = filtered.length
     // STRICT COMPUTATION: never allow negative numbers
@@ -3919,62 +3470,7 @@ export class GeneralReportsService {
       return true
     })
 
-    if (filtered.length === 0) {
-      const doctors = getDoctorMaster()
-      const radTypes: Array<{
-        study: string
-        modality: "XR" | "CT" | "MR" | "US"
-        price: number
-      }> = [
-        { study: "Chest X-Ray PA View", modality: "XR", price: 600 },
-        { study: "CT Brain Plain", modality: "CT", price: 4500 },
-        { study: "MRI Lumbar Spine", modality: "MR", price: 8500 },
-        { study: "USG Whole Abdomen & Pelvis", modality: "US", price: 1500 },
-        {
-          study: "CT Chest High Resolution (HRCT)",
-          modality: "CT",
-          price: 5500,
-        },
-        { study: "X-Ray Knee Joint AP/Lat", modality: "XR", price: 700 },
-      ]
-      const departments = [
-        "Emergency (ER)",
-        "Orthopedics",
-        "General Medicine",
-        "Inpatient Wards",
-        "Pulmonology",
-      ]
-      const statuses = ["Final", "Final", "Images Ready", "In Progress"]
-
-      const fallback: RadiologyStudyRecord[] = []
-      dateBuckets.forEach((b, bIdx) => {
-        const dNum = new Date(b.date).getDay()
-        const scanCount = dNum === 0 || dNum === 6 ? 1 : 2 + (bIdx % 3)
-        for (let k = 0; k < scanCount; k++) {
-          const doc = doctors[(bIdx + k) % doctors.length]
-          const rad = radTypes[(bIdx * 2 + k) % radTypes.length]
-          const st = statuses[(bIdx + k) % statuses.length]
-          fallback.push({
-            id: `RAD-FB-${bIdx}-${k}`,
-            patient: `Patient ${300 + bIdx * 3 + k}`,
-            mrn: `MRN${40000 + bIdx * 10 + k}`,
-            umr: `UMR${40000 + bIdx * 10 + k}`,
-            department: departments[(bIdx + k) % departments.length],
-            study: rad.study,
-            modality: rad.modality,
-            priority: k % 3 === 0 ? "STAT" : "Routine",
-            ordered: b.date,
-            provider: doc.name,
-            status: st as any,
-            room: `Scan Suite ${1 + (k % 3)}`,
-            price: rad.price,
-            paymentStatus: "Paid",
-            reportStatus: st === "Final" ? "Final" : "Draft",
-          })
-        }
-      })
-      filtered = fallback
-    }
+    // Real radiology studies only
 
     const total = filtered.length
     const completed = filtered.filter(
