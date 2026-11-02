@@ -20,7 +20,11 @@ import {
   Layers,
   FileCheck2,
   Undo2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search,
+  Trash2,
+  Plus,
+  Eye
 } from "lucide-react"
 import { BillingDatabase, RadiologyStudyRecord } from "../services/billingDb"
 import { db } from "../services/db"
@@ -901,9 +905,11 @@ export function printRadiologyDocument(study: RadiologyStudyRecord, defaultCatal
 export default function Radiology({
   technician = "Radiology Specialist",
   initialTab = "worklist",
+  onNavigateTab,
 }: {
   technician?: string
   initialTab?: "worklist" | "reports" | "templates"
+  onNavigateTab?: (tab: "worklist" | "reports" | "templates") => void
 }) {
   const [tick, setTick] = useState(0)
   const [mainTab, setMainTab] = useState<"worklist" | "reports" | "templates">(initialTab)
@@ -914,9 +920,18 @@ export default function Radiology({
     }
   }, [initialTab])
 
+  const switchMainTab = (tab: "worklist" | "reports" | "templates") => {
+    setMainTab(tab)
+    setSelectedGroupKey(null)
+    onNavigateTab?.(tab)
+  }
+
   const [activeQueue, setActiveQueue] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [reportsSearchQuery, setReportsSearchQuery] = useState("")
+  const [templateSearchQuery, setTemplateSearchQuery] = useState("")
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState("all")
+  const [templatePreviewModal, setTemplatePreviewModal] = useState<any | null>(null)
   const [modalityFilter, setModalityFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null)
@@ -1805,6 +1820,54 @@ export default function Radiology({
         </div>
       </div>
 
+      {/* Radiology Navigation Tabs */}
+      <div className="bg-white border-b border-gray-200 px-6 flex items-center gap-2 overflow-x-auto">
+        <button
+          onClick={() => switchMainTab("worklist")}
+          className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            mainTab === "worklist"
+              ? "border-blue-700 text-blue-700 bg-blue-50/50"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Radiology Worklist</span>
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10.5px] bg-slate-200 text-slate-800 font-bold">
+            {stats.total}
+          </span>
+        </button>
+
+        <button
+          onClick={() => switchMainTab("reports")}
+          className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            mainTab === "reports"
+              ? "border-blue-700 text-blue-700 bg-blue-50/50"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Radiology Reports</span>
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10.5px] bg-emerald-100 text-emerald-800 font-bold">
+            {stats.completed}
+          </span>
+        </button>
+
+        <button
+          onClick={() => switchMainTab("templates")}
+          className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            mainTab === "templates"
+              ? "border-blue-700 text-blue-700 bg-blue-50/50"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Report Templates &amp; Builder</span>
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10.5px] bg-blue-100 text-blue-800 font-bold">
+            {RadiologyTemplateDatabase.getTemplates().filter((t) => t.status === "Active").length}
+          </span>
+        </button>
+      </div>
+
       {/* Quick Statistics Strip */}
       <div className="bg-white border-b border-gray-200 px-6 py-2.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
         <div className="p-2 rounded-none bg-gray-50 border border-gray-200">
@@ -2341,10 +2404,11 @@ export default function Radiology({
                   </button>
                 )}
                 <button
-                  onClick={() => setShowUploadTemplateModal(true)}
-                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-800 hover:bg-blue-900 rounded-none shadow-2xs transition-colors flex items-center gap-1.5"
+                  onClick={() => switchMainTab("templates")}
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-800 hover:bg-blue-900 rounded-none shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>📤</span> Upload / Manage Report Templates
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Report Templates &amp; Builder</span>
                 </button>
               </div>
             </div>
@@ -2548,7 +2612,659 @@ export default function Radiology({
             </div>
           </div>
         )}
+
+        {/* TAB 3: REPORT TEMPLATES & DYNAMIC BUILDER STUDIO */}
+        {mainTab === "templates" && (
+          <div className="flex-1 flex flex-col space-y-4 overflow-y-auto">
+            {/* Top Workspace Header */}
+            <div className="bg-white border border-gray-200 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10.5px] font-bold uppercase tracking-wider border border-blue-200">
+                    Template Studio
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-xs font-semibold text-gray-500">Document Intelligence &amp; Structured Layouts</span>
+                </div>
+                <h2 className="text-lg font-bold text-gray-900 mt-1">
+                  Radiology Diagnostic Report Templates Master
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Configure study templates, upload Word (.docx) or PDF (.pdf) documents with automatic text extraction, and customize standard normal findings.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateUploadForm({
+                      testName: "custom",
+                      customName: "",
+                      templateName: "",
+                      genderTarget: "All",
+                      category: "X-Ray",
+                      rawContent: "",
+                      fileName: "",
+                    })
+                    showToast("Form cleared for new custom template creation", "info")
+                  }}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-none shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Template</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowUploadTemplateModal(true)}
+                  className="px-3.5 py-2 text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 rounded-none shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Quick Ingest Modal</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Split Workspace: Library (Left) & Studio (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* LEFT COLUMN: ACTIVE TEMPLATE LIBRARY (5 cols) */}
+              <div className="lg:col-span-5 bg-white border border-gray-200 shadow-xs flex flex-col overflow-hidden">
+                <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider">
+                        Template Library ({RadiologyTemplateDatabase.getTemplates().filter((t) => t.status === "Active").length})
+                      </h3>
+                      <p className="text-[10.5px] text-slate-300">Available templates ready for diagnostic reporting</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="p-3 bg-gray-50 border-b border-gray-200 space-y-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search templates by test name, modality, keyword..."
+                      value={templateSearchQuery}
+                      onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                      className="w-full text-xs pl-8 pr-3 py-1.5 bg-white border border-gray-300 rounded-none font-medium focus:ring-2 focus:ring-blue-500"
+                    />
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-gray-400" />
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {["all", "X-Ray", "Ultrasound", "CT Scan", "MRI"].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setTemplateCategoryFilter(cat)}
+                        className={`px-2 py-0.5 text-[10.5px] font-bold rounded-none cursor-pointer transition-colors ${
+                          templateCategoryFilter === cat
+                            ? "bg-blue-700 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {cat === "all" ? "All Modalities" : cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Template Cards List */}
+                <div className="p-3 space-y-2.5 max-h-[640px] overflow-y-auto">
+                  {RadiologyTemplateDatabase.getTemplates()
+                    .filter((t) => t.status === "Active")
+                    .filter((t) => {
+                      if (!templateSearchQuery.trim()) return true
+                      const q = templateSearchQuery.toLowerCase()
+                      return (
+                        t.testName.toLowerCase().includes(q) ||
+                        (t.uploadedFileName && t.uploadedFileName.toLowerCase().includes(q)) ||
+                        (t.rawContent && t.rawContent.toLowerCase().includes(q))
+                      )
+                    })
+                    .filter((t) => {
+                      if (templateCategoryFilter === "all") return true
+                      const name = t.testName.toLowerCase()
+                      if (templateCategoryFilter === "X-Ray") return name.includes("x-ray") || name.includes("xr") || name.includes("chest")
+                      if (templateCategoryFilter === "Ultrasound") return name.includes("ultrasound") || name.includes("usg") || name.includes("abdomen")
+                      if (templateCategoryFilter === "CT Scan") return name.includes("ct")
+                      if (templateCategoryFilter === "MRI") return name.includes("mri")
+                      return true
+                    })
+                    .map((tpl) => {
+                      const isSelected =
+                        (templateUploadForm.testName === tpl.testName ||
+                          templateUploadForm.customName === tpl.testName) &&
+                        templateUploadForm.genderTarget === (tpl.genderTarget || "All")
+
+                      return (
+                        <div
+                          key={tpl.id}
+                          className={`p-3 border transition-all ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-50/40 ring-1 ring-blue-500"
+                              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/60"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-xs text-gray-900 truncate">
+                                {tpl.testName}
+                              </h4>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className="px-1.5 py-0.2 text-[9.5px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  v{tpl.version}
+                                </span>
+                                {tpl.genderTarget && tpl.genderTarget !== "All" && (
+                                  <span className="px-1.5 py-0.2 text-[9.5px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                    {tpl.genderTarget} Only
+                                  </span>
+                                )}
+                                {tpl.uploadedFileType && (
+                                  <span className="px-1.5 py-0.2 text-[9.5px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    {tpl.uploadedFileType.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="Load in Designer"
+                                onClick={() => {
+                                  const catItem = IMAGING_CATALOG.find(
+                                    (c) => c.study.toLowerCase() === tpl.testName.toLowerCase(),
+                                  )
+                                  const testItem = RadiologyTemplateDatabase.getTestById(tpl.testId)
+                                  const cat = (testItem?.category ||
+                                    catItem?.category ||
+                                    (tpl.testName.toLowerCase().includes("x-ray") ||
+                                    tpl.testName.toLowerCase().includes("xr")
+                                      ? "X-Ray"
+                                      : "Ultrasound (USG)")) as any
+                                  setTemplateUploadForm({
+                                    testName: tpl.testName,
+                                    customName: "",
+                                    templateName: tpl.uploadedFileName || tpl.testName,
+                                    genderTarget: tpl.genderTarget || "All",
+                                    category: cat,
+                                    rawContent: tpl.rawContent || "",
+                                    fileName: tpl.uploadedFileName || "",
+                                  })
+                                  showToast(`Loaded "${tpl.testName}" into editor!`, "info")
+                                }}
+                                className="px-2 py-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-none cursor-pointer flex items-center gap-1"
+                              >
+                                ✏️ <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                title="Preview template format"
+                                onClick={() => setTemplatePreviewModal(tpl)}
+                                className="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-none cursor-pointer"
+                              >
+                                <Eye className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete template"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (
+                                    window.confirm(
+                                      `Are you sure you want to delete template for "${tpl.testName}" (${tpl.genderTarget || "All"})?`,
+                                    )
+                                  ) {
+                                    RadiologyTemplateDatabase.deleteTemplate(tpl.id)
+                                    setTick((t) => t + 1)
+                                    showToast(`✓ Deleted template for "${tpl.testName}"`, "success")
+                                  }
+                                }}
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 border border-transparent rounded-none cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 text-[11px] font-mono text-gray-600 line-clamp-2 bg-gray-50 p-1.5 border border-gray-100">
+                            {tpl.rawContent ? tpl.rawContent.slice(0, 160) : "No raw content preview available"}...
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: INTERACTIVE TEMPLATE DESIGNER & INGESTION STUDIO (7 cols) */}
+              <div className="lg:col-span-7 bg-white border border-gray-200 shadow-xs flex flex-col overflow-hidden">
+                <div className="p-4 bg-blue-950 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider">
+                        Template Designer &amp; Document Ingestion Studio
+                      </h3>
+                      <p className="text-[10.5px] text-blue-200">
+                        Design structured text, import from Word/PDF, or inject standardized sections
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={handleSaveUploadedTemplate}
+                  className="p-5 space-y-4 text-xs overflow-y-auto"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Target Radiology Test */}
+                    <div>
+                      <label className="block text-gray-800 font-bold mb-1">
+                        Diagnostic Test Name *
+                      </label>
+                      <select
+                        value={templateUploadForm.testName}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          const catItem = IMAGING_CATALOG.find(
+                            (c) => c.study.toLowerCase() === val.toLowerCase(),
+                          )
+                          const targetCat = catItem
+                            ? catItem.category
+                            : val.toLowerCase().includes("x-ray") ||
+                              val.toLowerCase().includes("xr")
+                            ? "X-Ray"
+                            : templateUploadForm.category
+                          const existingTpl =
+                            RadiologyTemplateDatabase.getActiveTemplateForTest(
+                              val,
+                              templateUploadForm.genderTarget,
+                            ) ||
+                            RadiologyTemplateDatabase.getTemplates().find(
+                              (t) =>
+                                t.testName.toLowerCase() === val.toLowerCase() &&
+                                (t.genderTarget || "All") === templateUploadForm.genderTarget &&
+                                t.status === "Active",
+                            )
+                          const defaultContent = catItem
+                            ? `${catItem.study}\n\n${catItem.defaultFindings.join(
+                                "\n",
+                              )}\n\nIMPRESSION:\n${catItem.defaultImpression.join("\n")}`
+                            : ""
+                          setTemplateUploadForm({
+                            ...templateUploadForm,
+                            testName: val,
+                            category: targetCat as any,
+                            rawContent: existingTpl?.rawContent || defaultContent,
+                            templateName:
+                              existingTpl?.uploadedFileName ||
+                              (existingTpl
+                                ? existingTpl.testName
+                                : catItem
+                                ? `${catItem.study} Standard Template`
+                                : ""),
+                          })
+                        }}
+                        className="w-full bg-white border border-gray-300 rounded-none p-2 font-semibold"
+                      >
+                        {IMAGING_CATALOG.map((c) => (
+                          <option key={c.study} value={c.study}>
+                            {c.study} ({c.category})
+                          </option>
+                        ))}
+                        <option value="custom">-- Custom / Other Test Name --</option>
+                      </select>
+
+                      {templateUploadForm.testName === "custom" && (
+                        <input
+                          type="text"
+                          placeholder="Enter custom test name (e.g. ULTRASOUND SCROTUM)"
+                          value={templateUploadForm.customName}
+                          onChange={(e) =>
+                            setTemplateUploadForm({
+                              ...templateUploadForm,
+                              customName: e.target.value,
+                            })
+                          }
+                          className="w-full mt-2 bg-white border border-gray-300 rounded-none p-2 font-medium"
+                        />
+                      )}
+                    </div>
+
+                    {/* Patient Gender Target */}
+                    <div>
+                      <label className="block text-gray-800 font-bold mb-1">
+                        Target Patient Gender / Cohort *
+                      </label>
+                      <select
+                        value={templateUploadForm.genderTarget}
+                        onChange={(e) => {
+                          const newGender = e.target.value as "All" | "Male" | "Female"
+                          const tName =
+                            templateUploadForm.testName === "custom"
+                              ? templateUploadForm.customName
+                              : templateUploadForm.testName
+                          const existingTpl = RadiologyTemplateDatabase.getTemplates().find(
+                            (t) =>
+                              (t.testName === tName ||
+                                t.testName.toLowerCase().includes(tName.toLowerCase())) &&
+                              (t.genderTarget || "All") === newGender &&
+                              t.status === "Active",
+                          )
+                          setTemplateUploadForm({
+                            ...templateUploadForm,
+                            genderTarget: newGender,
+                            rawContent: existingTpl?.rawContent || templateUploadForm.rawContent,
+                          })
+                        }}
+                        className="w-full bg-white border border-gray-300 rounded-none p-2 font-semibold"
+                      >
+                        <option value="All">All Patients (General Format)</option>
+                        <option value="Male">Male Patients Only (e.g. includes Prostate)</option>
+                        <option value="Female">Female Patients Only (e.g. includes Uterus/Ovaries)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Document Parser Dropzone */}
+                  <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-none">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5 text-blue-700" />
+                        <span>Document Ingestion Parser (.docx, .pdf, .txt)</span>
+                      </label>
+                      <span className="text-[10px] font-semibold text-blue-800 bg-blue-100 px-1.5 py-0.2">
+                        Auto-Extracts Text Layer
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-600 mb-2">
+                      Upload any existing radiology reporting template document. Mammoth and PDF.js will automatically parse headings, sections, and paragraphs into the editor below!
+                    </p>
+                    <input
+                      type="file"
+                      accept=".txt,.pdf,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setTemplateUploadForm((prev) => ({ ...prev, fileName: file.name }))
+                          const lowerName = file.name.toLowerCase()
+                          const isDocx = lowerName.endsWith(".docx") || lowerName.endsWith(".doc")
+                          const isPdf = lowerName.endsWith(".pdf")
+
+                          if (isDocx) {
+                            const reader = new FileReader()
+                            reader.onload = async (event) => {
+                              const arrayBuffer = event.target?.result as ArrayBuffer
+                              if (arrayBuffer) {
+                                try {
+                                  const extractedWordText = await extractTextFromWordBuffer(
+                                    arrayBuffer,
+                                    file.name,
+                                  )
+                                  if (extractedWordText && extractedWordText.trim()) {
+                                    setTemplateUploadForm((prev) => ({
+                                      ...prev,
+                                      rawContent: extractedWordText.trim(),
+                                    }))
+                                    showToast(
+                                      `✓ Extracted template text from Word document "${file.name}"!`,
+                                      "success",
+                                    )
+                                  } else {
+                                    showToast(
+                                      `No readable text found in Word document "${file.name}"`,
+                                      "error",
+                                    )
+                                  }
+                                } catch (err: any) {
+                                  showToast(
+                                    `Failed to parse Word document: ${err?.message || err}`,
+                                    "error",
+                                  )
+                                }
+                              }
+                            }
+                            reader.readAsArrayBuffer(file)
+                          } else if (isPdf) {
+                            const reader = new FileReader()
+                            reader.onload = async (event) => {
+                              const arrayBuffer = event.target?.result as ArrayBuffer
+                              if (arrayBuffer) {
+                                try {
+                                  const cleanedPdfText = await extractTextFromPdfBuffer(arrayBuffer)
+                                  if (cleanedPdfText && cleanedPdfText.trim()) {
+                                    setTemplateUploadForm((prev) => ({
+                                      ...prev,
+                                      rawContent: cleanedPdfText.trim(),
+                                    }))
+                                    showToast(
+                                      `✓ Extracted template text from PDF document "${file.name}"!`,
+                                      "success",
+                                    )
+                                  } else {
+                                    showToast(
+                                      `No readable text layer found in PDF "${file.name}". You can paste or type the text.`,
+                                      "error",
+                                    )
+                                  }
+                                } catch (err: any) {
+                                  showToast(
+                                    `Failed to extract text from PDF: ${err?.message || err}`,
+                                    "error",
+                                  )
+                                }
+                              }
+                            }
+                            reader.readAsArrayBuffer(file)
+                          } else {
+                            const reader = new FileReader()
+                            reader.onload = (event) => {
+                              const content = event.target?.result as string
+                              if (content) {
+                                let cleanedText = extractCleanTemplateText(file.name, content)
+                                setTemplateUploadForm((prev) => ({
+                                  ...prev,
+                                  rawContent: cleanedText.trim(),
+                                }))
+                                showToast(`✓ Loaded text file "${file.name}"`, "info")
+                              }
+                            }
+                            reader.readAsText(file)
+                          }
+                        }
+                      }}
+                      className="w-full text-xs text-gray-700 bg-white border border-gray-300 rounded-none p-1.5 file:mr-2 file:py-1 file:px-2.5 file:rounded-none file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Standard Section Quick-Insert Chips */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                        Quick Insert Standard Sections:
+                      </label>
+                      <span className="text-[10px] text-gray-500">Click to append to editor</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: "+ INDICATION", text: "\n\nCLINICAL INDICATION:\n" },
+                        { label: "+ TECHNIQUE", text: "\n\nTECHNIQUE & PROTOCOL:\n" },
+                        { label: "+ FINDINGS", text: "\n\nFINDINGS:\n" },
+                        { label: "+ IMPRESSION", text: "\n\nIMPRESSION:\n   ❖ " },
+                        { label: "+ ADVICE", text: "\n\nADVICE / RECOMMENDATION:\n" },
+                        { label: "+ COMPARISON", text: "\n\nCOMPARISON:\nNo prior imaging available for review.\n" },
+                      ].map((chip) => (
+                        <button
+                          key={chip.label}
+                          type="button"
+                          onClick={() => {
+                            setTemplateUploadForm((prev) => ({
+                              ...prev,
+                              rawContent: (prev.rawContent || "") + chip.text,
+                            }))
+                            showToast(`Appended ${chip.label}`, "info")
+                          }}
+                          className="px-2 py-0.5 text-[10.5px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-none cursor-pointer"
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Monospace Structured Textarea */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-gray-800 font-bold">
+                        Template Content Layout (Structured Format &amp; Findings) *
+                      </label>
+                      <span className="text-[10px] font-mono text-gray-500">
+                        {templateUploadForm.rawContent.length} chars
+                      </span>
+                    </div>
+                    <textarea
+                      rows={14}
+                      required
+                      value={templateUploadForm.rawContent}
+                      onChange={(e) =>
+                        setTemplateUploadForm({ ...templateUploadForm, rawContent: e.target.value })
+                      }
+                      placeholder={`CHEST X-RAY (PA VIEW)\n\nTRACHEA & MEDIASTINUM: Trachea is central. Mediastinal contours normal.\nLUNGS: Both lung fields are clear. No focal consolidation, pneumothorax or pleural effusion.\nHEART: Cardiac silhouette is normal in size (CTR < 0.5).\nBONES & SOFT TISSUES: Visualized thoracic cage bones and soft tissues unremarkable.\n\nIMPRESSION:\n   ❖ NO SIGNIFICANT CARDIOPULMONARY ABNORMALITY DETECTED.`}
+                      className="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-3 rounded-none border border-slate-800 leading-relaxed shadow-inner focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Action Bar */}
+                  <div className="pt-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetTestName =
+                          templateUploadForm.testName === "custom"
+                            ? templateUploadForm.customName.trim()
+                            : templateUploadForm.testName.trim()
+                        const catItem = IMAGING_CATALOG.find(
+                          (c) => c.study.toLowerCase() === targetTestName.toLowerCase(),
+                        )
+                        if (catItem) {
+                          setTemplateUploadForm((prev) => ({
+                            ...prev,
+                            rawContent: `${catItem.study}\n\n${catItem.defaultFindings.join(
+                              "\n",
+                            )}\n\nIMPRESSION:\n${catItem.defaultImpression.join("\n")}`,
+                          }))
+                          showToast(`Loaded standard findings for "${catItem.study}"`, "info")
+                        } else {
+                          showToast("No catalog presets found for this test name", "error")
+                        }
+                      }}
+                      className="px-3 py-2 text-xs font-semibold text-slate-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-none cursor-pointer"
+                    >
+                      ↺ Load Catalog Preset
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTemplateUploadForm((prev) => ({ ...prev, rawContent: "" }))
+                        }
+                        className="px-3 py-2 text-xs font-semibold text-gray-600 hover:text-gray-900 border border-gray-300 rounded-none cursor-pointer"
+                      >
+                        Clear Content
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 rounded-none shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>✓ Save &amp; Activate Template</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: PREVIEW SAVED TEMPLATE                                             */}
+      {/* ========================================================================= */}
+      {templatePreviewModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-none max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-sm">
+                  {templatePreviewModal.testName} (v{templatePreviewModal.version})
+                </h3>
+                <p className="text-[11px] text-slate-300">
+                  Target: {templatePreviewModal.genderTarget || "All Patients"} • Status: {templatePreviewModal.status}
+                </p>
+              </div>
+              <button
+                onClick={() => setTemplatePreviewModal(null)}
+                className="text-white hover:text-gray-200 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-950 text-emerald-400 font-mono text-xs whitespace-pre-wrap leading-relaxed">
+              {templatePreviewModal.rawContent}
+            </div>
+
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between shrink-0">
+              <span className="text-[11px] text-gray-500">
+                Created: {new Date(templatePreviewModal.createdAt).toLocaleDateString()}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const tpl = templatePreviewModal
+                    setTemplatePreviewModal(null)
+                    const catItem = IMAGING_CATALOG.find(
+                      (c) => c.study.toLowerCase() === tpl.testName.toLowerCase(),
+                    )
+                    const testItem = RadiologyTemplateDatabase.getTestById(tpl.testId)
+                    const cat = (testItem?.category ||
+                      catItem?.category ||
+                      (tpl.testName.toLowerCase().includes("x-ray") ||
+                      tpl.testName.toLowerCase().includes("xr")
+                        ? "X-Ray"
+                        : "Ultrasound (USG)")) as any
+                    setTemplateUploadForm({
+                      testName: tpl.testName,
+                      customName: "",
+                      templateName: tpl.uploadedFileName || tpl.testName,
+                      genderTarget: tpl.genderTarget || "All",
+                      category: cat,
+                      rawContent: tpl.rawContent || "",
+                      fileName: tpl.uploadedFileName || "",
+                    })
+                    showToast(`Loaded "${tpl.testName}" into editor!`, "info")
+                  }}
+                  className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-none font-bold text-xs cursor-pointer"
+                >
+                  ✏️ Edit in Designer
+                </button>
+                <button
+                  onClick={() => setTemplatePreviewModal(null)}
+                  className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-none font-bold text-xs cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 

@@ -1411,8 +1411,11 @@ export default function App() {
       module !== "dashboard" &&
       !userPermissions.includes(module)
     ) {
-      // Check if it matches laboratory sub-modules
+      // Check if it matches laboratory or radiology sub-modules
       if (module.startsWith("lab_") && userPermissions.includes("laboratory")) {
+        return
+      }
+      if (module.startsWith("radiology_") && userPermissions.includes("radiology")) {
         return
       }
 
@@ -2372,6 +2375,8 @@ export default function App() {
                         userPermissions.includes("insurance")) ||
                       (item.key === "laboratory" &&
                         userPermissions.includes("laboratory")) ||
+                      (item.key === "radiology" &&
+                        userPermissions.includes("radiology")) ||
                       (c.key === "pharmacy_write_off" &&
                         (userPermissions.includes("pharmacy") ||
                           userPermissions.includes("pharmacy_ledger") ||
@@ -2384,6 +2389,7 @@ export default function App() {
                   const isActive =
                     module === item.key ||
                     (item.key === "laboratory" && (module === "laboratory" || module.startsWith("lab_"))) ||
+                    (item.key === "radiology" && (module === "radiology" || module.startsWith("radiology_"))) ||
                     filteredChildren?.some((c) => c.key === module)
 
                   const isExpanded = expanded.includes(item.key)
@@ -2916,6 +2922,11 @@ export default function App() {
                         ? "templates"
                         : "worklist"
                   }
+                  onNavigateTab={(tab: "worklist" | "reports" | "templates") => {
+                    if (tab === "worklist") setModule("radiology")
+                    else if (tab === "reports") setModule("radiology_reports")
+                    else if (tab === "templates") setModule("radiology_templates")
+                  }}
                 />
               )}
               {(module === "icu" || module.startsWith("icu_")) && (

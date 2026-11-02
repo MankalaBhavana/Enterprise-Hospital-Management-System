@@ -238,7 +238,7 @@ export function convertHtmlToFormattedText(html: string): string {
   return cleanedLines.join("\n").trim()
 }
 
-export async function extractTextFromWordBuffer(arrayBuffer: ArrayBuffer, fileName: string): Promise<string> {
+export async function extractTextFromWordBuffer(arrayBuffer: ArrayBuffer, fileName: string = "document.docx"): Promise<string> {
   // 1. Primary Strategy: Mammoth HTML conversion (preserves headings, tables, bullet points, line breaks)
   try {
     const htmlResult = await mammoth.convertToHtml({ arrayBuffer })
@@ -277,9 +277,9 @@ export async function extractTextFromWordBuffer(arrayBuffer: ArrayBuffer, fileNa
   return ""
 }
 
-export function extractCleanTemplateText(fileNameOrRaw: string, maybeRawText?: string): string {
-  const fileName = maybeRawText !== undefined ? fileNameOrRaw : "template.txt"
-  const rawText = maybeRawText !== undefined ? maybeRawText : fileNameOrRaw
+export function extractCleanTemplateText(fileNameOrRaw?: string, maybeRawText?: string): string {
+  const fileName = (maybeRawText !== undefined ? fileNameOrRaw : "template.txt") || "template.txt"
+  const rawText = (maybeRawText !== undefined ? maybeRawText : fileNameOrRaw) || ""
   const lowerName = fileName.toLowerCase()
   if (lowerName.endsWith(".txt") || lowerName.endsWith(".json") || lowerName.endsWith(".csv") || lowerName.endsWith(".md")) {
     return rawText

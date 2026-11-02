@@ -36,7 +36,8 @@ export interface AppUser {
 //      settlements, reconciliation and five master pages.
 // v19: insurance.* action permissions; Insurance Officer, Finance and Billing roles.
 // v20: Added dedicated Email & TPA Decision Hub (insurance_emails) to Insurance suite.
-const ROLES_STORAGE_KEY = "hospai_rbac_roles_v26"
+// v27: Added radiology_reports and radiology_templates submodules to Enterprise Radiology.
+const ROLES_STORAGE_KEY = "hospai_rbac_roles_v27"
 
 const USERS_STORAGE_KEY = "hospai_rbac_users_v2"
 
