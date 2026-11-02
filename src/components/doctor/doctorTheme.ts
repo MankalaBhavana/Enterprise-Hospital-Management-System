@@ -21,21 +21,21 @@ export interface Hue {
 }
 
 const HUES: Record<string, Hue> = {
-  rose: { solid: "#E11D48", from: "#F43F5E", to: "#9F1239", soft: "#FFF1F2", border: "#FECDD3", text: "#BE123C" },
-  amber: { solid: "#D97706", from: "#F59E0B", to: "#B45309", soft: "#FFFBEB", border: "#FDE68A", text: "#B45309" },
-  violet: { solid: "#7C3AED", from: "#8B5CF6", to: "#5B21B6", soft: "#F5F3FF", border: "#DDD6FE", text: "#6D28D9" },
-  red: { solid: "#DC2626", from: "#EF4444", to: "#991B1B", soft: "#FEF2F2", border: "#FECACA", text: "#B91C1C" },
-  blue: { solid: "#2563EB", from: "#3B82F6", to: "#1E40AF", soft: "#EFF6FF", border: "#BFDBFE", text: "#1D4ED8" },
-  pink: { solid: "#DB2777", from: "#EC4899", to: "#9D174D", soft: "#FDF2F8", border: "#FBCFE8", text: "#BE185D" },
-  teal: { solid: "#0D9488", from: "#14B8A6", to: "#115E59", soft: "#F0FDFA", border: "#99F6E4", text: "#0F766E" },
-  sky: { solid: "#0284C7", from: "#0EA5E9", to: "#075985", soft: "#F0F9FF", border: "#BAE6FD", text: "#0369A1" },
-  fuchsia: { solid: "#C026D3", from: "#D946EF", to: "#86198F", soft: "#FDF4FF", border: "#F5D0FE", text: "#A21CAF" },
-  orange: { solid: "#EA580C", from: "#F97316", to: "#9A3412", soft: "#FFF7ED", border: "#FED7AA", text: "#C2410C" },
-  cyan: { solid: "#0891B2", from: "#06B6D4", to: "#155E75", soft: "#ECFEFF", border: "#A5F3FC", text: "#0E7490" },
-  indigo: { solid: "#4F46E5", from: "#6366F1", to: "#3730A3", soft: "#EEF2FF", border: "#C7D2FE", text: "#4338CA" },
-  emerald: { solid: "#059669", from: "#10B981", to: "#065F46", soft: "#ECFDF5", border: "#A7F3D0", text: "#047857" },
-  green: { solid: "#16A34A", from: "#22C55E", to: "#166534", soft: "#F0FDF4", border: "#BBF7D0", text: "#15803D" },
-  purple: { solid: "#9333EA", from: "#A855F7", to: "#6B21A8", soft: "#FAF5FF", border: "#E9D5FF", text: "#7E22CE" },
+  rose: { solid: "#9F1239", from: "#BE123C", to: "#881337", soft: "#FFF1F2", border: "#FCE7F3", text: "#9F1239" },
+  amber: { solid: "#B45309", from: "#D97706", to: "#92400E", soft: "#FFFBEB", border: "#FEF3C7", text: "#92400E" },
+  violet: { solid: "#6D28D9", from: "#7C3AED", to: "#5B21B6", soft: "#F5F3FF", border: "#EDE9FE", text: "#6D28D9" },
+  red: { solid: "#B91C1C", from: "#DC2626", to: "#991B1B", soft: "#FEF2F2", border: "#FEE2E2", text: "#B91C1C" },
+  blue: { solid: "#1D4ED8", from: "#2563EB", to: "#1E40AF", soft: "#EFF6FF", border: "#DBEAFE", text: "#1D4ED8" },
+  pink: { solid: "#BE185D", from: "#DB2777", to: "#9D174D", soft: "#FDF2F8", border: "#FCE7F3", text: "#9D174D" },
+  teal: { solid: "#0F766E", from: "#0D9488", to: "#115E59", soft: "#F0FDFA", border: "#CCFBF1", text: "#0F766E" },
+  sky: { solid: "#0369A1", from: "#0284C7", to: "#075985", soft: "#F0F9FF", border: "#E0F2FE", text: "#0369A1" },
+  fuchsia: { solid: "#A21CAF", from: "#C026D3", to: "#86198F", soft: "#FDF4FF", border: "#FAE8FF", text: "#86198F" },
+  orange: { solid: "#C2410C", from: "#EA580C", to: "#9A3412", soft: "#FFF7ED", border: "#FFEDD5", text: "#9A3412" },
+  cyan: { solid: "#0E7490", from: "#0891B2", to: "#155E75", soft: "#ECFEFF", border: "#CFFAFE", text: "#0E7490" },
+  indigo: { solid: "#4338CA", from: "#4F46E5", to: "#3730A3", soft: "#EEF2FF", border: "#E0E7FF", text: "#4338CA" },
+  emerald: { solid: "#047857", from: "#059669", to: "#065F46", soft: "#ECFDF5", border: "#D1FAE5", text: "#047857" },
+  green: { solid: "#15803D", from: "#16A34A", to: "#166534", soft: "#F0FDF4", border: "#DCFCE7", text: "#15803D" },
+  purple: { solid: "#7E22CE", from: "#9333EA", to: "#6B21A8", soft: "#FAF5FF", border: "#F3E8FF", text: "#6B21A8" },
   slate: { solid: "#475569", from: "#64748B", to: "#1E293B", soft: "#F8FAFC", border: "#E2E8F0", text: "#334155" },
 }
 
@@ -86,7 +86,8 @@ export const TONE = HUES
 export const gradient = (h: Hue, angle = 135) => `linear-gradient(${angle}deg, ${h.from}, ${h.to})`
 
 /**
- * A header band: dark stop first, so white text on the left (the name) keeps
- * its contrast even for light hues like amber and orange.
+ * A header band: calm executive slate base with an elegant soft specialty accent,
+ * eliminating harsh bright glare while ensuring optimal contrast.
  */
-export const band = (h: Hue, angle = 120) => `linear-gradient(${angle}deg, ${h.to} 0%, ${h.solid} 100%)`
+export const band = (h: Hue, angle = 135) =>
+  `linear-gradient(${angle}deg, #1E293B 0%, #29384E 75%, ${h.solid} 160%)`
