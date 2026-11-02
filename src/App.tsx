@@ -2809,7 +2809,7 @@ export default function App() {
                 />
               )}
               {module === "emergency_ui" && (
-                <EmergencyUI />
+                <EmergencyUI onRegister={() => setModule("emergency")} />
               )}
               {module === "inpatient" && (
                 <Inpatient

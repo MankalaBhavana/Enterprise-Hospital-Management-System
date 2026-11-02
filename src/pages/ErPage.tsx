@@ -2879,9 +2879,9 @@ function NewPatientIntakePanel({
         }),
       })
 
-      const visitId = regRes.visit.id
+      const visitId = regRes?.visit?.id ?? (regRes as any)?.id
 
-      const visitNo = regRes.visit.visit_no
+      const visitNo = regRes?.visit?.visit_no ?? (regRes as any)?.visit_no ?? `ER-${visitId}`
 
       // Manual Triage & Bed Allocation Assignment
 
@@ -3893,9 +3893,9 @@ function UnidentifiedPatientIntakePanel({
         { method: "POST", body: JSON.stringify(payload) },
       )
 
-      const visitId = visitRes.id
+      const visitId = visitRes?.id ?? (visitRes as any)?.visit?.id
 
-      const visitNo = visitRes.visit_no
+      const visitNo = visitRes?.visit_no ?? (visitRes as any)?.visit?.visit_no ?? `ER-${visitId}`
 
       await apiFetch(`/api/er/visits/${visitId}/complaints`, {
         method: "POST",
@@ -4789,9 +4789,9 @@ function ExistingPatientIntakePanel({
         { method: "POST", body: JSON.stringify(payload) },
       )
 
-      const visitId = visitRes.id
+      const visitId = visitRes?.id ?? (visitRes as any)?.visit?.id
 
-      const visitNo = visitRes.visit_no
+      const visitNo = visitRes?.visit_no ?? (visitRes as any)?.visit?.visit_no ?? `ER-${visitId}`
 
       await apiFetch(`/api/er/visits/${visitId}/complaints`, {
         method: "POST",

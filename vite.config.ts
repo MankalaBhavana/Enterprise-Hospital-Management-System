@@ -360,7 +360,9 @@ function hmsApiMockMiddleware() {
       if (
         pathname.startsWith("/api/messaging") ||
         pathname.startsWith("/api/whatsapp") ||
-        pathname.startsWith("/api/accounts")
+        pathname.startsWith("/api/accounts") ||
+        pathname.startsWith("/api/er") ||
+        pathname.startsWith("/api/beds")
       ) {
         res.statusCode = 503
         res.setHeader("Content-Type", "application/json")

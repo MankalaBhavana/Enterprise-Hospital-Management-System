@@ -1707,6 +1707,17 @@ class HospitalDatabase {
     )
   }
 
+  public addPatient(p: DBPatient): void {
+    try {
+      const list = this.getPatients()
+      const u = (p.umr || "").trim().toUpperCase()
+      if (u && !list.some((existing) => (existing.umr || "").trim().toUpperCase() === u)) {
+        localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify([p, ...list]))
+        this.notify()
+      }
+    } catch {}
+  }
+
   public searchPatients(query: string): DBPatient[] {
     const q = query.trim().toLowerCase()
 
