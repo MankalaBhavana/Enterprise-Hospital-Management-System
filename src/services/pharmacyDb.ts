@@ -5,6 +5,8 @@ import {
   createThreeScenarioPrescriptions,
   ensurePharmacyDataSeeded,
   SEED_PRESCRIPTIONS,
+  SEED_CATEGORIES,
+  SEED_SUPPLIERS,
 } from "./pharmacySeedData"
 
 export interface AppUser {
