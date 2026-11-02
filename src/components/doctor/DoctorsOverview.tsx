@@ -129,7 +129,11 @@ const UNCLAIMED = "__unclaimed__"
  * Administrator's view of every doctor: who they have waiting, what they have
  * seen, what they ordered and where each order is.
  */
-export default function DoctorsOverview() {
+export default function DoctorsOverview({
+  onOpenWorkspace,
+}: {
+  onOpenWorkspace?: (doctor: DoctorAccount) => void
+} = {}) {
   const { revision, now } = useLiveClinic()
   const data = useMemo(() => getDoctorOversight(), [revision])
   const [query, setQuery] = useState("")
@@ -337,6 +341,7 @@ export default function DoctorsOverview() {
                 onTab={setTab}
                 now={now}
                 onBack={() => setSelectedKey(null)}
+                onOpenWorkspace={onOpenWorkspace}
               />
             ) : (
               <div className="flex-1 bg-white border border-[#DDE2EC] rounded-[12px]">
@@ -358,12 +363,14 @@ function DoctorDetail({
   onTab,
   now,
   onBack,
+  onOpenWorkspace,
 }: {
   row: DoctorOversightRow
   tab: Tab
   onTab: (t: Tab) => void
   now: number
   onBack: () => void
+  onOpenWorkspace?: (doctor: DoctorAccount) => void
 }) {
   const [onlyOpen, setOnlyOpen] = useState(false)
   const c = row.counts
@@ -415,6 +422,16 @@ function DoctorDetail({
               </div>
             )}
           </div>
+          {acc && onOpenWorkspace && (
+            <button
+              type="button"
+              onClick={() => onOpenWorkspace(acc)}
+              className="px-3.5 py-2 rounded-[8px] bg-white text-[#1E293B] hover:bg-slate-100 text-[12px] font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ml-auto self-center"
+            >
+              <span>🩺</span>
+              <span>Open Doctor Workspace</span>
+            </button>
+          )}
         </div>
       </div>
 

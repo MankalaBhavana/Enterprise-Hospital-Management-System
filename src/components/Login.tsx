@@ -4,7 +4,12 @@ import { AuditDatabase } from "../services/auditDb"
 import { RoleDatabase, ALL_SYSTEM_MODULES } from "../services/roleDb"
 import { credentialsForRole } from "../lib/demoCredentials"
 import { HrmsDatabase } from "../services/hrmsDb"
-import { DOCTOR_ROSTER } from "../services/doctorPortalDb"
+import {
+  DOCTOR_ROSTER,
+  getAllDoctorAccounts,
+  normalizeDoctorName,
+  resolveDoctorAccount,
+} from "../services/doctorPortalDb"
 import { HospAILogo } from "./HospAILogo"
 import { KalpraLogo } from "./KalpraLogo"
 
@@ -52,16 +57,46 @@ export default function Login({ onLogin }: LoginProps) {
   const [openRoleDropdown, setOpenRoleDropdown] = useState(false)
   const [selectedStaffId, setSelectedStaffId] = useState("")
 
-  const isDoctorLogin = user.trim().toLowerCase() === "doctor"
+  const detectedDoctor = useMemo(() => {
+    const k = user.trim().toLowerCase()
+    if (!k || k === "admin" || k === "doctor" || k === "nurse" || k === "reception" || k === "pharmacy" || k === "lab" || k === "hr" || k === "billing") {
+      return null
+    }
+    const all = getAllDoctorAccounts()
+    return (
+      all.find(
+        (d) =>
+          d.username.toLowerCase() === k ||
+          d.id.toLowerCase() === k ||
+          d.staffId.toLowerCase() === k ||
+          normalizeDoctorName(d.name) === normalizeDoctorName(k),
+      ) || null
+    )
+  }, [user])
+
+  const isDoctorLogin =
+    user.trim().toLowerCase() === "doctor" ||
+    user.trim().toLowerCase().startsWith("doctor") ||
+    Boolean(detectedDoctor)
   const activeRole = ROLES_LIST.find((r) => r.value === user)
 
   const availableStaffList: StaffOption[] = useMemo(() => {
     if (!user) return []
+    if (detectedDoctor) {
+      return [
+        {
+          id: detectedDoctor.id,
+          name: detectedDoctor.name,
+          subtitle: `${detectedDoctor.specialty} · ${detectedDoctor.room}`,
+          department: detectedDoctor.specialty,
+        },
+      ]
+    }
     const roleKey = user.trim().toLowerCase()
     const hrmsStaff = HrmsDatabase.getStaffList()
 
-    if (roleKey === "doctor") {
-      return DOCTOR_ROSTER.map((d) => ({
+    if (roleKey === "doctor" || roleKey.startsWith("doctor")) {
+      return getAllDoctorAccounts().map((d) => ({
         id: d.id,
         name: d.name,
         subtitle: `${d.specialty} · ${d.room}`,
@@ -190,15 +225,19 @@ export default function Login({ onLogin }: LoginProps) {
         console.warn("Audit log skipped:", logErr)
       }
 
+      const effectiveDoctorId = isDoctorLogin
+        ? (detectedDoctor?.id || chosenMember?.id || doctorId || "IMP-001")
+        : undefined
+
       onLogin({
         user: username,
-        role: local.role.id,
-        staffId: chosenMember?.id || local.user.staffId,
-        staffName: chosenMember?.name || local.user.name,
-        staffTitle: chosenMember?.subtitle || local.role.name,
-        staffDepartment: chosenMember?.department || "Hospital Operations",
+        role: isDoctorLogin ? "ROLE_DOCTOR" : local.role.id,
+        staffId: chosenMember?.id || detectedDoctor?.staffId || local.user.staffId,
+        staffName: chosenMember?.name || detectedDoctor?.name || local.user.name,
+        staffTitle: chosenMember?.subtitle || detectedDoctor?.qualification || local.role.name,
+        staffDepartment: chosenMember?.department || detectedDoctor?.specialty || "Hospital Operations",
         permissions: local.role.allowedModules || ALL_SYSTEM_MODULES,
-        doctorId: isDoctorLogin ? (chosenMember?.id || doctorId) : undefined,
+        doctorId: effectiveDoctorId,
       })
     } catch (err) {
       console.error("Login submission error:", err)
