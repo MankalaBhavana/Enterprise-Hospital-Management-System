@@ -1433,19 +1433,33 @@ export class GeneralReportsService {
       },
     ]
 
+    const patientMap = new Map(patients.map((p) => [p.umr, p]))
+
     // Table Records
-    let records = filteredEnc.map((e, idx) => ({
-      id: e.umr || `UMR${100200 + idx}`,
-      umr: e.umr || `UMR${100200 + idx}`,
-      name: e.patientName,
-      age: e.age,
-      gender: e.sex,
-      registrationDate: OpReportsService.getEncounterDate(e),
-      patientType: e.isNew ? "New Patient" : "Existing Patient",
-      lastVisit: OpReportsService.getEncounterDate(e),
-      department: e.dept || "General Medicine",
-      status: e.status,
-    }))
+    let records = filteredEnc.map((e, idx) => {
+      const pat = e.umr ? patientMap.get(e.umr) : undefined
+      const rawCreatedAt = pat?.createdAt || (pat as any)?.created_at
+      let regDate = ""
+      if (rawCreatedAt) {
+        regDate = rawCreatedAt.includes("T") ? rawCreatedAt.split("T")[0] : rawCreatedAt.split(" ")[0]
+      }
+      if (!regDate) {
+        regDate = OpReportsService.getEncounterDate(e)
+      }
+
+      return {
+        id: e.umr || `UMR${100200 + idx}`,
+        umr: e.umr || `UMR${100200 + idx}`,
+        name: e.patientName,
+        age: e.age,
+        gender: e.sex,
+        registrationDate: regDate,
+        patientType: e.isNew ? "New Patient" : "Existing Patient",
+        lastVisit: OpReportsService.getEncounterDate(e),
+        department: e.dept || "General Medicine",
+        status: e.status,
+      }
+    })
 
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
