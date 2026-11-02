@@ -1242,6 +1242,7 @@ export function clearAllPharmacyData(): void {
     window.localStorage.removeItem("_v2_pharmacy_dispense_rx")
     window.localStorage.setItem("hospai_pharm_fresh_clean_slate_v2026_ready", "true")
     window.localStorage.setItem("hospai_pharm_scratch_clean_slate_v3_applied", "true")
+    window.localStorage.setItem("hospai_pharm_fresh_demo_purged_v10", "true")
 
     window.dispatchEvent(new Event("storage"))
     window.dispatchEvent(new CustomEvent("hospai_pharmacy_updated"))
@@ -1253,9 +1254,10 @@ export function clearAllPharmacyData(): void {
 // Auto-run scratch clean slate on startup if not already applied
 if (typeof window !== "undefined") {
   try {
-    const SCRATCH_WIPE_TOKEN = "hospai_pharm_scratch_clean_slate_v3_applied"
-    if (!window.localStorage.getItem(SCRATCH_WIPE_TOKEN)) {
+    const isCleanPurged = window.localStorage.getItem("hospai_pharm_fresh_demo_purged_v10")
+    if (!isCleanPurged) {
       clearAllPharmacyData()
+      window.localStorage.setItem("hospai_pharm_fresh_demo_purged_v10", "true")
     }
   } catch (err) {
     console.error("Failed to run clean-slate wipe:", err)

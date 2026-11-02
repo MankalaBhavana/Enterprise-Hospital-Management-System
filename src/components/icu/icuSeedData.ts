@@ -1,4 +1,5 @@
 import type { FlowsheetRecord } from "./IcuFlowsheet"
+import { safeLocalStorageSetItem, freeLocalStorageQuota } from "../../utils/storageQuotaManager"
 
 const storageKey = (patientId: string, date: string) =>
   `icu.flowsheet.${patientId}.${date}`
@@ -854,11 +855,11 @@ export function generateSeedRecord(
 /** Seed multi-day ICU flow chart records into localStorage for a patient if not already seeded */
 export function ensureMultiDaySeedData(
   patientId: string = "100301",
-  totalDays: number = 10,
+  totalDays: number = 3,
 ): void {
   try {
-    const stayDays = getPatientStayDays(totalDays)
-    stayDays.forEach(({ dayNumber, dateStr }) => {
+    const stayDays = getPatientStayDays(Math.min(totalDays, 3))
+    for (const { dayNumber, dateStr } of stayDays) {
       const key = storageKey(patientId, dateStr)
       const existing = localStorage.getItem(key)
       if (!existing) {
@@ -866,34 +867,21 @@ export function ensureMultiDaySeedData(
           patientId,
           dayNumber,
           dateStr,
-          totalDays,
+          Math.min(totalDays, 3),
         )
-        localStorage.setItem(key, JSON.stringify(record))
+        const saved = safeLocalStorageSetItem(key, JSON.stringify(record))
+        if (!saved) break
       }
-    })
+    }
   } catch (err) {
-    console.warn("Failed to seed multi-day ICU flow chart data:", err)
+    // Graceful error silence so other application modules are not disrupted
   }
 }
 
-// Auto-seed Deepak Patel Day 1 flowsheet & multi-day flowsheet for all ICU beds
+// On startup: Clean up any old duplicate flowsheets to protect localStorage quota
 if (typeof window !== "undefined") {
   try {
-    seedDeepakPatelDay1Data()
-    ;[
-      "100301",
-      "100302",
-      "100303",
-      "100518",
-      "100992",
-      "100239",
-      "100412",
-      "100419",
-      "100888",
-      "100650",
-    ].forEach((mrn) => {
-      ensureMultiDaySeedData(mrn, 10)
-    })
+    freeLocalStorageQuota()
   } catch {}
 }
 
@@ -1399,19 +1387,13 @@ export function generateDeepakDay1FullRecord(dateStr: string): FlowsheetRecord {
 /** Seed complete Day 1 flowsheet data for Deepak Patel */
 export function seedDeepakPatelDay1Data(): void {
   try {
-    const today = new Date().toISOString().slice(0, 10)
-    const rec100239 = generateDeepakDay1FullRecord(today)
-    localStorage.setItem(`icu.flowsheet.100239.${today}`, JSON.stringify(rec100239))
-    localStorage.setItem(`icu.flowsheet.Deepak Patel.${today}`, JSON.stringify(rec100239))
-
-    // Also populate past stay days so any date clicked has full record
-    getPatientStayDays(10).forEach((sd) => {
-      const rec = generateDeepakDay1FullRecord(sd.dateStr)
-      localStorage.setItem(`icu.flowsheet.100239.${sd.dateStr}`, JSON.stringify(rec))
-      localStorage.setItem(`icu.flowsheet.Deepak Patel.${sd.dateStr}`, JSON.stringify(rec))
-    })
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `icu.flowsheet.100239.${today}`;
+    if (!localStorage.getItem(key)) {
+      const rec100239 = generateDeepakDay1FullRecord(today);
+      safeLocalStorageSetItem(key, JSON.stringify(rec100239));
+    }
   } catch (err) {
-    console.warn("Failed to seed Deepak Patel Day 1 data:", err)
+    // Graceful
   }
 }
-

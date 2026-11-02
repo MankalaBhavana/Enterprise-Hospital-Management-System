@@ -13,6 +13,7 @@ import {
   MessageSquare,
   ChevronRight,
   PlusCircle,
+  Trash2,
 } from "lucide-react"
 import { PharmacyDatabase } from "../../../services/pharmacyDb"
 import { toast } from "react-hot-toast"
@@ -104,14 +105,25 @@ export default function PrescriptionQueue({
               <button
                 type="button"
                 onClick={() => {
-                  PharmacyDatabase.seedTestPrescriptionForSelling()
+                  PharmacyDatabase.seedHospitalTestData(true)
                   refresh()
                   toast.success("Added prescription for Mr. G. Kumar with batch stock ready!")
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 bg-[#0F766E] text-white text-[12px] font-semibold rounded hover:bg-[#0c5e58] transition-colors shadow-sm"
-                title="Seed Mr. G KUMAR prescription with ready batch stock"
+                title="Populate complete demo dataset for all sub-modules"
               >
-                <PlusCircle size={14} /> Add Test Prescription (Mr. G KUMAR)
+                <PlusCircle size={14} /> Populate All Demo Data
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  PharmacyDatabase.clearAllPharmacyData()
+                  refresh()
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white text-rose-700 border border-rose-200 text-[12px] font-semibold rounded hover:bg-rose-50 transition-colors shadow-sm"
+                title="Clear all pharmacy data to start clean"
+              >
+                <Trash2 size={14} /> Clear All Data
               </button>
               <div className="flex items-center gap-2 bg-white border border-[#E2E8F0] rounded px-3 py-2">
                 <Search size={14} className="text-[#94A3B8]" />

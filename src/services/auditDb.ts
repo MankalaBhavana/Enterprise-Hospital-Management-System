@@ -1,3 +1,5 @@
+import { safeLocalStorageSetItem } from "../utils/storageQuotaManager"
+
 export interface AuditLog {
   id: string
   userId: string
@@ -14,8 +16,12 @@ export interface AuditLog {
   sessionId?: string
 }
 
+let _cachedDetectDevice: string | null = null
+
 export function detectDevice(): string {
+  if (_cachedDetectDevice) return _cachedDetectDevice
   if (typeof navigator === "undefined") {
+    _cachedDetectDevice = "Lenovo Laptop"
     return "Lenovo Laptop"
   }
 
@@ -33,6 +39,10 @@ export function detectDevice(): string {
         if (debugInfo) {
           gpuRenderer = (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || ""
         }
+        try {
+          const lose = (gl as any).getExtension("WEBGL_lose_context")
+          lose?.loseContext()
+        } catch {}
       }
     }
   } catch {
@@ -44,44 +54,72 @@ export function detectDevice(): string {
   const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 0 && /Android|Mobile/i.test(ua))
 
   if (isMobile || /iPhone|iPad|iPod/i.test(ua)) {
-    if (/iPhone/i.test(ua)) return "Apple iPhone"
-    if (/iPad/i.test(ua)) return "Apple iPad"
-    if (/Vivo|V2\d{3}|V1\d{3}|V20|V21|V22|V23|V24|V25|V27|V29|V30|Y20|Y21|Y33|Y56|Y75|CPH/i.test(fullContext)) return "Vivo Phone"
-    if (/Samsung|SM-[A-Z0-9]|Galaxy/i.test(fullContext)) return "Samsung Phone"
-    if (/Xiaomi|Redmi|Poco|Mi /i.test(fullContext)) return "Xiaomi Phone"
-    if (/OnePlus|ONEPLUS/i.test(fullContext)) return "OnePlus Phone"
-    if (/Oppo/i.test(fullContext)) return "Oppo Phone"
-    if (/Realme|RMX/i.test(fullContext)) return "Realme Phone"
-    if (/Pixel/i.test(fullContext)) return "Google Pixel"
-    if (/Motorola|Moto/i.test(fullContext)) return "Motorola Phone"
-    if (/Huawei|Honor/i.test(fullContext)) return "Huawei Phone"
-    if (/Nokia/i.test(fullContext)) return "Nokia Phone"
-    if (/LG/i.test(fullContext)) return "LG Phone"
+    if (/iPhone/i.test(ua)) _cachedDetectDevice = "Apple iPhone"
+    return "Apple iPhone"
+    if (/iPad/i.test(ua)) _cachedDetectDevice = "Apple iPad"
+    return "Apple iPad"
+    if (/Vivo|V2\d{3}|V1\d{3}|V20|V21|V22|V23|V24|V25|V27|V29|V30|Y20|Y21|Y33|Y56|Y75|CPH/i.test(fullContext)) _cachedDetectDevice = "Vivo Phone"
+    return "Vivo Phone"
+    if (/Samsung|SM-[A-Z0-9]|Galaxy/i.test(fullContext)) _cachedDetectDevice = "Samsung Phone"
+    return "Samsung Phone"
+    if (/Xiaomi|Redmi|Poco|Mi /i.test(fullContext)) _cachedDetectDevice = "Xiaomi Phone"
+    return "Xiaomi Phone"
+    if (/OnePlus|ONEPLUS/i.test(fullContext)) _cachedDetectDevice = "OnePlus Phone"
+    return "OnePlus Phone"
+    if (/Oppo/i.test(fullContext)) _cachedDetectDevice = "Oppo Phone"
+    return "Oppo Phone"
+    if (/Realme|RMX/i.test(fullContext)) _cachedDetectDevice = "Realme Phone"
+    return "Realme Phone"
+    if (/Pixel/i.test(fullContext)) _cachedDetectDevice = "Google Pixel"
+    return "Google Pixel"
+    if (/Motorola|Moto/i.test(fullContext)) _cachedDetectDevice = "Motorola Phone"
+    return "Motorola Phone"
+    if (/Huawei|Honor/i.test(fullContext)) _cachedDetectDevice = "Huawei Phone"
+    return "Huawei Phone"
+    if (/Nokia/i.test(fullContext)) _cachedDetectDevice = "Nokia Phone"
+    return "Nokia Phone"
+    if (/LG/i.test(fullContext)) _cachedDetectDevice = "LG Phone"
+    return "LG Phone"
+    _cachedDetectDevice = "Android Phone"
     return "Android Phone"
   }
 
-  if (/Macintosh|Mac OS X|MacIntel/i.test(fullContext)) return "Apple MacBook"
-  if (/Lenovo|ThinkPad|IdeaPad|Yoga|Legion/i.test(fullContext)) return "Lenovo Laptop"
-  if (/HP|Hewlett-Packard|Pavilion|EliteBook|ProBook|Envy|Spectre|OMEN/i.test(fullContext)) return "HP Laptop"
-  if (/Dell|Inspiron|Latitude|XPS|Alienware|Vostro/i.test(fullContext)) return "Dell Laptop"
-  if (/Asus|ROG|ZenBook|VivoBook/i.test(fullContext)) return "Asus Laptop"
-  if (/Acer|Predator|Aspire|Swift|Nitro/i.test(fullContext)) return "Acer Laptop"
-  if (/MSI/i.test(fullContext)) return "MSI Laptop"
-  if (/Surface/i.test(fullContext)) return "Microsoft Surface"
-  if (/Samsung/i.test(fullContext)) return "Samsung Galaxy Book"
+  if (/Macintosh|Mac OS X|MacIntel/i.test(fullContext)) _cachedDetectDevice = "Apple MacBook"
+    return "Apple MacBook"
+  if (/Lenovo|ThinkPad|IdeaPad|Yoga|Legion/i.test(fullContext)) _cachedDetectDevice = "Lenovo Laptop"
+    return "Lenovo Laptop"
+  if (/HP|Hewlett-Packard|Pavilion|EliteBook|ProBook|Envy|Spectre|OMEN/i.test(fullContext)) _cachedDetectDevice = "HP Laptop"
+    return "HP Laptop"
+  if (/Dell|Inspiron|Latitude|XPS|Alienware|Vostro/i.test(fullContext)) _cachedDetectDevice = "Dell Laptop"
+    return "Dell Laptop"
+  if (/Asus|ROG|ZenBook|VivoBook/i.test(fullContext)) _cachedDetectDevice = "Asus Laptop"
+    return "Asus Laptop"
+  if (/Acer|Predator|Aspire|Swift|Nitro/i.test(fullContext)) _cachedDetectDevice = "Acer Laptop"
+    return "Acer Laptop"
+  if (/MSI/i.test(fullContext)) _cachedDetectDevice = "MSI Laptop"
+    return "MSI Laptop"
+  if (/Surface/i.test(fullContext)) _cachedDetectDevice = "Microsoft Surface"
+    return "Microsoft Surface"
+  if (/Samsung/i.test(fullContext)) _cachedDetectDevice = "Samsung Galaxy Book"
+    return "Samsung Galaxy Book"
 
   if (/Windows|Win32|Win64/i.test(fullContext)) {
+    _cachedDetectDevice = "Lenovo Laptop"
     return "Lenovo Laptop"
   }
 
-  if (/Linux/i.test(fullContext)) return "Linux Workstation"
-  if (/CrOS/i.test(fullContext)) return "Chromebook"
+  if (/Linux/i.test(fullContext)) _cachedDetectDevice = "Linux Workstation"
+    return "Linux Workstation"
+  if (/CrOS/i.test(fullContext)) _cachedDetectDevice = "Chromebook"
+    return "Chromebook"
 
-  return "Lenovo Laptop"
+  _cachedDetectDevice = "Lenovo Laptop"
+    return "Lenovo Laptop"
 }
 
 export function formatTimeOnly(isoStr?: string): string {
-  if (!isoStr) return "—"
+  if (!isoStr) _cachedDetectDevice = "—"
+    return "—"
   if (isoStr === "Active" || isoStr === "Session Expired" || isoStr === "—") return isoStr
   try {
     const d = new Date(isoStr)
@@ -93,7 +131,8 @@ export function formatTimeOnly(isoStr?: string): string {
 }
 
 export function formatDuration(startDate: Date, endDate: Date): string {
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "—"
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) _cachedDetectDevice = "—"
+    return "—"
   let diffMs = Math.max(0, endDate.getTime() - startDate.getTime())
   let totalSeconds = Math.floor(diffMs / 1000)
   let seconds = totalSeconds % 60
@@ -110,6 +149,11 @@ export function formatDuration(startDate: Date, endDate: Date): string {
 const STORAGE_KEY = "hospai_audit_logs_v1"
 
 export class AuditDatabase {
+  private static _cachedLogs: AuditLog[] | null = null
+
+  static invalidateCache(): void {
+    this._cachedLogs = null
+  }
   static getRawLogs(): AuditLog[] {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -414,12 +458,12 @@ export class AuditDatabase {
 
     try {
       logs.unshift(entry)
-      if (logs.length > 500) {
-        logs.pop()
+      if (logs.length > 100) {
+        logs.length = 100
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(logs))
+      safeLocalStorageSetItem(STORAGE_KEY, JSON.stringify(logs))
     } catch (e) {
-      console.warn("AuditDatabase: Unable to persist log to localStorage", e)
+      // Graceful error silence
     }
   }
 }

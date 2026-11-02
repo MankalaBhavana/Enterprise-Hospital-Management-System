@@ -22,6 +22,8 @@ import { apiFetch } from "../lib/api"
 import {
   DiagnosticTariffDatabase,
   DiagnosticTariffItem,
+  DiagnosticDepartment,
+  RADIOLOGY_MODALITIES,
 } from "../services/diagnosticTariffDb"
 
 // System Module Categories for clean RBAC governance
@@ -188,7 +190,9 @@ export default function Administration() {
   // Diagnostic Tariffs Tab State
   const [tariffs, setTariffs] = useState<DiagnosticTariffItem[]>([])
   const [tariffSearch, setTariffSearch] = useState("")
-  const [tariffCategoryFilter, setTariffCategoryFilter] = useState<"all" | "Laboratory" | "Radiology">("all")
+  const [tariffDepartmentFilter, setTariffDepartmentFilter] = useState<
+    "all" | "Radiology" | DiagnosticDepartment
+  >("all")
   const [tariffSubCategoryFilter, setTariffSubCategoryFilter] = useState<string>("all")
   const [editingTariffId, setEditingTariffId] = useState<string | null>(null)
   const [editingTariffPrice, setEditingTariffPrice] = useState<number | "">("")
@@ -196,15 +200,31 @@ export default function Administration() {
   const [newTariffForm, setNewTariffForm] = useState<{
     code: string
     name: string
-    category: "Laboratory" | "Radiology"
+    department: DiagnosticDepartment
+    modality: string
+    bodyRegion: string
     subCategory: string
+    variantProtocol: string
+    hospitalAvailability: string
+    tariffReference: string
+    responsibleInCharge: string
+    reportTemplate: string
     price: number | ""
+    tat: string
   }>({
     code: "",
     name: "",
-    category: "Laboratory",
-    subCategory: "General",
+    department: "CT Scan",
+    modality: "CT Scan",
+    bodyRegion: "Brain",
+    subCategory: "Neuro / Head",
+    variantProtocol: "Plain",
+    hospitalAvailability: "Enabled",
+    tariffReference: "Existing Billing tariff",
+    responsibleInCharge: "Dr. Sunita Rao (Senior Radiologist)",
+    reportTemplate: "Approved CT Brain Plain Template",
     price: "",
+    tat: "2 Hours",
   })
   const [tariffNotice, setTariffNotice] = useState("")
 
@@ -787,23 +807,62 @@ export default function Administration() {
   const handleCreateTariff = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newTariffForm.name.trim() || newTariffForm.price === "") return
+    const isLab = newTariffForm.department === "Laboratory"
+    const deptPrefix = isLab
+      ? "LAB"
+      : newTariffForm.department === "X-Ray"
+      ? "XR"
+      : newTariffForm.department === "CT Scan"
+      ? "CT"
+      : newTariffForm.department === "MRI"
+      ? "MR"
+      : newTariffForm.department === "Ultrasound (USG)"
+      ? "USG"
+      : newTariffForm.department === "Doppler"
+      ? "DOP"
+      : newTariffForm.department === "Mammography"
+      ? "MAM"
+      : newTariffForm.department === "Fluoroscopy / Contrast"
+      ? "FL"
+      : newTariffForm.department === "Nuclear Medicine"
+      ? "NM"
+      : newTariffForm.department === "DEXA"
+      ? "DEXA"
+      : newTariffForm.department === "Dental"
+      ? "DNT"
+      : newTariffForm.department === "Interventional Radiology"
+      ? "IR"
+      : "RAD"
+
     const code =
       newTariffForm.code.trim() ||
-      `${newTariffForm.category === "Laboratory" ? "LAB" : "RAD"}-${Math.floor(
-        100 + Math.random() * 900,
-      )}`
+      `${deptPrefix}-${Math.floor(100 + Math.random() * 900)}`
+    const category = isLab ? "Laboratory" : "Radiology"
     const item = DiagnosticTariffDatabase.addTariffItem({
       code,
       name: newTariffForm.name.trim(),
-      category: newTariffForm.category,
-      subCategory: newTariffForm.subCategory.trim() || "General",
+      category,
+      department: newTariffForm.department,
+      modality: isLab ? "Laboratory" : newTariffForm.modality || newTariffForm.department,
+      bodyRegion: newTariffForm.bodyRegion.trim() || "General",
+      subCategory: newTariffForm.subCategory.trim() || newTariffForm.bodyRegion.trim() || "General",
+      variantProtocol: newTariffForm.variantProtocol.trim() || "Plain",
+      hospitalAvailability: newTariffForm.hospitalAvailability || "Enabled",
+      tariffReference: newTariffForm.tariffReference.trim() || "Existing Billing tariff",
+      responsibleInCharge:
+        newTariffForm.responsibleInCharge.trim() ||
+        (isLab ? "Dr. Priya Patel (Pathologist)" : "Dr. Sunita Rao (Senior Radiologist)"),
+      reportTemplate:
+        newTariffForm.reportTemplate.trim() ||
+        `Approved ${newTariffForm.name.trim()} Template`,
       price: Number(newTariffForm.price),
+      tat: newTariffForm.tat.trim() || "2 Hours",
     })
 
     AuditDatabase.logEvent(
       "Diagnostic Tariff Added",
       "Tariff Management",
-      `Added new ${item.category} test '${item.name}' (${item.code}) priced at ₹${item.price}`,
+      `Added new ${item.department} investigation '${item.name}' (${item.code}) priced at ₹${item.price}`,
       "Success",
     )
 
@@ -811,12 +870,20 @@ export default function Administration() {
     setNewTariffForm({
       code: "",
       name: "",
-      category: "Laboratory",
-      subCategory: "General",
+      department: "CT Scan",
+      modality: "CT Scan",
+      bodyRegion: "Brain",
+      subCategory: "Neuro / Head",
+      variantProtocol: "Plain",
+      hospitalAvailability: "Enabled",
+      tariffReference: "Existing Billing tariff",
+      responsibleInCharge: "Dr. Sunita Rao (Senior Radiologist)",
+      reportTemplate: "Approved CT Brain Plain Template",
       price: "",
+      tat: "2 Hours",
     })
     setTariffNotice(
-      `Added new ${item.category} test "${item.name}" (₹${item.price}).`,
+      `Added new ${item.department} investigation "${item.name}" (₹${item.price}).`,
     )
     setTimeout(() => setTariffNotice(""), 3500)
     setTariffs(DiagnosticTariffDatabase.getTariffs())
@@ -867,24 +934,43 @@ export default function Administration() {
       tariffs
         .filter(
           (t) =>
-            tariffCategoryFilter === "all" ||
-            t.category === tariffCategoryFilter,
+            tariffDepartmentFilter === "all" ||
+            t.department === tariffDepartmentFilter ||
+            (tariffDepartmentFilter === "Radiology" &&
+              (t.category === "Radiology" || t.department !== "Laboratory")),
         )
-        .map((t) => t.subCategory),
+        .map((t) => t.bodyRegion || t.subCategory),
     ),
-  ).sort()
+  )
+    .filter(Boolean)
+    .sort()
 
   const filteredTariffs = tariffs.filter((t) => {
+    const q = tariffSearch.toLowerCase()
     const matchesSearch =
-      t.name.toLowerCase().includes(tariffSearch.toLowerCase()) ||
-      t.code.toLowerCase().includes(tariffSearch.toLowerCase()) ||
-      t.subCategory.toLowerCase().includes(tariffSearch.toLowerCase())
-    const matchesCategory =
-      tariffCategoryFilter === "all" || t.category === tariffCategoryFilter
+      t.name.toLowerCase().includes(q) ||
+      t.code.toLowerCase().includes(q) ||
+      (t.subCategory || "").toLowerCase().includes(q) ||
+      (t.bodyRegion || "").toLowerCase().includes(q) ||
+      (t.modality || "").toLowerCase().includes(q) ||
+      (t.variantProtocol || "").toLowerCase().includes(q) ||
+      (t.responsibleInCharge || "").toLowerCase().includes(q) ||
+      (t.reportTemplate || "").toLowerCase().includes(q) ||
+      (t.department || "").toLowerCase().includes(q) ||
+      (t.aliases && t.aliases.some((a) => a.toLowerCase().includes(q)))
+
+    const matchesDept =
+      tariffDepartmentFilter === "all" ||
+      t.department === tariffDepartmentFilter ||
+      (tariffDepartmentFilter === "Radiology" &&
+        (t.category === "Radiology" || t.department !== "Laboratory"))
+
     const matchesSubCat =
       tariffSubCategoryFilter === "all" ||
-      t.subCategory === tariffSubCategoryFilter
-    return matchesSearch && matchesCategory && matchesSubCat
+      t.subCategory === tariffSubCategoryFilter ||
+      t.bodyRegion === tariffSubCategoryFilter
+
+    return matchesSearch && matchesDept && matchesSubCat
   })
 
   return (
@@ -940,7 +1026,7 @@ export default function Administration() {
         </div>
 
         {/* Clean Underline Tabs */}
-        <div className="flex items-center gap-5 lg:gap-8 text-[13px] font-semibold border-t border-[#F1F5F9] pt-1 overflow-x-auto">
+        <div className="flex items-center gap-8 text-[13px] font-semibold border-t border-[#F1F5F9] pt-1">
           {[
             {
               id: "doctors",
@@ -970,7 +1056,7 @@ export default function Administration() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`py-2.5 border-b-2 transition-all cursor-pointer flex items-center gap-2 flex-shrink-0 whitespace-nowrap ${
+                className={`py-2.5 border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
                   isActive
                     ? "border-[#1B4FD8] text-[#1B4FD8] font-bold"
                     : "border-transparent text-[#64748B] hover:text-[#0F172A]"
@@ -1014,27 +1100,46 @@ export default function Administration() {
             {/* Diagnostic Tariffs Data Table Container */}
             <div className="bg-white border border-[#DDE2EC] shadow-2xs">
               {/* Toolbar & Filters */}
-              <div className="p-4 border-b border-[#DDE2EC] bg-[#F8FAFC] flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900">
-                    Diagnostic Test Price Master
-                  </h3>
-                  <p className="text-[11.5px] text-[#64748B]">
-                    Search, update, or edit individual test & scan prices in real time. Changes take effect instantly across billing & orders.
-                  </p>
+              <div className="p-4 border-b border-[#DDE2EC] bg-[#F8FAFC] space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-[14px] font-bold text-gray-900">
+                      Hospital Diagnostic Investigation & Radiology Price Master
+                    </h3>
+                    <p className="text-[11.5px] text-[#64748B]">
+                      Official Hospital Rate Card covering 184 Laboratory Tests and 173 Radiology Examinations across all 11 clinical modalities.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAddTariffModal(true)}
+                      className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white text-[12.5px] font-semibold px-3.5 py-1.5 border border-blue-600 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span>+</span> Add Investigation
+                    </button>
+
+                    <button
+                      onClick={handleResetTariffs}
+                      title="Reset all prices to official Imperial Hospital Rate Card defaults"
+                      className="bg-white hover:bg-gray-50 text-slate-700 text-[12.5px] font-semibold px-3 py-1.5 border border-slate-300 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                    >
+                      <span>🔄</span> Reset Rate Card
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-                  {/* Category Filter */}
-                  <div className="flex border border-[#CBD5E1] rounded overflow-hidden">
+                {/* Primary Category & Modality Filter Tabs */}
+                <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
+                  <div className="flex border border-[#CBD5E1] rounded overflow-hidden flex-wrap bg-white text-[12px]">
                     <button
                       onClick={() => {
-                        setTariffCategoryFilter("all")
+                        setTariffDepartmentFilter("all")
                         setTariffSubCategoryFilter("all")
                       }}
-                      className={`px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
-                        tariffCategoryFilter === "all"
-                          ? "bg-[#1B4FD8] text-white"
+                      className={`px-3 py-1.5 font-semibold transition-colors cursor-pointer ${
+                        tariffDepartmentFilter === "all"
+                          ? "bg-[#1B4FD8] text-white font-bold"
                           : "bg-white text-[#334155] hover:bg-gray-50"
                       }`}
                     >
@@ -1042,95 +1147,148 @@ export default function Administration() {
                     </button>
                     <button
                       onClick={() => {
-                        setTariffCategoryFilter("Laboratory")
+                        setTariffDepartmentFilter("Laboratory")
                         setTariffSubCategoryFilter("all")
                       }}
-                      className={`px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
-                        tariffCategoryFilter === "Laboratory"
-                          ? "bg-[#1B4FD8] text-white"
+                      className={`px-3 py-1.5 font-semibold transition-colors cursor-pointer ${
+                        tariffDepartmentFilter === "Laboratory"
+                          ? "bg-blue-600 text-white font-bold"
                           : "bg-white text-[#334155] hover:bg-gray-50"
                       }`}
                     >
-                      Laboratory ({tariffs.filter((t) => t.category === "Laboratory").length})
+                      Laboratory ({tariffs.filter((t) => t.category === "Laboratory" || t.department === "Laboratory").length})
                     </button>
                     <button
                       onClick={() => {
-                        setTariffCategoryFilter("Radiology")
+                        setTariffDepartmentFilter("Radiology")
                         setTariffSubCategoryFilter("all")
                       }}
-                      className={`px-3 py-1.5 text-[12px] font-semibold transition-colors cursor-pointer ${
-                        tariffCategoryFilter === "Radiology"
-                          ? "bg-purple-700 text-white"
+                      className={`px-3 py-1.5 font-semibold transition-colors cursor-pointer ${
+                        tariffDepartmentFilter === "Radiology" ||
+                        RADIOLOGY_MODALITIES.includes(tariffDepartmentFilter as any)
+                          ? "bg-purple-700 text-white font-bold"
                           : "bg-white text-[#334155] hover:bg-gray-50"
                       }`}
                     >
-                      Radiology ({tariffs.filter((t) => t.category === "Radiology").length})
+                      Radiology ({tariffs.filter((t) => t.category === "Radiology" || t.department !== "Laboratory").length})
                     </button>
                   </div>
 
-                  {/* Sub-category Filter */}
-                  <select
-                    value={tariffSubCategoryFilter}
-                    onChange={(e) => setTariffSubCategoryFilter(e.target.value)}
-                    className="bg-white border border-[#DDE2EC] px-3 py-1.5 text-[12.5px] text-[#334155] font-semibold focus:outline-none focus:border-[#1B4FD8] cursor-pointer"
-                  >
-                    <option value="all">All Sub-Categories</option>
-                    {tariffSubCategories.map((subCat) => (
-                      <option key={subCat} value={subCat}>
-                        {subCat}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Search Bar & Sub-Category */}
+                  <div className="flex items-center gap-2 flex-1 max-w-xl justify-end">
+                    {/* Sub-category / Body Region Filter */}
+                    <select
+                      value={tariffSubCategoryFilter}
+                      onChange={(e) => setTariffSubCategoryFilter(e.target.value)}
+                      className="bg-white border border-[#CBD5E1] px-2.5 py-1.5 text-[12px] text-[#334155] font-semibold focus:outline-none focus:border-[#1B4FD8] cursor-pointer"
+                    >
+                      <option value="all">All Anatomical Regions</option>
+                      {tariffSubCategories.map((subCat) => (
+                        <option key={subCat} value={subCat}>
+                          {subCat}
+                        </option>
+                      ))}
+                    </select>
 
-                  {/* Search Bar */}
-                  <input
-                    value={tariffSearch}
-                    onChange={(e) => setTariffSearch(e.target.value)}
-                    placeholder="Search test name, code, sub-category..."
-                    className="w-full md:w-64 bg-white border border-[#DDE2EC] px-3 py-1.5 text-[12.5px] text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#1B4FD8]"
-                  />
-
-                  {/* Action Buttons */}
-                  <button
-                    onClick={() => setShowAddTariffModal(true)}
-                    className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white text-[12.5px] font-semibold px-3.5 py-1.5 border border-blue-600 transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>+</span> Add Diagnostic Test
-                  </button>
-
-                  <button
-                    onClick={handleResetTariffs}
-                    title="Reset all prices to official Hospital Rate Card defaults"
-                    className="bg-white hover:bg-gray-50 text-slate-700 text-[12.5px] font-semibold px-3 py-1.5 border border-slate-300 transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <span>🔄</span> Reset Rate Card
-                  </button>
+                    <input
+                      value={tariffSearch}
+                      onChange={(e) => setTariffSearch(e.target.value)}
+                      placeholder="Search code, exam name, modality, body region, in-charge..."
+                      className="flex-1 bg-white border border-[#CBD5E1] px-3 py-1.5 text-[12px] text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#1B4FD8]"
+                    />
+                  </div>
                 </div>
+
+                {/* Modality Pills Strip - Only displayed when Radiology department is active */}
+                {(tariffDepartmentFilter === "Radiology" ||
+                  RADIOLOGY_MODALITIES.includes(tariffDepartmentFilter as any)) && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 pb-1 text-[11px] border-t border-purple-100 bg-purple-50/50 p-2.5 rounded-xs">
+                    <span className="text-purple-900 font-bold uppercase tracking-wider text-[10px] mr-1 flex items-center gap-1">
+                      <span>⚡</span> Modalities:
+                    </span>
+                    <button
+                      onClick={() => {
+                        setTariffDepartmentFilter("Radiology")
+                        setTariffSubCategoryFilter("all")
+                      }}
+                      className={`px-2.5 py-0.5 border rounded cursor-pointer transition-colors font-medium flex items-center gap-1 ${
+                        tariffDepartmentFilter === "Radiology"
+                          ? "bg-purple-700 text-white border-purple-700 font-bold shadow-2xs"
+                          : "bg-white text-purple-900 border-purple-200 hover:bg-purple-100/70"
+                      }`}
+                    >
+                      <span>All Modalities</span>
+                      <span
+                        className={`px-1 py-0.2 rounded text-[9.5px] ${
+                          tariffDepartmentFilter === "Radiology"
+                            ? "bg-white/20 text-white"
+                            : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        {tariffs.filter((t) => t.category === "Radiology" || t.department !== "Laboratory").length}
+                      </span>
+                    </button>
+                    {RADIOLOGY_MODALITIES.map((mod) => {
+                      const count = tariffs.filter((t) => t.department === mod || t.modality === mod).length
+                      const isSelected = tariffDepartmentFilter === mod
+                      return (
+                        <button
+                          key={mod}
+                          onClick={() => {
+                            setTariffDepartmentFilter(mod)
+                            setTariffSubCategoryFilter("all")
+                          }}
+                          className={`px-2 py-0.5 border rounded cursor-pointer transition-colors font-medium flex items-center gap-1 ${
+                            isSelected
+                              ? "bg-[#0F172A] text-white border-[#0F172A] font-bold shadow-2xs"
+                              : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-slate-100"
+                          }`}
+                        >
+                          <span>{mod}</span>
+                          <span
+                            className={`px-1 py-0.2 rounded text-[9.5px] ${
+                              isSelected
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-[13px] border-collapse">
+                <table className="w-full text-left text-[12.5px] border-collapse">
                   <thead>
                     <tr className="bg-[#F1F5F9] text-[#475569] font-bold text-[11px] uppercase tracking-wider border-b border-[#DDE2EC]">
-                      <th className="py-3 px-4 w-28 font-mono">Code</th>
-                      <th className="py-3 px-4">Test / Investigation Name</th>
-                      <th className="py-3 px-4 w-32">Department</th>
-                      <th className="py-3 px-4 w-40">Sub-Category</th>
-                      <th className="py-3 px-4 w-40 text-right">Price (₹)</th>
-                      <th className="py-3 px-4 w-36 text-center">Actions</th>
+                      <th className="py-3 px-3 w-32 font-mono">Test Code</th>
+                      <th className="py-3 px-4">Examination Name & Protocol</th>
+                      <th className="py-3 px-3 w-36">Modality</th>
+                      <th className="py-3 px-3 w-32">Body Region</th>
+                      <th className="py-3 px-2 w-28 text-center">Availability</th>
+                      <th className="py-3 px-3 w-44">Responsible In-Charge</th>
+                      <th className="py-3 px-3 w-44">Report Template</th>
+                      <th className="py-3 px-3 w-32 text-right">Tariff (₹)</th>
+                      <th className="py-3 px-3 w-28 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E2E8F0]">
                     {filteredTariffs.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-[#64748B]">
-                          No diagnostic tests or scans found matching "{tariffSearch}".
+                        <td colSpan={9} className="py-8 text-center text-[#64748B]">
+                          No investigations found matching "{tariffSearch}".
                         </td>
                       </tr>
                     ) : (
                       filteredTariffs.map((item) => {
                         const isEditing = editingTariffId === item.id
+                        const dept = item.department || (item.category === "Laboratory" ? "Laboratory" : "X-Ray")
+                        const modality = item.modality || dept
                         return (
                           <tr
                             key={item.id}
@@ -1138,27 +1296,95 @@ export default function Administration() {
                               isEditing ? "bg-amber-50/60" : ""
                             }`}
                           >
-                            <td className="py-2.5 px-4 font-mono font-semibold text-[#1B4FD8]">
+                            {/* Test Code */}
+                            <td className="py-2.5 px-3 font-mono font-bold text-[#1B4FD8] text-[12px]">
                               {item.code}
                             </td>
-                            <td className="py-2.5 px-4 font-bold text-[#0F172A]">
-                              {item.name}
-                            </td>
+
+                            {/* Examination Name & Variant Protocol */}
                             <td className="py-2.5 px-4">
+                              <div className="font-bold text-[#0F172A] text-[13px]">{item.name}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {item.variantProtocol && (
+                                  <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 border border-slate-200 rounded font-medium">
+                                    {item.variantProtocol}
+                                  </span>
+                                )}
+                                {item.aliases && item.aliases.length > 0 && (
+                                  <span className="text-[10.5px] text-slate-500 italic">
+                                    Alias: {item.aliases.join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Modality */}
+                            <td className="py-2.5 px-3">
                               <span
-                                className={`text-[11px] font-bold px-2 py-0.5 border ${
-                                  item.category === "Laboratory"
+                                className={`text-[10.5px] font-bold px-2 py-0.5 border rounded ${
+                                  modality === "Laboratory"
                                     ? "bg-blue-50 text-[#1B4FD8] border-blue-200"
-                                    : "bg-purple-50 text-purple-700 border-purple-200"
+                                    : modality === "X-Ray"
+                                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                                    : modality === "CT Scan"
+                                    ? "bg-amber-50 text-amber-800 border-amber-300"
+                                    : modality === "MRI"
+                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    : modality === "Ultrasound (USG)"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : modality === "Doppler"
+                                    ? "bg-cyan-50 text-cyan-800 border-cyan-200"
+                                    : modality === "Mammography"
+                                    ? "bg-pink-50 text-pink-700 border-pink-200"
+                                    : modality === "Fluoroscopy / Contrast"
+                                    ? "bg-sky-50 text-sky-800 border-sky-200"
+                                    : modality === "Nuclear Medicine"
+                                    ? "bg-violet-50 text-violet-800 border-violet-200"
+                                    : modality === "DEXA"
+                                    ? "bg-orange-50 text-orange-800 border-orange-200"
+                                    : modality === "Dental"
+                                    ? "bg-teal-50 text-teal-800 border-teal-200"
+                                    : modality === "Interventional Radiology"
+                                    ? "bg-rose-50 text-rose-800 border-rose-200"
+                                    : "bg-slate-50 text-slate-700 border-slate-200"
                                 }`}
                               >
-                                {item.category}
+                                {modality}
                               </span>
                             </td>
-                            <td className="py-2.5 px-4 text-[#475569]">
-                              {item.subCategory}
+
+                            {/* Body Region */}
+                            <td className="py-2.5 px-3 text-[#475569] font-medium text-[12px]">
+                              {item.bodyRegion || item.subCategory || "General"}
                             </td>
-                            <td className="py-2.5 px-4 text-right font-mono">
+
+                            {/* Hospital Availability */}
+                            <td className="py-2.5 px-2 text-center">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                {item.hospitalAvailability || "Enabled"}
+                              </span>
+                            </td>
+
+                            {/* Responsible In-Charge */}
+                            <td className="py-2.5 px-3">
+                              <div className="text-[12px] font-semibold text-[#1E293B]">
+                                {item.responsibleInCharge || (dept === "Laboratory" ? "Dr. Priya Patel (Pathology)" : "Dr. Sunita Rao (Senior Radiologist)")}
+                              </div>
+                            </td>
+
+                            {/* Report Template */}
+                            <td className="py-2.5 px-3">
+                              <div
+                                className="text-[11px] text-[#475569] font-mono truncate max-w-[180px]"
+                                title={item.reportTemplate || `Approved ${item.name} Template`}
+                              >
+                                {item.reportTemplate || `Approved ${item.name} Template`}
+                              </div>
+                            </td>
+
+                            {/* Tariff Price (₹) */}
+                            <td className="py-2.5 px-3 text-right font-mono">
                               {isEditing ? (
                                 <div className="flex items-center justify-end gap-1">
                                   <span className="text-gray-500 font-bold">₹</span>
@@ -1169,7 +1395,7 @@ export default function Administration() {
                                     value={editingTariffPrice}
                                     onChange={(e) =>
                                       setEditingTariffPrice(
-                                        e.target.value === "" ? "" : Number(e.target.value)
+                                        e.target.value === "" ? "" : Number(e.target.value),
                                       )
                                     }
                                     onKeyDown={(e) => {
@@ -1180,23 +1406,25 @@ export default function Administration() {
                                   />
                                 </div>
                               ) : (
-                                <span className="font-extrabold text-[#0F172A]">
-                                  ₹{item.price.toLocaleString("en-IN")}
+                                <span className="font-extrabold text-[#0F172A] text-[13px]">
+                                  ₹{Number(item.price ?? 0).toLocaleString("en-IN")}
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-4 text-center">
+
+                            {/* Actions */}
+                            <td className="py-2.5 px-3 text-center">
                               {isEditing ? (
                                 <div className="flex items-center justify-center gap-1.5">
                                   <button
                                     onClick={() => handleSaveTariffPrice(item.id)}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 border border-emerald-700 cursor-pointer"
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 border border-emerald-700 cursor-pointer rounded-xs"
                                   >
                                     Save
                                   </button>
                                   <button
                                     onClick={() => setEditingTariffId(null)}
-                                    className="bg-white hover:bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1 border border-gray-300 cursor-pointer"
+                                    className="bg-white hover:bg-gray-100 text-gray-700 text-[11px] font-semibold px-2 py-1 border border-gray-300 cursor-pointer rounded-xs"
                                   >
                                     Cancel
                                   </button>
@@ -1206,7 +1434,7 @@ export default function Administration() {
                                   <button
                                     onClick={() => {
                                       setEditingTariffId(item.id)
-                                      setEditingTariffPrice(item.price)
+                                      setEditingTariffPrice(item.price ?? 0)
                                     }}
                                     className="text-[#1B4FD8] hover:text-[#1740B4] text-[12px] font-semibold cursor-pointer"
                                   >
@@ -1230,10 +1458,10 @@ export default function Administration() {
               </div>
               <div className="p-3 bg-[#F8FAFC] border-t border-[#DDE2EC] text-[12px] text-[#64748B] flex items-center justify-between">
                 <span>
-                  Showing <strong>{filteredTariffs.length}</strong> of <strong>{tariffs.length}</strong> total diagnostic rate items
+                  Showing <strong>{filteredTariffs.length}</strong> of <strong>{tariffs.length}</strong> total diagnostic rate card entries (184 Laboratory, 173 Radiology)
                 </span>
                 <span>
-                  Press <kbd className="bg-white border border-[#CBD5E1] px-1 py-0.5 text-[10px] font-mono">Enter</kbd> to save price edits
+                  Press <kbd className="bg-white border border-[#CBD5E1] px-1 py-0.5 text-[10px] font-mono font-bold">Enter</kbd> to save price edits
                 </span>
               </div>
             </div>
@@ -1416,7 +1644,7 @@ export default function Administration() {
                             </td>
 
                             <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => {
                                     setEditingDoctor(d)
@@ -3000,11 +3228,16 @@ export default function Administration() {
       {/* 8. Add New Diagnostic Tariff Modal */}
       {showAddTariffModal && (
         <div className="fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#DDE2EC] shadow-xl w-full max-w-md overflow-hidden">
+          <div className="bg-white border border-[#DDE2EC] shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-4 bg-[#F8FAFC] border-b border-[#DDE2EC] flex items-center justify-between">
-              <h3 className="text-base font-bold text-[#0F172A]">
-                Add New Diagnostic Test / Scan
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A]">
+                  Add Investigation to Diagnostic Price Master
+                </h3>
+                <p className="text-[12px] text-[#64748B]">
+                  Configure catalogue test code, modality, anatomy, variant protocol & tariff.
+                </p>
+              </div>
               <button
                 onClick={() => setShowAddTariffModal(false)}
                 className="text-[#64748B] hover:text-black cursor-pointer"
@@ -3013,116 +3246,264 @@ export default function Administration() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateTariff} className="p-6 space-y-4">
-              <div>
-                <label className="block text-[12px] font-bold text-[#334155] mb-1">
-                  Department / Category
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
-                    <input
-                      type="radio"
-                      name="category"
-                      value="Laboratory"
-                      checked={newTariffForm.category === "Laboratory"}
-                      onChange={() =>
-                        setNewTariffForm({
-                          ...newTariffForm,
-                          category: "Laboratory",
-                          subCategory: "Haematology",
-                        })
-                      }
-                    />
-                    Laboratory
+            <form onSubmit={handleCreateTariff} className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Department / Modality */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Department / Modality <span className="text-red-500">*</span>
                   </label>
-                  <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
-                    <input
-                      type="radio"
-                      name="category"
-                      value="Radiology"
-                      checked={newTariffForm.category === "Radiology"}
-                      onChange={() =>
-                        setNewTariffForm({
-                          ...newTariffForm,
-                          category: "Radiology",
-                          subCategory: "X-Ray",
-                        })
+                  <select
+                    value={newTariffForm.department}
+                    onChange={(e) => {
+                      const dept = e.target.value as DiagnosticDepartment
+                      let defRegion = "General"
+                      let defInCharge = "Dr. Sunita Rao (Senior Radiologist)"
+                      let defVariant = "Standard"
+
+                      if (dept === "Laboratory") {
+                        defRegion = "Haematology"
+                        defInCharge = "Dr. Priya Patel (Pathology)"
+                        defVariant = "Standard Lab Profile"
+                      } else if (dept === "X-Ray") {
+                        defRegion = "Chest"
+                        defInCharge = "Dr. Sunita Rao (Senior Radiologist)"
+                        defVariant = "PA View"
+                      } else if (dept === "CT Scan") {
+                        defRegion = "Brain"
+                        defInCharge = "Dr. Sunita Rao (Senior Radiologist)"
+                        defVariant = "Plain"
+                      } else if (dept === "MRI") {
+                        defRegion = "Brain"
+                        defInCharge = "Dr. Sunita Rao (Senior Radiologist)"
+                        defVariant = "Plain Multiplanar"
+                      } else if (dept === "Ultrasound (USG)" || dept === "Doppler") {
+                        defRegion = dept === "Doppler" ? "Cardiovascular" : "Abdomen & Pelvis"
+                        defInCharge = "Dr. Amit Roy (USG In-Charge)"
+                        defVariant = dept === "Doppler" ? "Color Duplex" : "Transabdominal"
+                      } else {
+                        defRegion = dept === "Dental" ? "Dental / Maxillofacial" : dept === "Mammography" ? "Breast" : "Special Procedures"
+                        defInCharge = "Dr. Rajesh Sharma (HOD Radiology)"
+                        defVariant = "Diagnostic Protocol"
                       }
-                    />
-                    Radiology
+
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        department: dept,
+                        modality: dept === "Laboratory" ? "Laboratory" : dept,
+                        bodyRegion: defRegion,
+                        subCategory: defRegion,
+                        responsibleInCharge: defInCharge,
+                        variantProtocol: defVariant,
+                        reportTemplate: `Approved ${dept} Template`,
+                      })
+                    }}
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] font-semibold focus:outline-none focus:border-[#1B4FD8] cursor-pointer"
+                  >
+                    <option value="Laboratory">Laboratory</option>
+                    {RADIOLOGY_MODALITIES.map((mod) => (
+                      <option key={mod} value={mod}>
+                        Radiology: {mod}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Test Code <span className="text-red-500">*</span>
                   </label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. CT-BRAIN-PLAIN or XR-CHEST-PA"
+                    value={newTariffForm.code}
+                    onChange={(e) =>
+                      setNewTariffForm({ ...newTariffForm, code: e.target.value.toUpperCase() })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] font-mono font-bold focus:outline-none focus:border-[#1B4FD8]"
+                  />
                 </div>
               </div>
 
+              {/* Examination Name */}
               <div>
                 <label className="block text-[12px] font-bold text-[#334155] mb-1">
-                  Test / Scan Name <span className="text-red-500">*</span>
+                  Examination / Investigation Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   required
                   type="text"
-                  placeholder="e.g. HIGH RESOLUTION CT CHEST"
+                  placeholder="e.g. CT Scan Brain Plain"
                   value={newTariffForm.name}
-                  onChange={(e) =>
-                    setNewTariffForm({ ...newTariffForm, name: e.target.value })
-                  }
-                  className="w-full bg-white border border-[#DDE2EC] px-3.5 py-2 text-[13px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
+                  onChange={(e) => {
+                    const name = e.target.value
+                    setNewTariffForm({
+                      ...newTariffForm,
+                      name,
+                      reportTemplate: `Approved ${name || "Examination"} Template`,
+                    })
+                  }}
+                  className="w-full bg-white border border-[#DDE2EC] px-3.5 py-2 text-[13px] text-[#0F172A] font-bold focus:outline-none focus:border-[#1B4FD8]"
                 />
               </div>
 
+              {/* Body Region & Variant Protocol */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[12px] font-bold text-[#334155] mb-1">
-                    Test Code (Optional)
+                    Body Region
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. LAB-185 or RAD-016"
-                    value={newTariffForm.code}
+                    placeholder="e.g. Brain, Chest, Spine, Abdomen"
+                    value={newTariffForm.bodyRegion}
                     onChange={(e) =>
-                      setNewTariffForm({ ...newTariffForm, code: e.target.value })
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        bodyRegion: e.target.value,
+                        subCategory: e.target.value,
+                      })
                     }
-                    className="w-full bg-white border border-[#DDE2EC] px-3.5 py-2 text-[13px] text-[#0F172A] font-mono focus:outline-none focus:border-[#1B4FD8]"
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[12px] font-bold text-[#334155] mb-1">
-                    Sub-Category
+                    Variant / Protocol
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Biochemistry, CT Scan"
-                    value={newTariffForm.subCategory}
+                    placeholder="e.g. Plain, Contrast, PA View"
+                    value={newTariffForm.variantProtocol}
                     onChange={(e) =>
                       setNewTariffForm({
                         ...newTariffForm,
-                        subCategory: e.target.value,
+                        variantProtocol: e.target.value,
                       })
                     }
-                    className="w-full bg-white border border-[#DDE2EC] px-3.5 py-2 text-[13px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[12px] font-bold text-[#334155] mb-1">
-                  Price / Amount (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  placeholder="e.g. 1500"
-                  value={newTariffForm.price}
-                  onChange={(e) =>
-                    setNewTariffForm({
-                      ...newTariffForm,
-                      price: e.target.value === "" ? "" : Number(e.target.value),
-                    })
-                  }
-                  className="w-full bg-white border border-[#DDE2EC] px-3.5 py-2 text-[13px] text-[#0F172A] font-mono font-bold focus:outline-none focus:border-[#1B4FD8]"
-                />
+              {/* Hospital Availability & Tariff Reference */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Hospital Availability
+                  </label>
+                  <select
+                    value={newTariffForm.hospitalAvailability}
+                    onChange={(e) =>
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        hospitalAvailability: e.target.value,
+                      })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] font-semibold focus:outline-none focus:border-[#1B4FD8] cursor-pointer"
+                  >
+                    <option value="Enabled">Enabled (In-House)</option>
+                    <option value="Unavailable">Unavailable</option>
+                    <option value="Referred Externally">Referred Externally</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Tariff Reference
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Existing Billing tariff"
+                    value={newTariffForm.tariffReference}
+                    onChange={(e) =>
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        tariffReference: e.target.value,
+                      })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                </div>
+              </div>
+
+              {/* Responsible In-Charge & Report Template */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Responsible In-Charge
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dr. Sunita Rao (Senior Radiologist)"
+                    value={newTariffForm.responsibleInCharge}
+                    onChange={(e) =>
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        responsibleInCharge: e.target.value,
+                      })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Report Template
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Approved CT Brain Template"
+                    value={newTariffForm.reportTemplate}
+                    onChange={(e) =>
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        reportTemplate: e.target.value,
+                      })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                </div>
+              </div>
+
+              {/* Price & Turnaround Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Price (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 2800"
+                    value={newTariffForm.price}
+                    onChange={(e) =>
+                      setNewTariffForm({
+                        ...newTariffForm,
+                        price: e.target.value === "" ? "" : Number(e.target.value),
+                      })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3.5 py-2 text-[13px] text-[#0F172A] font-mono font-bold focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-[#334155] mb-1">
+                    Turnaround Time (TAT)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2 Hours, 4 Hours"
+                    value={newTariffForm.tat}
+                    onChange={(e) =>
+                      setNewTariffForm({ ...newTariffForm, tat: e.target.value })
+                    }
+                    className="w-full bg-white border border-[#DDE2EC] px-3 py-2 text-[12.5px] text-[#0F172A] focus:outline-none focus:border-[#1B4FD8]"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-[#E2E8F0]">
@@ -3137,7 +3518,7 @@ export default function Administration() {
                   type="submit"
                   className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white text-[13px] font-semibold px-5 py-2 border border-blue-600 shadow-2xs cursor-pointer"
                 >
-                  Save Diagnostic Test
+                  Save Catalogue Entry
                 </button>
               </div>
             </form>

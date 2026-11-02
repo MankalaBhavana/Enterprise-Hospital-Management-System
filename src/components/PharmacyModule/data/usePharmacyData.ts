@@ -294,6 +294,12 @@ export function usePharmacyData() {
   }
 
   useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      !window.localStorage.getItem("hospai_pharm_fresh_demo_purged_v10")
+    ) {
+      PharmacyDatabase.clearAllPharmacyData()
+    }
     refresh()
 
     const handleUpdate = () => refresh()

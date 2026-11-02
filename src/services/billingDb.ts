@@ -18,6 +18,7 @@
 
 import { apiFetch } from "../lib/api"
 import { BillingRbacManager } from "./billingRbac"
+import { safeLocalStorageSetItem } from "../utils/storageQuotaManager"
 
 import { db, DBPatient, DBOPEncounter } from "./db";
 import { getDoctorConsultationFee } from "./doctorMaster";
@@ -90,7 +91,6 @@ export interface ClaimRecord {
   gender: "Male" | "Female" | "Other"
 
   phone: string
-
   email?: string
 
   department: DepartmentType
@@ -507,9 +507,15 @@ export interface RadiologyStudyRecord {
 
   ordered: string
 
+  orderDate?: string
+
+  orderedAt?: string
+
+  createdAt?: string
+
   provider: string
 
-  status: "Orders" | "Scheduled" | "In Progress" | "Done" | "Images Ready" | "Reporting" | "Final"
+  status: "Orders" | "Scheduled" | "In Progress" | "Done" | "Images Ready" | "Reporting" | "Final" | "Sent for Reporting"
 
   room: string
 
@@ -520,6 +526,18 @@ export interface RadiologyStudyRecord {
   paidReceiptNo?: string
 
   paidAt?: string
+
+  billingClearedAt?: string
+
+  eligibleAt?: string
+
+  scanningStartedAt?: string
+
+  scanningCompletedAt?: string
+
+  transferredToReportingAt?: string
+
+  reportingQueuedAt?: string
 
   accessionNo?: string
 
@@ -537,7 +555,62 @@ export interface RadiologyStudyRecord {
 
   radiologist?: string
 
-  reportStatus?: "Draft" | "Final"
+  reportStatus?: "Draft" | "Final" | "Finalized" | "Pending Report" | "Submitted for Review" | "Needs Correction"
+
+  workflowStatus?: "READY_TO_START" | "IN_PROGRESS" | "COMPLETED" | "SENT_TO_REPORTING" | "DRAFT" | "SUBMITTED_FOR_REVIEW" | "CORRECTION_REQUIRED" | "FINALIZED"
+
+  sentToReporting?: boolean
+
+  sentToReportingAt?: string
+
+  sentToReportingBy?: string
+
+  scanningStage?: number
+
+  scanStartedAt?: string
+
+  scanCompletedAt?: string
+
+  patientVerified?: boolean
+
+  patientVerifiedAt?: string
+
+  safetyCleared?: boolean
+
+  safetyClearedAt?: string
+
+  safetyChecklist?: {
+    twoPointId: boolean
+    protocolReconciled: boolean
+    pregnancySafety: boolean
+    contrastAllergy: boolean
+    metallicImplant: boolean
+    ivAccess: boolean
+  }
+
+  actualProtocol?: string
+
+  operationalNotes?: string
+
+  submittedForReviewAt?: string
+
+  submittedForReviewBy?: string
+
+  submittedForReviewRole?: string
+
+  returnedForCorrectionAt?: string
+
+  returnedForCorrectionBy?: string
+
+  correctionNotes?: string
+
+  templateId?: string
+
+  templateName?: string
+
+  templateVersion?: number
+
+  fieldValues?: Record<string, any>
 
   dicomImages?: string[]
 
@@ -868,11 +941,478 @@ export const INITIAL_LAB_ORDERS: LabOrderRecord[] = [
 
 export const INITIAL_RAD_STUDIES: RadiologyStudyRecord[] = [
   {
+    id: "RAD-1030",
+    patient: "Rahul Sharma",
+    mrn: "10030",
+    umr: "UMR10030",
+    encounterId: "OP25091430",
+    study: "Chest X-Ray PA View",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:15 AM",
+    provider: "Dr. Neha Patel",
+    status: "In Progress",
+    room: "Suite 3",
+    price: 350,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1030",
+    accessionNo: "RAD-ACC-1030",
+    technician: "Alex Rivera, RT(R)",
+    indication: "Persistent cough, intermittent fever. Rule out acute pulmonary infection or consolidation.",
+    technique: "Standard PA digital chest radiography in standing erect position.",
+  },
+  {
+    id: "RAD-1031",
+    patient: "Priya Reddy",
+    mrn: "10031",
+    umr: "UMR10031",
+    encounterId: "OP25091431",
+    study: "CT Scan — Brain",
+    modality: "CT",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:18 AM",
+    provider: "Dr. Sarah Khan",
+    status: "Orders",
+    room: "CT Suite 1",
+    price: 2800,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1031",
+    accessionNo: "RAD-ACC-1031",
+    indication: "Recurrent severe migraines, unilateral visual aura. Rule out intracranial space occupying lesion.",
+  },
+  {
+    id: "RAD-1032",
+    patient: "Arjun Kumar",
+    mrn: "10032",
+    umr: "UMR10032",
+    encounterId: "OP25091432",
+    study: "MRI — Lumbar Spine",
+    modality: "MR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:20 AM",
+    provider: "Dr. Rajesh Gupta",
+    status: "Orders",
+    room: "MRI Suite",
+    price: 4500,
+    paymentStatus: "Payment Pending",
+    accessionNo: "RAD-ACC-1032",
+    indication: "Chronic L4-L5 radiculopathy with lower extremity paresthesia. Evaluate disc bulge / canal stenosis.",
+  },
+  {
+    id: "RAD-1033",
+    patient: "Sneha Rao",
+    mrn: "10033",
+    umr: "UMR10033",
+    encounterId: "OP25091433",
+    study: "Abdominal Ultrasound",
+    modality: "US",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:22 AM",
+    provider: "Dr. Kavita Rao",
+    status: "Orders",
+    room: "USG Suite",
+    price: 900,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1033",
+    accessionNo: "RAD-ACC-1033",
+    indication: "Epigastric pain, postprandial dyspepsia. Rule out cholelithiasis and fatty liver infiltration.",
+  },
+  {
+    id: "RAD-1034",
+    patient: "Vikram Das",
+    mrn: "10034",
+    umr: "UMR10034",
+    encounterId: "OP25091434",
+    study: "Chest X-Ray AP View",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 08:30 AM",
+    completedAt: "10 Sep 2026 08:50 AM",
+    completedBy: "Alex Rivera, RT(R)",
+    provider: "Dr. Anderson",
+    status: "Images Ready",
+    room: "Suite 1",
+    price: 350,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1034",
+    accessionNo: "RAD-ACC-1034",
+    indication: "Pre-operative fitness assessment. Cardiac silhouette and lung parenchymal clearance.",
+  },
+  {
+    id: "RAD-1035",
+    patient: "Meera Iyer",
+    mrn: "10035",
+    umr: "UMR10035",
+    encounterId: "OP25091435",
+    study: "Contrast CT — Abdomen",
+    modality: "CT",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:25 AM",
+    provider: "Dr. Neha Patel",
+    status: "Orders",
+    room: "CT Suite 2",
+    price: 3600,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1035",
+    accessionNo: "RAD-ACC-1035",
+    indication: "Right iliac fossa tenderness. High resolution triphasic contrast abdominal evaluation.",
+  },
+  {
+    id: "RAD-1036",
+    patient: "Kiran Patel",
+    mrn: "10036",
+    umr: "UMR10036",
+    encounterId: "OP25091436",
+    study: "MRI — Knee (Right)",
+    modality: "MR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:28 AM",
+    provider: "Dr. Rajesh Gupta",
+    status: "Orders",
+    room: "MRI Suite",
+    price: 4200,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1036",
+    accessionNo: "RAD-ACC-1036",
+    indication: "Sports injury, right knee joint locking. Rule out ACL tear and medial meniscus rupture.",
+  },
+  {
+    id: "RAD-1037",
+    patient: "Anjali Verma",
+    mrn: "10037",
+    umr: "UMR10037",
+    encounterId: "OP25091437",
+    study: "USG — Thyroid",
+    modality: "US",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:30 AM",
+    provider: "Dr. Sarah Khan",
+    status: "In Progress",
+    room: "USG Suite",
+    price: 850,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1037",
+    accessionNo: "RAD-ACC-1037",
+    indication: "Anterior neck fullness, palpitations. High resolution thyroid ultrasound & TI-RADS scoring.",
+  },
+  {
+    id: "RAD-1038",
+    patient: "Suresh Babu",
+    mrn: "10038",
+    umr: "UMR10038",
+    encounterId: "OP25091438",
+    study: "Mammography (B/L)",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:32 AM",
+    provider: "Dr. Neha Patel",
+    status: "Orders",
+    room: "Mammo Suite",
+    price: 1800,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1038",
+    accessionNo: "RAD-ACC-1038",
+    indication: "Annual screening bilateral mammography. Digital tomosynthesis evaluation.",
+  },
+  {
+    id: "RAD-1039",
+    patient: "Neha Singh",
+    mrn: "10039",
+    umr: "UMR10039",
+    encounterId: "OP25091439",
+    study: "CT — Chest (HRCT)",
+    modality: "CT",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:35 AM",
+    provider: "Dr. Anderson",
+    status: "Orders",
+    room: "CT Suite 1",
+    price: 3200,
+    paymentStatus: "Payment Pending",
+    accessionNo: "RAD-ACC-1039",
+    indication: "Post-viral exertional dyspnea, dry cough. High resolution CT to assess interstitial lung pattern.",
+  },
+  {
+    id: "RAD-1040",
+    patient: "Ramesh Chandra",
+    mrn: "10040",
+    umr: "UMR10040",
+    encounterId: "OP25091440",
+    study: "X-Ray — Knee (AP/L)",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 08:45 AM",
+    completedAt: "10 Sep 2026 09:05 AM",
+    completedBy: "Alex Rivera, RT(R)",
+    provider: "Dr. Rajesh Gupta",
+    status: "Images Ready",
+    room: "Suite 2",
+    price: 400,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1040",
+    accessionNo: "RAD-ACC-1040",
+    indication: "Bilateral weight-bearing knee joint pain. Kellgren-Lawrence osteoarthritis grading.",
+  },
+  {
+    id: "RAD-1041",
+    patient: "Divya Nair",
+    mrn: "10041",
+    umr: "UMR10041",
+    encounterId: "OP25091441",
+    study: "MRI — Brain",
+    modality: "MR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:40 AM",
+    provider: "Dr. Sarah Khan",
+    status: "Orders",
+    room: "MRI Suite",
+    price: 4500,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1041",
+    accessionNo: "RAD-ACC-1041",
+    indication: "Dizziness, gait instability. Screening MRI brain with diffusion-weighted sequence.",
+  },
+  {
+    id: "RAD-1042",
+    patient: "Amit Saxena",
+    mrn: "10042",
+    umr: "UMR10042",
+    encounterId: "OP25091442",
+    study: "CT Scan — PNS (Coronal)",
+    modality: "CT",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:42 AM",
+    provider: "Dr. Sharma",
+    status: "Orders",
+    room: "CT Suite 2",
+    price: 2400,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1042",
+    accessionNo: "RAD-ACC-1042",
+    indication: "Chronic rhinosinusitis, nasal obstruction. Coronal paranasal sinuses CT.",
+  },
+  {
+    id: "RAD-1043",
+    patient: "Pooja Joshi",
+    mrn: "10043",
+    umr: "UMR10043",
+    encounterId: "OP25091443",
+    study: "USG — Obstetric Scan",
+    modality: "US",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:45 AM",
+    provider: "Dr. Kavita Rao",
+    status: "In Progress",
+    room: "USG Suite",
+    price: 1100,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1043",
+    accessionNo: "RAD-ACC-1043",
+    indication: "Routine second-trimester anomaly scan and fetal biometry evaluation.",
+  },
+  {
+    id: "RAD-1044",
+    patient: "Rajiv Kapoor",
+    mrn: "10044",
+    umr: "UMR10044",
+    encounterId: "OP25091444",
+    study: "MRI — Cervical Spine",
+    modality: "MR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:48 AM",
+    provider: "Dr. Rajesh Gupta",
+    status: "Orders",
+    room: "MRI Suite",
+    price: 4500,
+    paymentStatus: "Payment Pending",
+    accessionNo: "RAD-ACC-1044",
+    indication: "Cervicobrachial neuralgia, hand numbness. Assess C5-C6 / C6-C7 neuroforaminal narrowing.",
+  },
+  {
+    id: "RAD-1045",
+    patient: "Sunita Deshmukh",
+    mrn: "10045",
+    umr: "UMR10045",
+    encounterId: "OP25091445",
+    study: "Digital Mammography Spot View",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:50 AM",
+    provider: "Dr. Neha Patel",
+    status: "Orders",
+    room: "Mammo Suite",
+    price: 1600,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1045",
+    accessionNo: "RAD-ACC-1045",
+    indication: "Focal asymmetry follow-up. Magnification spot compression view.",
+  },
+  {
+    id: "RAD-1046",
+    patient: "Manoj Tiwari",
+    mrn: "10046",
+    umr: "UMR10046",
+    encounterId: "OP25091446",
+    study: "X-Ray — Cervical Spine AP/Lat",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 08:50 AM",
+    completedAt: "10 Sep 2026 09:10 AM",
+    completedBy: "Alex Rivera, RT(R)",
+    provider: "Dr. Sharma",
+    status: "Images Ready",
+    room: "Suite 3",
+    price: 400,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1046",
+    accessionNo: "RAD-ACC-1046",
+    indication: "Neck pain post-whiplash injury. Exclude fracture dislocation.",
+  },
+  {
+    id: "RAD-1047",
+    patient: "Ritu Agarwal",
+    mrn: "10047",
+    umr: "UMR10047",
+    encounterId: "OP25091447",
+    study: "CT — Urography (IVU)",
+    modality: "CT",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:55 AM",
+    provider: "Dr. Anderson",
+    status: "Orders",
+    room: "CT Suite 1",
+    price: 3400,
+    paymentStatus: "Payment Pending",
+    accessionNo: "RAD-ACC-1047",
+    indication: "Painless microscopic hematuria. Multiphase CT urography to evaluate collecting systems.",
+  },
+  {
+    id: "RAD-1048",
+    patient: "Sanjay Mehta",
+    mrn: "10048",
+    umr: "UMR10048",
+    encounterId: "OP25091448",
+    study: "Color Doppler — Lower Limbs Arterial",
+    modality: "US",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:58 AM",
+    provider: "Dr. Kavita Rao",
+    status: "Orders",
+    room: "USG Suite",
+    price: 1800,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1048",
+    accessionNo: "RAD-ACC-1048",
+    indication: "Intermittent claudication, peripheral arterial disease screening.",
+  },
+  {
+    id: "RAD-1049",
+    patient: "Kavita Menon",
+    mrn: "10049",
+    umr: "UMR10049",
+    encounterId: "OP25091449",
+    study: "MRI — Shoulder Joint (Right)",
+    modality: "MR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 10:00 AM",
+    provider: "Dr. Rajesh Gupta",
+    status: "Orders",
+    room: "MRI Suite",
+    price: 4200,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1049",
+    accessionNo: "RAD-ACC-1049",
+    indication: "Right shoulder impingement, restricted abduction. Rule out rotator cuff tear.",
+  },
+  {
+    id: "RAD-1050",
+    patient: "Harish Bhatt",
+    mrn: "10050",
+    umr: "UMR10050",
+    encounterId: "OP25091450",
+    study: "X-Ray — Pelvis with Both Hips (AP)",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:00 AM",
+    completedAt: "10 Sep 2026 09:20 AM",
+    completedBy: "Alex Rivera, RT(R)",
+    provider: "Dr. Rajesh Gupta",
+    status: "Images Ready",
+    room: "Suite 1",
+    price: 450,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1050",
+    accessionNo: "RAD-ACC-1050",
+    indication: "Bilateral groin pain, difficulty ambulating. Avascular necrosis screening.",
+  },
+  {
+    id: "RAD-1051",
+    patient: "Deepa Pillai",
+    mrn: "10051",
+    umr: "UMR10051",
+    encounterId: "OP25091451",
+    study: "CT — Angiography Pulmonary",
+    modality: "CT",
+    priority: "STAT",
+    ordered: "10 Sep 2026 10:05 AM",
+    provider: "Dr. Sarah Khan",
+    status: "Orders",
+    room: "CT Suite 2",
+    price: 4200,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1051",
+    accessionNo: "RAD-ACC-1051",
+    indication: "Acute onset pleuritic chest pain, elevated D-Dimer. Rule out pulmonary embolism.",
+  },
+  {
+    id: "RAD-1052",
+    patient: "Alok Sen",
+    mrn: "10052",
+    umr: "UMR10052",
+    encounterId: "OP25091452",
+    study: "USG — KUB (Kidney, Ureter, Bladder)",
+    modality: "US",
+    priority: "Routine",
+    ordered: "10 Sep 2026 10:10 AM",
+    provider: "Dr. Anderson",
+    status: "Orders",
+    room: "USG Suite",
+    price: 950,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1052",
+    accessionNo: "RAD-ACC-1052",
+    indication: "Left flank pain, microscopic hematuria. Exclude nephrolithiasis and hydronephrosis.",
+  },
+  {
+    id: "RAD-1053",
+    patient: "Rekha Joshi",
+    mrn: "10053",
+    umr: "UMR10053",
+    encounterId: "OP25091453",
+    study: "Chest X-Ray PA View",
+    modality: "XR",
+    priority: "Routine",
+    ordered: "10 Sep 2026 09:05 AM",
+    provider: "Dr. Neha Patel",
+    status: "Done",
+    room: "Suite 1",
+    price: 450,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2026-1053",
+    accessionNo: "RAD-ACC-1053",
+    indication: "Annual executive health screening.",
+    technician: "Alex Rivera, RT(R)",
+  },
+  {
     id: "RAD-201",
 
     patient: "John Smith",
 
     mrn: "100245",
+
+    umr: "P-100245",
+
+    encounterId: "ENC-100245-1",
 
     study: "Chest X-Ray PA/Lateral",
 
@@ -928,6 +1468,42 @@ export const INITIAL_RAD_STUDIES: RadiologyStudyRecord[] = [
     radiologist: "Dr. Laura Kim, MD · Senior Consultant Radiologist",
 
     reportStatus: "Draft",
+  },
+
+  {
+    id: "RAD-HIST-101",
+    patient: "John Smith",
+    mrn: "100245",
+    umr: "P-100245",
+    encounterId: "ENC-100245-2",
+    study: "ECG & Chest Radiography PA",
+    modality: "XR",
+    ordered: "15-Dec-2025 09:40 AM",
+    priority: "Routine",
+    provider: "Dr. Anita Roy",
+    status: "Final",
+    room: "XR-1",
+    price: 150,
+    paymentStatus: "Paid",
+    paidReceiptNo: "RCPT-2025-9901",
+    accessionNo: "RAD-ACC-7721",
+    technician: "Alex Rivera, RT(R)",
+    indication: "Routine cardiovascular checkup, chronic hypertension screening.",
+    technique: "Standard PA digital chest radiography in erect position.",
+    findings: [
+      "Lungs: Clear lung fields bilaterally without active focal consolidation or effusion.",
+      "Cardiovascular: Cardiac silhouette is upper limit of normal with borderline left ventricular contour, consistent with treated systemic hypertension.",
+      "Aorta: Mild ectasia of thoracic aorta.",
+      "Osseous: Normal bony thorax."
+    ],
+    impression: [
+      "1. Borderline cardiomegaly secondary to systemic hypertension, otherwise clear lungs.",
+      "2. No evidence of acute failure or acute parenchymal infiltration."
+    ],
+    radiologist: "Dr. Laura Kim, MD · Senior Consultant Radiologist",
+    reportStatus: "Final",
+    signedAt: "15-Dec-2025 10:15 AM",
+    finalizedAt: "2025-12-15T10:15:00.000Z",
   },
 
   {
@@ -1241,11 +1817,13 @@ export const INITIAL_RAD_STUDIES: RadiologyStudyRecord[] = [
 
     ordered: "Yesterday",
 
+    completedAt: "Yesterday 16:30",
+
     priority: "Elective",
 
     provider: "Dr. Anderson",
 
-    status: "Orders",
+    status: "Done",
 
     room: "XR-1",
 
@@ -4340,6 +4918,15 @@ const INITIAL_HOSPITAL_CLAIMS: ClaimRecord[] = [
 ]
 
 export class BillingDatabase {
+  private static _cachedRadStudies: RadiologyStudyRecord[] | null = null
+  private static _radStudiesCacheTime = 0
+  private static readonly RAD_STUDIES_TTL = 30000
+
+  static invalidateRadiologyStudiesCache(): void {
+    this._cachedRadStudies = null
+    this._radStudiesCacheTime = 0
+  }
+
   private static load<T,>(key: string, fallback: T): T {
     try {
       const raw = localStorage.getItem(key)
@@ -4353,16 +4940,16 @@ export class BillingDatabase {
   }
 
   private static save<T,>(key: string, data: T): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(data))
-
-      this.dispatchUpdate()
-    } catch (e) {
-      console.error("Failed to save to localStorage:", e)
+    const serialized = JSON.stringify(data)
+    const saved = safeLocalStorageSetItem(key, serialized)
+    if (!saved) {
+      console.warn(`[BillingDatabase] Write to localStorage throttled for "${key}". Changes retained in memory.`)
     }
+    this.dispatchUpdate()
   }
 
   static dispatchUpdate(): void {
+    this._cachedRadStudies = null
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(BILLING_UPDATE_EVENT))
     }
@@ -5778,6 +6365,31 @@ export class BillingDatabase {
       } catch {}
     }
 
+    // Sync underlying radiology study records with permanent billing clearance timestamps
+    if (newBalanceDue === 0) {
+      try {
+        const radStudies = this.getRadiologyStudies()
+        let radChanged = false
+        radStudies.forEach((rs) => {
+          const matchInv = rs.invoiceNo && (rs.invoiceNo.toLowerCase() === (claim.invoiceNo || "").toLowerCase() || rs.invoiceNo.toLowerCase() === (claim.id || "").toLowerCase())
+          const matchEnc = rs.encounterId && rs.encounterId.toLowerCase() === (claim.encounterId || "").toLowerCase()
+          const matchUmr = rs.umr && rs.umr.toLowerCase() === (claim.patientId || "").toLowerCase()
+          if ((matchInv || matchEnc || (matchUmr && rs.paymentStatus !== "Paid")) && rs.paymentStatus !== "Paid") {
+            rs.paymentStatus = "Paid"
+            rs.paidReceiptNo = rs.paidReceiptNo || newPayment.receiptNo
+            rs.paidAt = rs.paidAt || newPayment.paymentDate
+            rs.billingClearedAt = rs.billingClearedAt || newPayment.paymentDate
+            rs.eligibleAt = rs.eligibleAt || newPayment.paymentDate
+            radChanged = true
+          }
+        })
+        if (radChanged) {
+          this.save(STORAGE_KEY_RAD_STUDIES, radStudies)
+          this.invalidateRadiologyStudiesCache()
+        }
+      } catch {}
+    }
+
     BillingRbacManager.logEvent({
       action: "PAYMENT_RECORDED",
 
@@ -6566,8 +7178,16 @@ export class BillingDatabase {
               : current.paidReceiptNo,
 
             paidAt: isPaid
-              ? current.paidAt || new Date().toISOString()
+              ? current.paidAt || claim.payments?.[0]?.paymentDate || current.orderedAt || current.createdAt
               : current.paidAt,
+
+            billingClearedAt: isPaid
+              ? current.billingClearedAt || current.paidAt || claim.payments?.[0]?.paymentDate || current.orderedAt || current.createdAt
+              : current.billingClearedAt,
+
+            eligibleAt: isPaid
+              ? current.eligibleAt || current.billingClearedAt || current.paidAt || claim.payments?.[0]?.paymentDate || current.orderedAt || current.createdAt
+              : current.eligibleAt,
 
             invoiceNo: claim.invoiceNo,
 
@@ -6630,7 +7250,11 @@ export class BillingDatabase {
 
             paidReceiptNo: receiptNo,
 
-            paidAt: isPaid ? new Date().toISOString() : undefined,
+            paidAt: isPaid ? claim.payments?.[0]?.paymentDate || new Date().toISOString() : undefined,
+
+            billingClearedAt: isPaid ? claim.payments?.[0]?.paymentDate || new Date().toISOString() : undefined,
+
+            eligibleAt: isPaid ? claim.payments?.[0]?.paymentDate || new Date().toISOString() : undefined,
 
             department: claim.department,
 
@@ -6820,10 +7444,20 @@ export class BillingDatabase {
   }
 
   static getRadiologyStudies(): RadiologyStudyRecord[] {
+    const now = Date.now()
+    if (this._cachedRadStudies && (now - this._radStudiesCacheTime < this.RAD_STUDIES_TTL)) {
+      return this._cachedRadStudies
+    }
     const studies = this.load<RadiologyStudyRecord[]>(
       STORAGE_KEY_RAD_STUDIES,
       INITIAL_RAD_STUDIES,
     )
+
+    INITIAL_RAD_STUDIES.forEach((initS) => {
+      if (!studies.some((s) => s.id === initS.id)) {
+        studies.push(initS)
+      }
+    })
 
     const claims = this.getClaims()
 
@@ -6893,8 +7527,16 @@ export class BillingDatabase {
               : current.paidReceiptNo,
 
             paidAt: isPaid
-              ? current.paidAt || new Date().toISOString()
+              ? current.paidAt || claim.payments?.[0]?.paymentDate || current.orderedAt || current.createdAt
               : current.paidAt,
+
+            billingClearedAt: isPaid
+              ? current.billingClearedAt || current.paidAt || claim.payments?.[0]?.paymentDate || current.orderedAt || current.createdAt
+              : current.billingClearedAt,
+
+            eligibleAt: isPaid
+              ? current.eligibleAt || current.billingClearedAt || current.paidAt || claim.payments?.[0]?.paymentDate || current.orderedAt || current.createdAt
+              : current.eligibleAt,
 
             invoiceNo: claim.invoiceNo,
 
@@ -6947,7 +7589,7 @@ export class BillingDatabase {
                   : "XR-1"
 
           syncedStudies.push({
-            id: `RAD-INV-${(claim.invoiceNo || "").replace(/\D/g, "").slice(-4) || Math.floor(200 + Math.random() * 800)}`,
+            id: `RAD-INV-${(claim.invoiceNo || "").replace(/\D/g, "").slice(-4) || (claim.id || claim.patientId || "101").replace(/\D/g, "").slice(-4) || "1036"}`,
 
             patient: claim.patientName,
 
@@ -6980,9 +7622,13 @@ export class BillingDatabase {
 
             paidReceiptNo: receiptNo,
 
-            paidAt: isPaid ? new Date().toISOString() : undefined,
+            paidAt: isPaid ? claim.payments?.[0]?.paymentDate || new Date().toISOString() : undefined,
 
-            accessionNo: `RAD-ACC-${(claim.invoiceNo || "").replace(/\D/g, "").slice(-4) || Math.floor(1000 + Math.random() * 9000)}`,
+            billingClearedAt: isPaid ? claim.payments?.[0]?.paymentDate || new Date().toISOString() : undefined,
+
+            eligibleAt: isPaid ? claim.payments?.[0]?.paymentDate || new Date().toISOString() : undefined,
+
+            accessionNo: `RAD-ACC-${(claim.invoiceNo || "").replace(/\D/g, "").slice(-4) || (claim.id || claim.patientId || "101").replace(/\D/g, "").slice(-4) || "1036"}`,
 
             department: claim.department,
 
@@ -7079,7 +7725,7 @@ export class BillingDatabase {
                   : "XR-1"
 
           syncedStudies.push({
-            id: `RAD-DCHG-${(dept.id || "").replace(/\D/g, "").slice(-4) || Math.floor(200 + Math.random() * 800)}`,
+            id: `RAD-DCHG-${(dept.id || "").replace(/\D/g, "").slice(-4) || (dept.patientId || "101").replace(/\D/g, "").slice(-4) || "1036"}`,
 
             patient: dept.patientName,
 
@@ -7110,7 +7756,7 @@ export class BillingDatabase {
 
             paymentStatus: "Payment Pending",
 
-            accessionNo: `RAD-ACC-${(dept.id || "").replace(/\D/g, "").slice(-4) || Math.floor(1000 + Math.random() * 9000)}`,
+            accessionNo: `RAD-ACC-${(dept.id || "").replace(/\D/g, "").slice(-4) || (dept.patientId || "101").replace(/\D/g, "").slice(-4) || "1036"}`,
 
             department: dept.department,
 
@@ -7255,11 +7901,12 @@ export class BillingDatabase {
   ): RadiologyStudyRecord {
     const studies = this.getRadiologyStudies()
 
-    let resolvedPatientName = studyData.patient
+    let resolvedPatientName = studyData.patient || ""
     if (
-      resolvedPatientName.startsWith("PAT-") ||
-      resolvedPatientName.startsWith("UMR") ||
-      /^\d+$/.test(resolvedPatientName)
+      resolvedPatientName &&
+      (resolvedPatientName.startsWith("PAT-") ||
+        resolvedPatientName.startsWith("UMR") ||
+        /^\d+$/.test(resolvedPatientName))
     ) {
       try {
         const p =
@@ -7280,6 +7927,7 @@ export class BillingDatabase {
       studyData.invoiceNo ||
       `INV-RAD-${Math.floor(1000 + Math.random() * 9000)}`
 
+    const nowIso = new Date().toISOString()
     const newStudy: RadiologyStudyRecord = {
       ...studyData,
       id,
@@ -7288,7 +7936,9 @@ export class BillingDatabase {
       accessionNo:
         studyData.accessionNo ||
         `RAD-ACC-${Math.floor(1000 + Math.random() * 9000)}`,
-
+      createdAt: (studyData as any).createdAt || nowIso,
+      orderedAt: (studyData as any).orderedAt || nowIso,
+      orderDate: studyData.orderDate || nowIso.split("T")[0],
       ordered:
         studyData.ordered ||
         new Date().toLocaleTimeString([], {
@@ -7303,6 +7953,7 @@ export class BillingDatabase {
     const updated = [newStudy, ...studies.filter((s) => s.id !== id)]
 
     this.save(STORAGE_KEY_RAD_STUDIES, updated)
+    this.invalidateRadiologyStudiesCache()
 
     if (newStudy.paymentStatus === "Payment Pending") {
       this.ensureRadiologyClaim(newStudy)
@@ -7323,17 +7974,67 @@ export class BillingDatabase {
   ): RadiologyStudyRecord {
     const studies = this.getRadiologyStudies()
 
-    const idx = studies.findIndex((s) => s.id === id)
+    const target = (id || "").trim().toLowerCase()
+    let idx = studies.findIndex((s) => s.id && s.id.toLowerCase() === target)
+    if (idx < 0) {
+      idx = studies.findIndex(
+        (s) =>
+          (s.accessionNo && s.accessionNo.toLowerCase() === target) ||
+          (s.invoiceNo && s.invoiceNo.toLowerCase() === target) ||
+          (s.umr && s.umr.toLowerCase() === target) ||
+          (s.mrn && s.mrn.toLowerCase() === target),
+      )
+    }
 
-    if (idx < 0) throw new Error("Radiology study not found")
+    if (idx < 0) {
+      // Find from initial studies or recover study so update never crashes
+      const initialMatch = INITIAL_RAD_STUDIES.find(
+        (s) =>
+          (s.id && s.id.toLowerCase() === target) ||
+          (s.accessionNo && s.accessionNo.toLowerCase() === target) ||
+          (s.invoiceNo && s.invoiceNo.toLowerCase() === target) ||
+          (s.umr && s.umr.toLowerCase() === target),
+      )
+      const baseRecord = initialMatch || {
+        id,
+        patient: updates.patient || "Patient",
+        mrn: updates.mrn || "MRN-1001",
+        study: updates.study || "Diagnostic Imaging Study",
+        modality: updates.modality || "XR",
+        priority: updates.priority || "Routine",
+        ordered:
+          updates.ordered ||
+          new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        provider: updates.provider || "Attending Physician",
+        status: updates.status || "In Progress",
+        price: updates.price || 500,
+      }
+      const newRecord = { ...baseRecord, ...updates, id: baseRecord.id || id }
+      const updatedList = [newRecord, ...studies]
+      this.save(STORAGE_KEY_RAD_STUDIES, updatedList)
+      this.invalidateRadiologyStudiesCache()
+      this.emitUpdate()
+      try {
+        new BroadcastChannel("hospai_rad_channel").postMessage("changed")
+      } catch {}
+      return newRecord
+    }
 
     const updated = { ...studies[idx], ...updates }
 
     studies[idx] = updated
 
     this.save(STORAGE_KEY_RAD_STUDIES, studies)
+    this.invalidateRadiologyStudiesCache()
 
     this.emitUpdate()
+
+    try {
+      new BroadcastChannel("hospai_rad_channel").postMessage("changed")
+    } catch {}
 
     return updated
   }
@@ -7342,8 +8043,11 @@ export class BillingDatabase {
     const studies = this.getRadiologyStudies().filter((s) => s.id !== id)
 
     this.save(STORAGE_KEY_RAD_STUDIES, studies)
-
+    this.invalidateRadiologyStudiesCache()
     this.emitUpdate()
+    try {
+      new BroadcastChannel("hospai_rad_channel").postMessage("changed")
+    } catch {}
   }
 
   // ── EMERGENCY DEPARTMENT DISCHARGE / BED TRANSFER FINANCIAL CLEARANCE ──────
