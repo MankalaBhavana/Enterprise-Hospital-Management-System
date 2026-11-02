@@ -48,105 +48,101 @@ export default function InventoryLedger({ onNavigate }: InventoryLedgerProps) {
   const [stockStatusFilter, setStockStatusFilter] = useState<"All" | "InStock" | "LowStock" | "OutOfStock">("All")
   const [formFilter, setFormFilter] = useState("All")
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
-  // Build movement ledger data
-  const ledgerData: any[] = []
-  const handledBatches = new Set<string>()
-  const handledBills = new Set<string>()
-
-  stockTransactions.forEach((tx) => {
-    handledBatches.add(tx.batchId)
-    if (tx.billId) handledBills.add(tx.billId)
-
-    const med = medicines.find((m) => m.id === tx.medicineId)
-    let typeName: string = tx.transactionType
-    if (typeName === "PURCHASE_RECEIVED") typeName = "Purchase"
-    if (typeName === "DISPENSED") typeName = "Sale"
-    if (typeName === "RETURNED") typeName = "Return"
-    if (typeName === "WRITE_OFF") typeName = "Write-Off"
-    if (typeName === "SUPPLIER_RETURN") typeName = "Return"
-
-    const isIn =
-      ["PURCHASE_RECEIVED", "RETURNED", "TRANSFER_IN", "ADJUSTMENT"].includes(
-        tx.transactionType,
-      ) &&
-      (tx.transactionType !== "ADJUSTMENT" || tx.quantity > 0)
-    const isOut =
-      ["DISPENSED", "EXPIRED", "DAMAGED", "TRANSFER_OUT", "WRITE_OFF", "SUPPLIER_RETURN"].includes(
-        tx.transactionType,
-      ) ||
-      (tx.transactionType === "ADJUSTMENT" && tx.quantity < 0)
-
-    const targetBatch = batches.find(
-      (b) => b.id === tx.batchId || b.batchNumber === tx.batchId,
-    )
-    const batchDisplay = targetBatch ? targetBatch.batchNumber : tx.batchId
-
-    ledgerData.push({
-      date: new Date(tx.date).toLocaleString(),
-      ref:
-        tx.billId || tx.reason?.split(":")[1]?.trim() || tx.id.substring(0, 8),
-      medicine: med ? med.name : (targetBatch?.medicineId ? (medicines.find(m => m.id === targetBatch.medicineId)?.name || "Medicine") : "Medicine"),
-      batch: batchDisplay,
-      type: typeName,
-      in: isIn ? Math.abs(tx.quantity) : 0,
-      out: isOut ? Math.abs(tx.quantity) : 0,
-      user: tx.userId || "Pharmacist",
+  // Memoized movement ledger with O(1) indexed lookups
+  const ledgerData = useMemo(() => {
+    const medMap = new Map(medicines.map((m) => [m.id, m]))
+    const batchMap = new Map()
+    batches.forEach((b) => {
+      batchMap.set(b.id, b)
+      batchMap.set(b.batchNumber, b)
     })
-  })
 
-  // Ensure all stocked batches have their initial GRN / Opening Stock logged in the ledger
-  // Avoid duplicating batches that already have an explicit transaction record
-  batches.forEach((b) => {
-    if (handledBatches.has(b.id) || handledBatches.has(b.batchNumber)) return
-    handledBatches.add(b.id)
-    handledBatches.add(b.batchNumber)
+    const list: any[] = []
+    const handledBatches = new Set<string>()
+    const handledBills = new Set<string>()
 
-    const med = medicines.find((m) => m.id === b.medicineId)
-    ledgerData.push({
-      date: new Date(b.createdAt || new Date()).toLocaleString(),
-      ref: b.grnId || "INIT_STOCK",
-      medicine: med ? med.name : "Medicine",
-      batch: b.batchNumber,
-      type: "Purchase",
-      in: b.quantity || b.availableQuantity || 0,
-      out: 0,
-      user: "Pharmacist",
-    })
-  })
+    stockTransactions.forEach((tx) => {
+      handledBatches.add(tx.batchId)
+      if (tx.billId) handledBills.add(tx.billId)
 
-  // Synthesize legacy data for bills that have no transaction
-  bills.forEach((bill) => {
-    if (bill.isModifiedReturnBill || bill.billNumber?.startsWith("MOD-")) return
-    if (!handledBills.has(bill.id) && !handledBills.has(bill.billNumber)) {
-      bill.items.forEach((item) => {
-        ledgerData.push({
-          date: new Date(bill.createdAt).toLocaleString(),
-          ref: bill.billNumber || bill.id,
-          medicine: item.medicineName,
-          batch: item.batchNumber,
-          type: "Sale",
-          in: 0,
-          out: item.quantity,
-          user: bill.pharmacistId || bill.createdBy || "Pharmacist",
-        })
+      const med = medMap.get(tx.medicineId)
+      let typeName: string = tx.transactionType
+      if (typeName === "PURCHASE_RECEIVED") typeName = "Purchase"
+      if (typeName === "DISPENSED") typeName = "Sale"
+      if (typeName === "RETURNED") typeName = "Return"
+      if (typeName === "WRITE_OFF") typeName = "Write-Off"
+      if (typeName === "SUPPLIER_RETURN") typeName = "Return"
+
+      const isIn =
+        ["PURCHASE_RECEIVED", "RETURNED", "TRANSFER_IN", "ADJUSTMENT"].includes(
+          tx.transactionType,
+        ) &&
+        (tx.transactionType !== "ADJUSTMENT" || tx.quantity > 0)
+      const isOut =
+        ["DISPENSED", "EXPIRED", "DAMAGED", "TRANSFER_OUT", "WRITE_OFF", "SUPPLIER_RETURN"].includes(
+          tx.transactionType,
+        ) ||
+        (tx.transactionType === "ADJUSTMENT" && tx.quantity < 0)
+
+      const targetBatch = batchMap.get(tx.batchId)
+      const batchDisplay = targetBatch ? targetBatch.batchNumber : tx.batchId
+
+      list.push({
+        date: new Date(tx.date).toLocaleString(),
+        ref:
+          tx.billId || tx.reason?.split(":")[1]?.trim() || tx.id.substring(0, 8),
+        medicine: med ? med.name : (targetBatch?.medicineId ? (medMap.get(targetBatch.medicineId)?.name || "Medicine") : "Medicine"),
+        batch: batchDisplay,
+        type: typeName,
+        in: isIn ? Math.abs(tx.quantity) : 0,
+        out: isOut ? Math.abs(tx.quantity) : 0,
+        user: tx.userId || "Pharmacist",
       })
-    }
-  })
+    })
 
-  // Sort by date descending
-  ledgerData.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-  )
+    // Ensure all stocked batches have their initial GRN / Opening Stock logged
+    batches.forEach((b) => {
+      if (handledBatches.has(b.id) || handledBatches.has(b.batchNumber)) return
+      handledBatches.add(b.id)
+      handledBatches.add(b.batchNumber)
+
+      const med = medMap.get(b.medicineId)
+      list.push({
+        date: new Date(b.createdAt || new Date()).toLocaleString(),
+        ref: b.grnId || "INIT_STOCK",
+        medicine: med ? med.name : "Medicine",
+        batch: b.batchNumber,
+        type: "Purchase",
+        in: b.quantity || b.availableQuantity || 0,
+        out: 0,
+        user: "Pharmacist",
+      })
+    })
+
+    // Synthesize legacy data for bills that have no transaction
+    bills.forEach((bill) => {
+      if (bill.isModifiedReturnBill || bill.billNumber?.startsWith("MOD-")) return
+      if (!handledBills.has(bill.id) && !handledBills.has(bill.billNumber)) {
+        bill.items.forEach((item) => {
+          list.push({
+            date: new Date(bill.createdAt).toLocaleString(),
+            ref: bill.billNumber || bill.id,
+            medicine: item.medicineName,
+            batch: item.batchNumber,
+            type: "Sale",
+            in: 0,
+            out: item.quantity,
+            user: bill.pharmacistId || bill.createdBy || "Pharmacist",
+          })
+        })
+      }
+    })
+
+    // Sort by date descending
+    return list.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    )
+  }, [stockTransactions, medicines, batches, bills])
 
   const types = [
     "All",
