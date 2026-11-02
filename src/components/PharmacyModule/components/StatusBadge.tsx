@@ -39,19 +39,20 @@ const configs: Record<string, {
 }
 
 interface StatusBadgeProps {
-  status: string
+  status?: string | null
   size?: "sm" | "md"
 }
 
-export default function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
-  const cfg = configs[status] ?? {
+export default function StatusBadge({ status = "active", size = "md" }: StatusBadgeProps) {
+  const cleanStatus = typeof status === "string" && status.trim() ? status.trim().toLowerCase() : "active"
+  const cfg = configs[cleanStatus] ?? {
     bg: "#F5F7FA",
     color: "#64748B",
     dot: "#94A3B8",
   }
   const label =
     cfg.label ??
-    status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ")
+    (cleanStatus.charAt(0).toUpperCase() + cleanStatus.slice(1).replace(/_/g, " "))
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded font-medium whitespace-nowrap"

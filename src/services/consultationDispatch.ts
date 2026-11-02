@@ -200,6 +200,12 @@ export function dispatchConsultation(
         department: encounter.dept || doctor.specialty,
         diagnosis: record.diagnosis || encounter.diagnosis,
         date: new Date().toISOString().split("T")[0],
+        arrivalTime: new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        }),
         // A sheet that came in as an image was digitised by the AI split, so the
         // pharmacist is looking at machine-read text and should verify it against
         // the original -- which is what the OCR source type means in that queue.

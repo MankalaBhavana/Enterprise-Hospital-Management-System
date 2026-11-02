@@ -72,11 +72,21 @@ export default function ImportMedicinesModal({
 
   if (!isOpen) return null
 
-  // Clean CSV text line by line handling quotes
+  // Clean CSV text line by line handling quotes, commas, semicolons, and tabs
   const parseCSVLines = (text: string): string[][] => {
     // Remove BOM if present
     const cleanText = text.replace(/^\uFEFF/, "")
     const lines = cleanText.split(/\r?\n/).filter((line) => line.trim().length > 0)
+    if (lines.length === 0) return []
+
+    // Auto-detect delimiter from first non-empty line
+    const firstLine = lines[0]
+    let delimiter = ","
+    const commaCount = (firstLine.match(/,/g) || []).length
+    const semiCount = (firstLine.match(/;/g) || []).length
+    const tabCount = (firstLine.match(/\t/g) || []).length
+    if (semiCount > commaCount && semiCount > tabCount) delimiter = ";"
+    else if (tabCount > commaCount && tabCount > semiCount) delimiter = "\t"
     
     return lines.map((line) => {
       const row: string[] = []
@@ -92,7 +102,7 @@ export default function ImportMedicinesModal({
           } else {
             insideQuote = !insideQuote
           }
-        } else if (char === "," && !insideQuote) {
+        } else if (char === delimiter && !insideQuote) {
           row.push(currentVal.trim())
           currentVal = ""
         } else {
@@ -441,11 +451,16 @@ export default function ImportMedicinesModal({
         ? row[hsnIdx] 
         : (isPositional && row[6] ? row[6] : "3004 039")).trim()
 
-      const rawMrp = mrpIdx !== -1 ? parseNum(row[mrpIdx]) : (isPositional ? parseNum(row[7]) : 100)
-      const mrp = isNaN(rawMrp) || rawMrp <= 0 ? 100 : rawMrp
+      const rawPurchase = purchaseIdx !== -1 ? parseNum(row[purchaseIdx]) : (isPositional ? parseNum(row[8]) : NaN)
+      const rawMrp = mrpIdx !== -1 ? parseNum(row[mrpIdx]) : (isPositional ? parseNum(row[7]) : NaN)
 
-      const rawPurchase = purchaseIdx !== -1 ? parseNum(row[purchaseIdx]) : (isPositional ? parseNum(row[8]) : mrp * 0.75)
-      const purchasePrice = isNaN(rawPurchase) ? +(mrp * 0.75).toFixed(2) : rawPurchase
+      const purchasePrice = !isNaN(rawPurchase) && rawPurchase > 0 
+        ? rawPurchase 
+        : (!isNaN(rawMrp) && rawMrp > 0 ? +(rawMrp * 0.75).toFixed(2) : 75)
+
+      const mrp = !isNaN(rawMrp) && rawMrp > 0
+        ? rawMrp
+        : +(purchasePrice * 1.33).toFixed(2)
 
       const rawDis = disIdx !== -1 ? parseNum(row[disIdx]) : (isPositional ? parseNum(row[9]) : 0)
       const discount = isNaN(rawDis) ? 0 : rawDis
@@ -474,8 +489,7 @@ export default function ImportMedicinesModal({
       }
 
       const errors: string[] = []
-      if (!name) errors.push("Medicine name required")
-      if (mrp <= 0) errors.push("MRP must be > 0")
+      if (!name || name.trim().length === 0) errors.push("Medicine name required")
 
       // Dynamically resolve formulation type (Tablet, Capsule, Injection, Syrup, etc.)
       let resolvedForm = "TABLET"

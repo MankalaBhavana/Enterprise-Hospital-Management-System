@@ -85,17 +85,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     new Date().toISOString().split("T")[0],
   )
 
-  // Real-time synchronization across pharmacy operations (sales, returns, inventory)
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
   // Dynamically generate chart data ending on selectedDate (7 days for weekly, 30 days for monthly)
   const numDays = chartView === "monthly" ? 30 : 7
   const chartDays = Array.from({ length: numDays }).map((_, i) => {
@@ -315,17 +304,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="px-3 py-1.5 rounded-md text-xs font-medium border border-[#DDE2EC] bg-white text-[#334155] focus:border-[#1B4FD8] focus:outline-none"
             />
-            <button
-              onClick={() => {
-                PharmacyDatabase.seedHospitalTestData(true)
-                refresh()
-                toast.success("Pharmacy catalog, batches & prescriptions refreshed!")
-              }}
-              className="px-3 py-1.5 rounded-md text-xs font-medium border border-[#DDE2EC] bg-white text-[#0F766E] hover:bg-emerald-50 flex items-center gap-1.5 transition-colors"
-              title="Reset or re-populate hospital formulary, batches, and demo prescriptions"
-            >
-              <RefreshCcw size={14} /> Re-seed Data
-            </button>
             <button
               onClick={() => onNavigate("dispensing")}
               className="px-3.5 py-1.5 rounded-md text-white text-xs font-medium flex items-center gap-1.5 bg-[#1B4FD8] hover:bg-[#1541B0] shadow-2xs transition-colors"
