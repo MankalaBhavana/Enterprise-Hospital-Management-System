@@ -4852,6 +4852,22 @@ export class ErDatabase {
 
     this.save(ER_STORAGE_KEY_PATIENTS, patients)
 
+    try {
+      const corePat = db.getPatientByUmr(newPatient.patient_id)
+      if (!corePat) {
+        db.addPatient({
+          umr: newPatient.patient_id,
+          name: `${newPatient.name} ${newPatient.last_name}`.trim(),
+          age: newPatient.age,
+          sex: (newPatient.gender?.toLowerCase() === "female" ? "Female" : "Male") as any,
+          gender: newPatient.gender,
+          phone: newPatient.phone,
+          address: newPatient.address || "",
+          bloodGroup: newPatient.blood_group || "O+",
+        })
+      }
+    } catch {}
+
     return newPatient
   }
 

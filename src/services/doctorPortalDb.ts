@@ -697,7 +697,7 @@ export class DoctorPortalDatabase {
           new Date(a.timestamps?.arrival || a.registrationTime).getTime(),
       )
     const currentVisit = currentEncounterId
-      ? visits.find((v) => v.id === currentEncounterId)
+      ? (visits.find((v) => v.id === currentEncounterId) || db.getEncounterById(currentEncounterId))
       : visits[0]
     const previousVisits = visits.filter((v) => v.id !== currentVisit?.id)
 
