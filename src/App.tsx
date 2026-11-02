@@ -126,6 +126,7 @@ import PatientExperience from "./components/PatientExperience"
 import PatientMessages from "./components/messaging/PatientMessages"
 
 import HRMS from "./components/HRMS"
+import HrWorkspace from "./components/hr/HrWorkspace"
 import { HrmsDatabase } from "./services/hrmsDb"
 
 import Employees from "./components/Employees"
@@ -3224,9 +3225,10 @@ export default function App() {
               {module === "readmission" && (
                 <Readmission setNotice={setNotice} />
               )}
-              {(module === "hrms" || module === "employees" || module === "scheduling") && (
-                <HRMS onNavigate={(m) => setModule(m as any)} />
+              {(module === "hrms" || module === "employees") && (
+                <HrWorkspace legacy={<HRMS onNavigate={(m) => setModule(m as any)} />} />
               )}
+              {module === "scheduling" && <HRMS onNavigate={(m) => setModule(m as any)} />}
               {module === "ocr" && <SmartOCR setNotice={setNotice} />}
               {ocrMounted && (
                 <div

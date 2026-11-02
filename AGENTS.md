@@ -392,6 +392,24 @@ Reception gets view + capture; doctors get the clinical side.
 
 The backend has no insurance service yet; the engine is localStorage-backed like the rest of the frontend.
 
+## HR & Staff (rebuild in progress)
+
+**HR & Staff** now opens [src/components/hr/HrWorkspace.tsx](src/components/hr/HrWorkspace.tsx), backed
+by a new FastAPI service, `keppler-backend/hr-api/` (own `hr-postgres` DB with tenant RLS, Celery
+`hr-worker`, gateway routes `/api/v1/hr` and `/api/v1/attendance`). Its README is the reference:
+API inventory, eSSL setup, env vars, tests, rollback. Phase 1 of 6 is done: organization, employee
+master, eSSL integration, biometric mapping, raw punch ledger, live attendance (SSE), dashboard.
+
+- Areas not yet rebuilt (shifts, leave, payroll, compliance) still run on the old
+  [HRMS.tsx](src/components/HRMS.tsx) and Node server (`server/`, port 8011), reachable as
+  "Previous HR screens" inside the workspace; `scheduling` still opens HRMS directly. Their records
+  are not synchronised with the new service. Remove each as its phase replaces it.
+- The client is [src/services/hr/client.ts](src/services/hr/client.ts), **not** `apiFetch`: the
+  offline mock would show invented headcount/attendance.
+- The eSSL `GetTransactionsLog` contract comes from community sources and has not run against a
+  real server; the adapter only calls operations the server's WSDL declares.
+- The old Node HR endpoints (`/hms-api/api/hr/*`) return 401 on every app load (pre-existing).
+
 ## Project Structure
 
 This is the canonical project structure. Start with task-relevant files below. Only follow imports or inspect other files when required, when a documented path is missing, or when the repository contradicts this guide.
