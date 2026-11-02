@@ -1,5 +1,5 @@
 import { usePharmacyData } from "../data/usePharmacyData"
-import { Fragment, useState, useEffect } from "react"
+import { Fragment, useState, useEffect, useMemo } from "react"
 import {
   Search,
   Download,
@@ -32,16 +32,6 @@ export default function AuditLog({ onNavigate }: AuditLogProps) {
   const [search, setSearch] = useState("")
   const [moduleFilter, setModuleFilter] = useState("All")
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
 
@@ -54,15 +44,18 @@ export default function AuditLog({ onNavigate }: AuditLogProps) {
     "Medicine",
     "User",
   ]
-  const filtered = auditLogs.filter((log) => {
-    const matchSearch =
-      !search ||
-      log.user.toLowerCase().includes(search.toLowerCase()) ||
-      log.record.includes(search) ||
-      log.action.toLowerCase().includes(search.toLowerCase())
-    const matchModule = moduleFilter === "All" || log.module === moduleFilter
-    return matchSearch && matchModule
-  })
+  const filtered = useMemo(() => {
+    return auditLogs.filter((log) => {
+      const matchSearch =
+        !search ||
+        log.user.toLowerCase().includes(search.toLowerCase()) ||
+        log.module.toLowerCase().includes(search.toLowerCase()) ||
+        log.record.toLowerCase().includes(search.toLowerCase()) ||
+        log.details.toLowerCase().includes(search.toLowerCase())
+      const matchModule = moduleFilter === "All" || log.module === moduleFilter
+      return matchSearch && matchModule
+    })
+  }, [auditLogs, search, moduleFilter])
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
   const paginatedLogs = filtered.slice(

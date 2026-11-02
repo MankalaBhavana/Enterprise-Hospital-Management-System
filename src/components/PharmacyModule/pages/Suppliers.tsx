@@ -43,15 +43,15 @@ export default function Suppliers({ onNavigate }: SuppliersProps) {
   const handleEdit = (s: typeof suppliers[0]) => {
     setEditingId(s.id)
     setForm({
-      supplierName: s.supplierName || s.name,
-      contactInformation: s.contactInformation || s.contact,
+      supplierName: s.supplierName || s.name || "",
+      contactInformation: s.contactInformation || s.contact || "",
       phone: s.phone || "",
       email: s.email || "",
-      address: s.address,
-      gstInformation: s.gstInformation || s.gstin,
+      address: s.address || "",
+      gstInformation: s.gstInformation || s.gstin || "",
       licenseDetails: s.licenseDetails || s.drugLicense || "",
-      paymentTerms: s.paymentTerms,
-      status: s.status as any,
+      paymentTerms: s.paymentTerms || "Net 30",
+      status: (s.status as any) || "Active",
     })
     setShowModal(true)
   }

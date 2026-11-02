@@ -56,22 +56,22 @@ export interface AppSupplier {
   id: string
   supplierName: string
   name?: string
-  contactInformation: string
+  contactInformation?: string
   contactPerson?: string
+  contact?: string
   phone?: string
   phoneNumber?: string
   email?: string
-  address: string
-  gstInformation: string
+  address?: string
+  gstInformation?: string
   gstNumber?: string
-  licenseDetails?: string
-  paymentTerms: string
-  status: "Active" | "Inactive"
-  activeStatus?: "Active" | "Inactive"
-  rating?: number
-  createdAt: string
   gstin?: string
-  contact?: string
+  licenseDetails?: string
+  paymentTerms?: string
+  status?: "Active" | "Inactive"
+  activeStatus?: string
+  rating?: number
+  createdAt?: string
 }
 
 export interface AppMedicine {
@@ -86,6 +86,7 @@ export interface AppMedicine {
   batchNumber?: string
   expiryDate?: string
   stock?: number
+  currentStock?: number
   hsnCode?: string
   packing?: string
   categoryId?: string
@@ -522,41 +523,60 @@ export function cleanupStorageQuota(): void {
   if (typeof window === "undefined") return
 
   try {
-    const keysToRemove: string[] = []
+    const CRITICAL_KEYS = new Set([
+      CATEGORIES_KEY,
+      SUPPLIERS_KEY,
+      MEDICINES_KEY,
+      BATCHES_KEY,
+      POS_KEY,
+      GRNS_KEY,
+      PRESCRIPTIONS_KEY,
+      BILLS_KEY,
+    ])
+
+    const allKeys: { key: string; size: number }[] = []
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i)
       if (!k) continue
-      // Remove legacy pharmacy version keys (v1, v2, v3, or temporary demo/ocr keys)
-      if (
-        (k.startsWith("hospai_pharm_") ||
-          k.startsWith("pharm_") ||
-          k.startsWith("pharmacy_") ||
-          k.startsWith("_v2_pharmacy_")) &&
-        (k.includes("_v1") ||
-          k.includes("_v2") ||
-          k.includes("_v3") ||
-          k.includes("_demo") ||
-          k.includes("temp"))
-      ) {
-        keysToRemove.push(k)
-      }
-      // Remove massive OCR scan caches or base64 preview keys
-      if (
-        k.startsWith("hospai_ocr_") ||
-        k.startsWith("receipt_preview_") ||
-        k.startsWith("temp_image_") ||
-        k.startsWith("temp_pdf_")
-      ) {
-        keysToRemove.push(k)
-      }
-    }
-    keysToRemove.forEach((k) => {
       try {
-        window.localStorage.removeItem(k)
+        const val = window.localStorage.getItem(k) || ""
+        allKeys.push({ key: k, size: val.length })
       } catch {}
+    }
+
+    // 1. Remove obvious bloated temporary, OCR, preview, or legacy keys
+    allKeys.forEach(({ key, size }) => {
+      const isLegacy =
+        (key.startsWith("hospai_pharm_") ||
+          key.startsWith("pharm_") ||
+          key.startsWith("pharmacy_") ||
+          key.startsWith("_v2_pharmacy_")) &&
+        (key.includes("_v1") ||
+          key.includes("_v2") ||
+          key.includes("_v3") ||
+          key.includes("_demo") ||
+          key.includes("temp"))
+
+      const isBloatedTransient =
+        key.startsWith("hospai_ocr_") ||
+        key.startsWith("receipt_preview_") ||
+        key.startsWith("temp_image_") ||
+        key.startsWith("temp_pdf_") ||
+        key.startsWith("pdf_data_") ||
+        key.startsWith("scan_cache_") ||
+        key.includes("base64")
+
+      // Non-critical keys larger than 50KB
+      const isOversizedNonCritical = !CRITICAL_KEYS.has(key) && size > 50000
+
+      if (isLegacy || isBloatedTransient || isOversizedNonCritical) {
+        try {
+          window.localStorage.removeItem(key)
+        } catch {}
+      }
     })
 
-    // Strip massive base64 images from prescriptions (can be 2-5MB each!)
+    // 2. Strip massive base64 images from prescriptions (can be 2-5MB each!)
     try {
       const rxRaw = window.localStorage.getItem(PRESCRIPTIONS_KEY)
       if (rxRaw) {
@@ -576,60 +596,32 @@ export function cleanupStorageQuota(): void {
       }
     } catch {}
 
-    // Trim audit logs to latest 25 entries
+    // 3. Trim non-critical logs and transactions
     try {
       const logsRaw = window.localStorage.getItem(AUDIT_LOGS_KEY)
       if (logsRaw) {
         const logs = JSON.parse(logsRaw)
-        if (Array.isArray(logs) && logs.length > 25) {
-          window.localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(logs.slice(-25)))
+        if (Array.isArray(logs) && logs.length > 20) {
+          window.localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(logs.slice(-20)))
         }
       }
     } catch {}
 
-    
-    // Trim stock transactions to latest 500 entries
     try {
       const txsRaw = window.localStorage.getItem(STOCK_TXS_KEY)
       if (txsRaw) {
         const txs = JSON.parse(txsRaw)
-        if (Array.isArray(txs) && txs.length > 500) {
-          window.localStorage.setItem(STOCK_TXS_KEY, JSON.stringify(txs.slice(-500)))
+        if (Array.isArray(txs) && txs.length > 100) {
+          window.localStorage.setItem(STOCK_TXS_KEY, JSON.stringify(txs.slice(-100)))
         }
       }
     } catch {}
 
-    // Trim notifications to latest 50 entries
+    // 4. Always trim notifications
     try {
-      const notifsRaw = window.localStorage.getItem(NOTIFICATIONS_KEY)
-      if (notifsRaw) {
-        const notifs = JSON.parse(notifsRaw)
-        if (Array.isArray(notifs) && notifs.length > 50) {
-          window.localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifs.slice(0, 50)))
-        }
-      }
-    } catch {
-      try {
-        window.localStorage.removeItem(NOTIFICATIONS_KEY)  
-      } catch {} 
-    } 
-
-    // Trim read/dismissed tracking
-    try {
-      const dRaw = window.localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
-      if (dRaw) {
-        const d = JSON.parse(dRaw)
-        if (Array.isArray(d) && d.length > 50) {
-          window.localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(d.slice(-50)))
-        }
-      }
-      const rRaw = window.localStorage.getItem(READ_NOTIFICATIONS_KEY)
-      if (rRaw) {
-        const r = JSON.parse(rRaw)
-        if (Array.isArray(r) && r.length > 50) {
-          window.localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(r.slice(-50)))
-        }
-      }
+      window.localStorage.removeItem(NOTIFICATIONS_KEY)
+      window.localStorage.removeItem(DISMISSED_NOTIFICATIONS_KEY)
+      window.localStorage.removeItem(READ_NOTIFICATIONS_KEY)
     } catch {}
   } catch (e) {
     console.warn("[PharmacyDb] Error during storage quota cleanup:", e)
@@ -665,54 +657,33 @@ export function safeStorageSetItem(key: string, value: string): void {
     window.localStorage.setItem(key, value)
     return
   } catch (err) {
-    console.warn(`[PharmacyDb] Storage quota exceeded for "${key}". Freeing storage quota...`)
+    // Quota exceeded: If this is an ephemeral notification or audit log, don't stall the system
+    if (
+      key === NOTIFICATIONS_KEY ||
+      key === DISMISSED_NOTIFICATIONS_KEY ||
+      key === READ_NOTIFICATIONS_KEY ||
+      key === AUDIT_LOGS_KEY
+    ) {
+      // Ephemeral keys can stay safely in memory and sessionStorage
+      return
+    }
   }
 
-  // 3. Clean storage quota and retry once
+  // 3. Clean storage quota and retry for critical keys
   try {
     cleanupStorageQuota()
     window.localStorage.setItem(key, value)
     return
   } catch (secondErr) {
-    console.warn(`[PharmacyDb] Deep cleaning transient keys to persist "${key}"...`)
-  }
-
-  // 4. Deep prune transient tables (notifications, audit logs, older bills)
-  try {
-    const keysToRemove = [
-      DISMISSED_NOTIFICATIONS_KEY,
-      READ_NOTIFICATIONS_KEY,
-      NOTIFICATIONS_KEY,
-      AUDIT_LOGS_KEY,
-    ]
-    keysToRemove.forEach((k) => {
-      try { window.localStorage.removeItem(k) } catch {}
-    })
-
-    const billsRaw = window.localStorage.getItem(BILLS_KEY)
-    if (billsRaw) {
-      try {
-        const bills = JSON.parse(billsRaw)
-        if (Array.isArray(bills) && bills.length > 25) {
-          window.localStorage.setItem(BILLS_KEY, JSON.stringify(bills.slice(-25)))
-        }
-      } catch {}
+    // Aggressive prune: purge audit logs and older bills/txs
+    try {
+      window.localStorage.removeItem(AUDIT_LOGS_KEY)
+      window.localStorage.removeItem(STOCK_TXS_KEY)
+      window.localStorage.setItem(key, value)
+      return
+    } catch (thirdErr) {
+      console.warn(`[PharmacyDb] Persisted "${key}" in memory & sessionStorage fallback.`)
     }
-    const txsRaw = window.localStorage.getItem(STOCK_TXS_KEY)
-    if (txsRaw) {
-      try {
-        const txs = JSON.parse(txsRaw)
-        if (Array.isArray(txs) && txs.length > 25) {
-          window.localStorage.setItem(STOCK_TXS_KEY, JSON.stringify(txs.slice(-25)))
-        }
-      } catch {}
-    }
-
-    // Retry setting key
-    window.localStorage.setItem(key, value)
-    return
-  } catch (thirdErr) {
-    console.warn(`[PharmacyDb] Persisted "${key}" in memory & sessionStorage fallback. Kept existing copy.`)
   }
 }
 
@@ -1263,9 +1234,9 @@ export function clearAllPharmacyData(): void {
       safeStorageSetItem(key, "[]")
     })
 
-    // Seed baseline categories and verified suppliers so hospital is ready for real use
-    safeStorageSetItem(CATEGORIES_KEY, JSON.stringify(SEED_CATEGORIES))
-    safeStorageSetItem(SUPPLIERS_KEY, JSON.stringify(SEED_SUPPLIERS))
+    // Baseline categories and clean empty suppliers
+    safeStorageSetItem(CATEGORIES_KEY, "[]")
+    safeStorageSetItem(SUPPLIERS_KEY, "[]")
 
     window.localStorage.removeItem("_v2_pharmacy_dispense_rx")
     window.localStorage.setItem("varma_clean_slate_v6_active", "true")
@@ -1280,11 +1251,12 @@ export function clearAllPharmacyData(): void {
   }
 }
 
-// One-time initialization to guarantee 100% clean formulary (removes any legacy demo records once)
+// One-time initialization to guarantee 100% clean formulary and clean storage quota in all browsers (Chrome & Edge)
 if (typeof window !== "undefined") {
   try {
-    const CLEAN_SLATE_STAMP = "varma_clean_slate_v6_active"
+    const CLEAN_SLATE_STAMP = "varma_storage_clean_v8_active"
     if (window.localStorage.getItem(CLEAN_SLATE_STAMP) !== "true") {
+      cleanupStorageQuota()
       clearAllPharmacyData()
       try {
         window.localStorage.setItem(CLEAN_SLATE_STAMP, "true")
@@ -1759,7 +1731,7 @@ export class PharmacyDatabase {
     // Index existing suppliers
     const supSet = new Set<string>()
     sups.forEach((s) => {
-      const sName = (s.supplierName || s.name || "").toLowerCase().trim()
+      const sName = (s.supplierName || (s as any).name || "").toLowerCase().trim()
       if (sName) supSet.add(sName)
     })
 

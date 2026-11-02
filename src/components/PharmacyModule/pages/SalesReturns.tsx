@@ -41,19 +41,9 @@ export default function SalesReturns({ onNavigate }: SalesReturnsProps) {
   const [processedModifiedBill, setProcessedModifiedBill] = useState<AppPharmacyBill | null>(null);
   const [recentReturns, setRecentReturns] = useState<AppPharmacyReturn[]>(() => PharmacyDatabase.getReturns());
 
-  // Real-time synchronization: listen for sales, returns, and inventory modifications
   useEffect(() => {
-    const handleUpdate = () => {
-      setRecentReturns(PharmacyDatabase.getReturns());
-      refresh();
-    };
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
-    };
-  }, [refresh]);
+    setRecentReturns(PharmacyDatabase.getReturns());
+  }, [bills]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -196,30 +196,21 @@ export default function Reports({ onNavigate }: ReportsProps) {
     }
   }
 
-  // Reactive listener for live updates across all pharmacy modules
-  const [returnsRevision, setReturnsRevision] = useState(0)
-  useEffect(() => {
-    const handleUpdate = () => {
-      setReturnsRevision((v) => v + 1)
-      refresh()
-    }
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
   const handleResetFilters = () => {
     applyPreset("This Month")
     setTableSearch("")
   }
 
-  // Returns data from database (reactive to pharmacy updates)
+  // Returns data from database (reactive to usePharmacyData refresh)
   const allReturns = useMemo(
     () => PharmacyDatabase.getReturns(),
-    [returnsRevision],
+    [bills],
+  )
+
+  // O(1) Medicine Lookup Map to eliminate quadratic nested loops
+  const medMap = useMemo(
+    () => new Map(medicines.map((m) => [m.id, m])),
+    [medicines],
   )
 
   // Filtered Datasets based on Date Range
@@ -393,6 +384,10 @@ export default function Reports({ onNavigate }: ReportsProps) {
   ).length
   const outOfStockCount = medicines.filter((m) => m.stock === 0).length
 
+  const validBatches = useMemo(() => {
+    return batches.filter((b) => medMap.has(b.medicineId))
+  }, [batches, medMap])
+
   const expiryGroups = useMemo(() => {
     const nowMs = Date.now()
     let expired = 0
@@ -400,9 +395,6 @@ export default function Reports({ onNavigate }: ReportsProps) {
     let within60 = 0
     let within90 = 0
 
-    const validBatches = batches.filter((b) =>
-      medicines.some((m) => m.id === b.medicineId),
-    )
     validBatches.forEach((b) => {
       const expMs = new Date(b.expiryDate).getTime()
       const daysLeft = Math.ceil((expMs - nowMs) / (24 * 60 * 60 * 1000))
@@ -419,17 +411,14 @@ export default function Reports({ onNavigate }: ReportsProps) {
       within90,
       expiringSoon: within30 + within60 + within90,
     }
-  }, [batches, medicines])
+  }, [validBatches])
 
   const totalStockValuation = useMemo(() => {
-    const validBatches = batches.filter((b) =>
-      medicines.some((m) => m.id === b.medicineId),
-    )
     return validBatches.reduce((sum, b) => {
       const unitCost = b.purchasePrice || (b.mrp ? b.mrp * 0.7 : 0)
       return sum + b.availableQuantity * unitCost
     }, 0)
-  }, [batches, medicines])
+  }, [validBatches])
 
   const stockByCategory = useMemo(() => {
     const map: Record<string, {
@@ -568,10 +557,9 @@ export default function Reports({ onNavigate }: ReportsProps) {
   // 8. Detailed Batches for Expiry Report
   const detailedExpiryBatches = useMemo(() => {
     const nowMs = Date.now()
-    return batches
-      .filter((b) => medicines.some((m) => m.id === b.medicineId))
+    return validBatches
       .map((b) => {
-        const med = medicines.find((m) => m.id === b.medicineId)
+        const med = medMap.get(b.medicineId)
         const expMs = new Date(b.expiryDate).getTime()
         const daysLeft = Math.ceil((expMs - nowMs) / (24 * 60 * 60 * 1000))
         let status: "expired" | "critical" | "warning" | "valid" = "valid"
@@ -592,7 +580,7 @@ export default function Reports({ onNavigate }: ReportsProps) {
         }
       })
       .sort((a, b) => a.daysLeft - b.daysLeft)
-  }, [batches, medicines])
+  }, [validBatches, medMap])
 
   // 9. Detailed Stock List
   const detailedStockList = useMemo(() => {
@@ -858,7 +846,7 @@ export default function Reports({ onNavigate }: ReportsProps) {
   // 10D. Supplier Returns List & Summary (Procurement returns back to suppliers)
   const rawSupplierReturns = useMemo(
     () => PharmacyDatabase.getSupplierReturns(),
-    [returnsRevision],
+    [bills, purchaseOrders],
   )
 
   const supplierReturnsList = useMemo(() => {

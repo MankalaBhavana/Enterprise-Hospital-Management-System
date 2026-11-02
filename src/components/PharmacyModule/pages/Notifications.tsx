@@ -65,15 +65,7 @@ export default function Notifications({ onNavigate }: NotificationsProps) {
   const { notifications: notifs, refresh } = usePharmacyData()
   const [activeFilter, setActiveFilter] = useState("All")
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
+
 
   const markAll = () => {
     PharmacyDatabase.markAllNotificationsRead(notifs.map((n) => n.id))
