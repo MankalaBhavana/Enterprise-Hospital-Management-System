@@ -1325,8 +1325,8 @@ export default function QueueManagement({
                     onChange={(e) => setTokenSelectedUmr(e.target.value)}
                     className="w-full border border-[#CBD5E1] rounded p-2 text-[12px] bg-white focus:outline-none focus:border-[#1B4FD8]"
                   >
-                    {patients.map((p) => (
-                      <option key={p.umr} value={p.umr}>
+                    {patients.map((p, idx) => (
+                      <option key={`${p.umr}-${idx}`} value={p.umr}>
                         {p.name} · {p.umr} ({p.age} yrs, {p.sex}) · {p.phone}
                       </option>
                     ))}

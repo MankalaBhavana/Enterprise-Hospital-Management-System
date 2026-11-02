@@ -1521,8 +1521,15 @@ class HospitalDatabase {
             !p.name.toLowerCase().includes("bhupathi"),
         )
 
-        if (filtered.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(filtered))
+        const seenUmrs = new Set()
+        const dedupedPatients = filtered.filter((p) => {
+          const u = (p.umr || "").trim().toUpperCase()
+          if (!u || seenUmrs.has(u)) return false
+          seenUmrs.add(u)
+          return true
+        })
+        if (dedupedPatients.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(dedupedPatients))
         }
       }
 
@@ -1674,12 +1681,21 @@ class HospitalDatabase {
           merged = true
         }
       }
-      if (merged) {
+      const seenUmrs = new Set<string>()
+      const uniqueList: DBPatient[] = []
+      for (const p of list) {
+        const u = (p.umr || "").trim().toUpperCase()
+        if (u && !seenUmrs.has(u)) {
+          seenUmrs.add(u)
+          uniqueList.push(p)
+        }
+      }
+      if (uniqueList.length !== list.length || merged) {
         try {
-          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(list))
+          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(uniqueList))
         } catch {}
       }
-      return list
+      return uniqueList
     } catch {
       return INITIAL_SEED_PATIENTS
     }
