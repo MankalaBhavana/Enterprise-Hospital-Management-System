@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { ACTIVE_DOCTORS } from "../services/doctorMaster"
 import { Icon } from "./icons"
-import { db, DBOPEncounter, DBPatient } from "../services/db"
+import { db, DBOPEncounter, DBPatient, DBCallEvent } from "../services/db"
 import {
   notifyAppointmentBooked,
   notifyPatientCalledToNurse,
@@ -118,31 +118,7 @@ export default function QueueManagement({
   } | null>(null)
 
   // Call history for waiting room kiosk display
-  const [callHistory, setCallHistory] = useState<Array<{
-    token: string
-    room: string
-    patientName: string
-    dept: string
-  }>>([
-    {
-      token: "C-OP123",
-      room: "Room 107",
-      patientName: "Rana Dhaggubati",
-      dept: "Cardiology",
-    },
-    {
-      token: "O-OP001",
-      room: "Room 112",
-      patientName: "Alex Turner",
-      dept: "Orthopedics",
-    },
-    {
-      token: "G-OP055",
-      room: "Room 111",
-      patientName: "Suresh Nair",
-      dept: "General Medicine",
-    },
-  ])
+  const [callHistory, setCallHistory] = useState<DBCallEvent[]>([])
 
   // Modals
   const [isIssueTokenOpen, setIsIssueTokenOpen] = useState(false)
@@ -182,6 +158,7 @@ export default function QueueManagement({
       const allPatients = db.getPatients()
       setEncounters(allEncounters)
       setPatients(allPatients)
+      setCallHistory(db.getCallHistory())
 
       // Set initial nowCalling if empty
       const inConsult = allEncounters.find(
@@ -368,6 +345,16 @@ export default function QueueManagement({
 
     db.callToNurseStation(enc.id, "OP Floor Nurse")
     notifyPatientCalledToNurse(enc)
+    db.recordCallEvent({
+      encounterId: enc.id,
+      umr: enc.umr,
+      patientName: enc.patientName,
+      token,
+      dept: enc.dept,
+      room: nurseStation,
+      eventType: "Call Nurse",
+      timestamp: new Date().toISOString(),
+    })
 
     const callObj = {
       token,
@@ -383,10 +370,7 @@ export default function QueueManagement({
 
     setNowCalling(callObj)
 
-    setCallHistory((prev) => [
-      { token, room: nurseStation, patientName: enc.patientName, dept: enc.dept },
-      ...prev.filter((p) => p.token !== token).slice(0, 3),
-    ])
+    setCallHistory(db.getCallHistory())
 
     speakAnnouncement(
       `Token ${token}, patient ${enc.patientName}, please report to the Nurse Station for vitals check`,
@@ -404,15 +388,17 @@ export default function QueueManagement({
     const room = enc.room || "Room 107"
     const doctor = enc.assignedDoctor || "Attending Physician"
 
-    db.updateEncounter(enc.id, {
-      status: "Under Consultation",
-      timestamps: {
-        ...enc.timestamps,
-        consultationStart: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      },
+    // Calling to Doctor sets pre-consultation status and call timestamp, NOT Under Consultation or consultationStart
+    db.callToDoctor(enc.id, "OP Desk")
+    db.recordCallEvent({
+      encounterId: enc.id,
+      umr: enc.umr,
+      patientName: enc.patientName,
+      token,
+      dept: enc.dept,
+      room,
+      eventType: "Call Doctor",
+      timestamp: new Date().toISOString(),
     })
 
     const callObj = {
@@ -428,11 +414,7 @@ export default function QueueManagement({
     }
 
     setNowCalling(callObj)
-
-    setCallHistory((prev) => [
-      { token, room, patientName: enc.patientName, dept: enc.dept },
-      ...prev.filter((p) => p.token !== token).slice(0, 3),
-    ])
+    setCallHistory(db.getCallHistory())
 
     speakAnnouncement(
       `Token ${token}, patient ${enc.patientName}, please proceed to ${room}`,
@@ -580,12 +562,22 @@ export default function QueueManagement({
   const getStatusBadge = (encOrStatus: DBOPEncounter | string) => {
     const status = typeof encOrStatus === "string" ? encOrStatus : encOrStatus.status
     const calledToNurse = typeof encOrStatus !== "string" && encOrStatus.timestamps?.calledToNurse
+    const calledToDoctor = typeof encOrStatus !== "string" && encOrStatus.timestamps?.calledToDoctor
 
-    if (calledToNurse && status !== "Under Consultation" && status !== "Consultation Completed" && status !== "OP Completed") {
+    if (calledToNurse && !calledToDoctor && status !== "Under Consultation" && status !== "Consultation Completed" && status !== "OP Completed") {
       return (
         <span className="bg-teal-100 text-teal-900 border border-teal-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase whitespace-nowrap inline-flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse"></span>
           Called Nurse ({calledToNurse})
+        </span>
+      )
+    }
+
+    if (calledToDoctor && status !== "Under Consultation" && status !== "Consultation Completed" && status !== "OP Completed") {
+      return (
+        <span className="bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-[10px] font-bold px-2 py-0.5 rounded uppercase whitespace-nowrap inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-ping"></span>
+          Calling Doctor ({calledToDoctor})
         </span>
       )
     }
@@ -600,6 +592,7 @@ export default function QueueManagement({
           </span>
         )
       case "Doctor Assigned":
+      case "Awaiting Consultation":
       case "CALLED":
         return (
           <span className="bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-[10px] font-bold px-2 py-0.5 rounded uppercase whitespace-nowrap inline-flex items-center gap-1">
@@ -1186,24 +1179,39 @@ export default function QueueManagement({
                 <div className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">
                   Recently Called
                 </div>
-                {callHistory.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex justify-between items-center bg-slate-800/80 px-2 py-1 rounded-none text-[11px] border border-slate-700/50"
-                  >
-                    <div className="truncate mr-2">
-                      <span className="font-mono font-bold text-sky-300">
-                        {item.token}
-                      </span>
-                      <span className="text-slate-200 ml-1.5 font-medium">
-                        {item.patientName}
+                {callHistory.length === 0 ? (
+                  <div className="text-[11px] text-slate-400 italic py-1">
+                    No recent calls
+                  </div>
+                ) : (
+                  callHistory.slice(0, 5).map((item) => (
+                    <div
+                      key={item.id || item.token}
+                      className="flex justify-between items-center bg-slate-800/80 px-2 py-1 rounded-none text-[11px] border border-slate-700/50"
+                    >
+                      <div className="truncate mr-2 flex items-center gap-1.5">
+                        <span
+                          className={`text-[9px] font-bold px-1 py-0.5 rounded-xs ${
+                            item.eventType === "Call Nurse"
+                              ? "bg-teal-900/60 text-teal-300 border border-teal-700/50"
+                              : "bg-sky-900/60 text-sky-300 border border-sky-700/50"
+                          }`}
+                        >
+                          {item.eventType === "Call Nurse" ? "NURSE" : "DR"}
+                        </span>
+                        <span className="font-mono font-bold text-sky-300">
+                          {item.token}
+                        </span>
+                        <span className="text-slate-200 ml-1 font-medium">
+                          {item.patientName}
+                        </span>
+                      </div>
+                      <span className="font-mono text-emerald-300 font-bold whitespace-nowrap text-[10.5px]">
+                        {item.room}
                       </span>
                     </div>
-                    <span className="font-mono text-emerald-300 font-bold whitespace-nowrap text-[10.5px]">
-                      {item.room}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>

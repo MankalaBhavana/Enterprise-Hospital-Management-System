@@ -453,16 +453,19 @@ export default function DoctorPortal({
 
   const startConsultation = () => {
     if (!selected) return
+    const existingEnc = db.getEncounterById(selected.encounterId)
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     db.updateEncounter(selected.encounterId, {
       status: "Under Consultation",
       timestamps: {
-        ...(db.getEncounterById(selected.encounterId)?.timestamps || {
+        ...(existingEnc?.timestamps || {
           arrival: new Date().toISOString(),
         }),
-        consultationStart: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        // Record consultation start only once at the actual start of consultation
+        consultationStart: existingEnc?.timestamps?.consultationStart || nowTime,
       },
     })
     setTab("voice")
@@ -1732,10 +1735,8 @@ function PatientContextPanel({
             {previousVisits.length === 0 ? (
               // Registered as a returning patient, but nothing earlier is on this
               // system -- say so rather than showing an empty box.
-              <p className="px-4 py-4 text-[12px] text-[#64748B]">
-                Reception registered this patient as a revisit, but no earlier
-                encounter exists on this system. Ask the patient for records
-                from their previous visit.
+              <p className="px-4 py-4 text-[12px] text-[#64748B] italic">
+                No previous OP consultation records are available for this patient.
               </p>
             ) : (
               <div className="divide-y divide-[#F1F5F9]">
