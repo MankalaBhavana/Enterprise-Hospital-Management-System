@@ -55,20 +55,23 @@ export interface AppCategory {
 export interface AppSupplier {
   id: string
   supplierName: string
+  name?: string
   contactInformation?: string
+  contactPerson?: string
+  contact?: string
   phone?: string
+  phoneNumber?: string
   email?: string
   address?: string
   gstInformation?: string
+  gstNumber?: string
+  gstin?: string
   licenseDetails?: string
   paymentTerms?: string
   status?: "Active" | "Inactive"
-  createdAt?: string
-  contactPerson?: string
-  phoneNumber?: string
-  gstNumber?: string
   activeStatus?: string
   rating?: number
+  createdAt?: string
 }
 
 export interface AppMedicine {
@@ -77,12 +80,18 @@ export interface AppMedicine {
   genericName: string
   brandName: string
   name?: string
+  form?: string
+  mrp?: number
+  purchasePrice?: number
+  batchNumber?: string
+  expiryDate?: string
+  stock?: number
+  currentStock?: number
   hsnCode?: string
   packing?: string
   categoryId?: string
   manufacturer: string
   dosageForm: string
-  form?: string
   strength: string
   unit: string
   barcode: string
@@ -96,12 +105,6 @@ export interface AppMedicine {
   mnfCode?: string
   binNo?: string
   supplierName?: string
-  stock?: number
-  currentStock?: number
-  mrp?: number
-  purchasePrice?: number
-  batchNumber?: string
-  expiryDate?: string
 }
 
 // FEFO enabled Batch
@@ -1662,7 +1665,9 @@ export class PharmacyDatabase {
         ...updates,
         medicineName: resolvedName,
         brandName: updates.brandName || resolvedName,
-        activeStatus: "Active",
+        status: "Active",
+          gstInformation: "36AAACH7409R1ZZ",
+          activeStatus: "Active",
         createdAt: new Date().toISOString(),
       } as any)
     }
@@ -1760,12 +1765,15 @@ export class PharmacyDatabase {
         const newSup: AppSupplier = {
           id: `SUP-${Date.now()}-${i + 1}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
           supplierName: supplierName,
+          contactInformation: "Sales Rep",
           contactPerson: "Sales Rep",
           phoneNumber: "9876543210",
           email: `orders@${supKey.replace(/[^a-z0-9]/g, "") || "supplier"}.com`,
           address: "Central Medical Distributor Hub",
           gstNumber: "36AAACH7409R1ZZ",
           paymentTerms: "30 Days",
+          status: "Active",
+          gstInformation: "36AAACH7409R1ZZ",
           activeStatus: "Active",
           rating: 5,
           createdAt: nowIso,
@@ -1814,6 +1822,8 @@ export class PharmacyDatabase {
           manufacturer: mnfCode,
           mnfCode,
           taxPercentage: gst,
+          status: "Active",
+          gstInformation: "36AAACH7409R1ZZ",
           activeStatus: "Active",
           hsnCode,
           binNo,
