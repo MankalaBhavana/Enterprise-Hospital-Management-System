@@ -16,6 +16,7 @@ import {
 } from "../services/doctorMaster"
 import PatientJourneyModal from "./PatientJourneyModal"
 import { whatsAppHandoffUrl, smsHandoffUrl } from "../services/patientMessaging"
+import { normalizeDoctorName } from "../services/doctorPortalDb"
 
 const DEPARTMENTS = [
   "All Departments",
@@ -197,9 +198,10 @@ export function AppointmentBookingModal({
 
   useEffect(() => {
     if (doctorsForSelectedDept.length > 0) {
+      const normInitial = normalizeDoctorName(initialEncounter?.assignedDoctor)
       const match =
         doctorsForSelectedDept.find(
-          (d) => d.name === initialEncounter?.assignedDoctor,
+          (d) => normalizeDoctorName(d.name) === normInitial,
         ) || doctorsForSelectedDept[0]
       setSelectedDoctorName(match.name)
     } else {
@@ -242,8 +244,13 @@ export function AppointmentBookingModal({
             e.status !== "OP Completed" &&
             e.status !== "Consultation Completed",
         )
-      const load = (doctorName: string) =>
-        open.filter((e) => e.assignedDoctor === doctorName).length
+      const load = (doctorName: string) => {
+        const normTarget = normalizeDoctorName(doctorName)
+        return open.filter((e) => {
+          const encDocNorm = normalizeDoctorName(e.assignedDoctor || (e as any).doctorAssigned)
+          return encDocNorm === normTarget || (encDocNorm.length >= 4 && normTarget.length >= 4 && (encDocNorm.includes(normTarget) || normTarget.includes(encDocNorm)))
+        }).length
+      }
 
       const res = detectDepartmentFromSymptoms(combined, load)
       if (!res) {

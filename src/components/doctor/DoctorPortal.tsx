@@ -11,6 +11,8 @@ import {
   DoctorNotification,
   DoctorPortalDatabase,
   formatBytes,
+  getAllDoctorAccounts,
+  getDoctorById,
   ParsedLabTest,
   ParsedMedication,
   readPrescriptionFile,
@@ -148,12 +150,16 @@ const EMPTY_MEDICATION: ParsedMedication = {
 }
 
 export default function DoctorPortal({
-  doctor,
+  doctor: initialDoctor,
   onOpenErVisit,
 }: {
   doctor: DoctorAccount
   onOpenErVisit?: (visitId: number) => void
 }) {
+  const [doctor, setDoctor] = useState<DoctorAccount>(initialDoctor)
+  useEffect(() => {
+    setDoctor(initialDoctor)
+  }, [initialDoctor?.id])
   // One clock and one data revision for the whole portal: `revision` covers
   // changes made here, on another screen, or in another tab (reception billing,
   // the pharmacy, the lab); `now` ticks every second for the waiting timers.
@@ -752,6 +758,13 @@ export default function DoctorPortal({
           if (next === "patient" && !selected && notifications.length)
             openPatient(notifications[0])
         }}
+        onSwitchDoctor={(newDocId) => {
+          const nextDoc = getDoctorById(newDocId)
+          if (nextDoc) {
+            setDoctor(nextDoc)
+            setSelectedEncounterId(null)
+          }
+        }}
       />
 
       {/* Below lg the inbox stacks above the workspace (capped height) and the
@@ -1060,6 +1073,7 @@ function PortalHeader({
   now,
   view,
   onView,
+  onSwitchDoctor,
 }: {
   doctor: DoctorAccount
   unreadCount: number
@@ -1071,8 +1085,10 @@ function PortalHeader({
   now: number
   view: "live" | "patient"
   onView: (view: "live" | "patient") => void
+  onSwitchDoctor?: (doctorId: string) => void
 }) {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false)
+  const allDoctors = useMemo(() => getAllDoctorAccounts(), [])
   const stats: { label: string ;value: number ;tone: string }[] = [
     { label: "Waiting", value: waitingCount, tone: waitingCount ? "text-[#C2410C]" : "text-[#0F172A]" },
     { label: "In room", value: inRoomCount, tone: inRoomCount ? "text-[#1D4ED8]" : "text-[#0F172A]" },
@@ -1087,8 +1103,24 @@ function PortalHeader({
           {doctorInitials(doctor.name)}
         </div>
         <div className="min-w-0">
-          <h1 className="text-[15.5px] font-bold text-[#0F172A] leading-tight truncate">{doctor.name}</h1>
-          <p className="text-[12px] text-[#64748B] truncate">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-[15.5px] font-bold text-[#0F172A] leading-tight truncate">{doctor.name}</h1>
+            <select
+              value={doctor.id}
+              onChange={(e) => onSwitchDoctor?.(e.target.value)}
+              aria-label="Switch Doctor Workspace"
+              className="h-6 px-2 text-[11px] font-semibold border border-[#CBD5E1] rounded-[6px] bg-[#F8FAFC] hover:bg-white text-[#1E293B] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1B4FD8]"
+            >
+              <optgroup label="Switch Doctor Workspace">
+                {allDoctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.name} ({doc.specialty} · {doc.room})
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+          <p className="text-[12px] text-[#64748B] truncate mt-0.5">
             {doctor.specialty} · {doctor.room} · {doctor.qualification}
           </p>
         </div>

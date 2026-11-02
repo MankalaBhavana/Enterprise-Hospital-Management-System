@@ -1,4 +1,10 @@
-import { ACTIVE_DOCTORS, ACTIVE_SPECIALTIES } from "./doctorMaster"
+import {
+  ACTIVE_DOCTORS,
+  ACTIVE_SPECIALTIES,
+  getDoctorMaster,
+  INITIAL_DOCTOR_MASTER,
+  type MasterDoctor,
+} from "./doctorMaster"
 /**
  * Doctor Portal store.
  *
@@ -22,9 +28,7 @@ import type {
   TranscriptTurn,
 } from "../lib/medicalVoiceAI"
 
-// ── Doctor roster ────────────────────────────────────────────────────────────
-// Mirrors the names OP registration's AI triage assigns encounters to, since the
-// inbox is matched on `encounter.assignedDoctor`.
+// ── Doctor roster & matching ──────────────────────────────────────────────────
 
 export interface DoctorAccount {
   id: string
@@ -37,34 +41,211 @@ export interface DoctorAccount {
 }
 
 /**
- * Every doctor who can sign in and hold a workspace.
- *
- * Derived from the Imperial Hospitals doctor master rather than listed here, so
- * the roster, the login credentials, symptom triage and appointment booking
- * cannot drift apart -- they were previously nine hardcoded names repeated
- * across ten files. Only doctors whose name and specialty are legible on the OP
- * card appear; see `doctorMaster.ts` for why the rest are held back.
+ * Normalizes a doctor name or title for resilient, typo-tolerant equality checks.
+ * Strips "Dr.", punctuation, honorifics, and whitespace collapses.
  */
-export const DOCTOR_ROSTER: DoctorAccount[] = ACTIVE_DOCTORS.map((d) => ({
-  id: d.id,
-  username: d.username as string,
-  name: d.name,
-  specialty: d.specialty as string,
-  room: d.room,
-  staffId: d.staffId,
-  qualification: d.qualification,
-}))
+export function normalizeDoctorName(name?: string | null): string {
+  if (!name) return ""
+  return name
+    .toLowerCase()
+    .replace(/^dr\.?\s*/i, "")
+    .replace(/[.\-_,/]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/** Returns true if the doctor field represents an unassigned placeholder. */
+export function isUnassignedDoctor(doc?: string | null): boolean {
+  if (!doc) return true
+  const lower = doc.trim().toLowerCase()
+  return (
+    lower === "" ||
+    lower.includes("unassigned") ||
+    lower.includes("assigned by reception") ||
+    lower.includes("duty doctor") ||
+    lower.includes("duty physician") ||
+    lower === "not assigned" ||
+    lower === "none"
+  )
+}
+
+/** Builds the full roster dynamically from doctor master with complete fallback coverage. */
+export function getAllDoctorAccounts(): DoctorAccount[] {
+  let master: MasterDoctor[] = []
+  try {
+    master = getDoctorMaster()
+  } catch {
+    master = INITIAL_DOCTOR_MASTER
+  }
+  if (!master || master.length === 0) {
+    master = INITIAL_DOCTOR_MASTER
+  }
+
+  const seenIds = new Set<string>()
+  const accounts: DoctorAccount[] = []
+
+  for (const d of master) {
+    if (!d || !d.id || seenIds.has(d.id)) continue
+    seenIds.add(d.id)
+    accounts.push({
+      id: d.id,
+      username: (d.username || d.id.toLowerCase().replace(/[^a-z0-9]/g, "")).toLowerCase(),
+      name: d.name || `Dr. ${d.id}`,
+      specialty: d.specialty || "General Medicine",
+      room: d.room || "Room 101",
+      staffId: d.staffId || d.id,
+      qualification: d.qualification || "Consultant Physician",
+    })
+  }
+
+  // Include any ACTIVE_DOCTORS that weren't captured
+  for (const d of ACTIVE_DOCTORS) {
+    if (!seenIds.has(d.id)) {
+      seenIds.add(d.id)
+      accounts.push({
+        id: d.id,
+        username: (d.username || d.id.toLowerCase().replace(/[^a-z0-9]/g, "")).toLowerCase(),
+        name: d.name,
+        specialty: d.specialty || "General Medicine",
+        room: d.room || "Room 101",
+        staffId: d.staffId || d.id,
+        qualification: d.qualification || "Consultant Physician",
+      })
+    }
+  }
+
+  return accounts
+}
+
+/** Static roster initialized with all doctors in the master. */
+export const DOCTOR_ROSTER: DoctorAccount[] = getAllDoctorAccounts()
+
+/**
+ * Resiliently checks whether an encounter belongs to a specific doctor.
+ * Matches on ID, staff ID, username, exact name, or normalized name / token overlap.
+ */
+export function doesDoctorMatchEncounter(
+  doctor: DoctorAccount | MasterDoctor | { id?: string; name: string; staffId?: string; username?: string },
+  encounter: DBOPEncounter,
+): boolean {
+  if (!doctor || !encounter) return false
+
+  // 1. Direct ID / StaffId / Username match
+  const encAssignedId = ((encounter as any).assignedDoctorId || (encounter as any).doctorId || "").trim().toLowerCase()
+  if (encAssignedId) {
+    if (doctor.id && doctor.id.toLowerCase() === encAssignedId) return true
+    if ("staffId" in doctor && doctor.staffId && doctor.staffId.toLowerCase() === encAssignedId) return true
+    if ("username" in doctor && doctor.username && doctor.username.toLowerCase() === encAssignedId) return true
+  }
+
+  // 2. Doctor Name / Assignment strings
+  const encDoc = (encounter.assignedDoctor || (encounter as any).doctorAssigned || "").trim()
+  if (isUnassignedDoctor(encDoc)) return false
+
+  // Direct case-insensitive match
+  if (doctor.name && encDoc.toLowerCase() === doctor.name.toLowerCase()) return true
+  if (doctor.id && encDoc.toLowerCase() === doctor.id.toLowerCase()) return true
+  if ("username" in doctor && doctor.username && encDoc.toLowerCase() === doctor.username.toLowerCase()) return true
+  if ("staffId" in doctor && doctor.staffId && encDoc.toLowerCase() === doctor.staffId.toLowerCase()) return true
+
+  // Normalized matching (stripping Dr., punctuation, extra spaces)
+  const normEnc = normalizeDoctorName(encDoc)
+  const normDoc = normalizeDoctorName(doctor.name)
+  if (normEnc && normDoc) {
+    if (normEnc === normDoc) return true
+    if (normEnc.length >= 4 && normDoc.length >= 4) {
+      if (normDoc.includes(normEnc) || normEnc.includes(normDoc)) return true
+    }
+  }
+
+  return false
+}
 
 export function getDoctorById(doctorId?: string | null): DoctorAccount {
-  return DOCTOR_ROSTER.find((d) => d.id === doctorId) || DOCTOR_ROSTER[0]
+  if (!doctorId || !doctorId.trim()) {
+    return DOCTOR_ROSTER[0] || getAllDoctorAccounts()[0]
+  }
+
+  const tid = doctorId.trim()
+  const lower = tid.toLowerCase()
+  const normTid = normalizeDoctorName(tid)
+
+  // 1. Check in DOCTOR_ROSTER first
+  const matchRoster = DOCTOR_ROSTER.find(
+    (d) =>
+      d.id.toLowerCase() === lower ||
+      d.staffId.toLowerCase() === lower ||
+      d.username.toLowerCase() === lower ||
+      d.name.toLowerCase() === lower ||
+      normalizeDoctorName(d.name) === normTid,
+  )
+  if (matchRoster) return matchRoster
+
+  // 2. Check dynamic accounts from master
+  const dynamicAccounts = getAllDoctorAccounts()
+  const matchDynamic = dynamicAccounts.find(
+    (d) =>
+      d.id.toLowerCase() === lower ||
+      d.staffId.toLowerCase() === lower ||
+      d.username.toLowerCase() === lower ||
+      d.name.toLowerCase() === lower ||
+      normalizeDoctorName(d.name) === normTid,
+  )
+  if (matchDynamic) return matchDynamic
+
+  // 3. Substring match across all accounts
+  const matchSub = dynamicAccounts.find((d) => {
+    const nd = normalizeDoctorName(d.name)
+    return nd.length >= 4 && normTid.length >= 4 && (nd.includes(normTid) || normTid.includes(nd))
+  })
+  if (matchSub) return matchSub
+
+  // 4. Synthesize account for unknown named doctor rather than defaulting to Dr. Varma
+  if (/[a-zA-Z]/.test(tid)) {
+    const isDocPrefix = /^dr\.?\s*/i.test(tid)
+    const displayName = isDocPrefix ? tid : `Dr. ${tid}`
+    return {
+      id: tid,
+      username: tid.toLowerCase().replace(/[^a-z0-9]/g, ""),
+      name: displayName,
+      specialty: "General Medicine",
+      room: "Room 101",
+      staffId: tid,
+      qualification: "Consultant Physician",
+    }
+  }
+
+  return DOCTOR_ROSTER[0] || dynamicAccounts[0]
 }
 
 export function getDoctorByName(
   name?: string | null,
 ): DoctorAccount | undefined {
-  if (!name) return undefined
-  const normalized = name.trim().toLowerCase()
-  return DOCTOR_ROSTER.find((d) => d.name.toLowerCase() === normalized)
+  if (!name || isUnassignedDoctor(name)) return undefined
+  const target = name.trim()
+  const normTarget = normalizeDoctorName(target)
+  const lower = target.toLowerCase()
+
+  const allAccounts = getAllDoctorAccounts()
+
+  const direct = allAccounts.find(
+    (d) =>
+      d.name.toLowerCase() === lower ||
+      (normTarget && normalizeDoctorName(d.name) === normTarget) ||
+      d.username.toLowerCase() === lower ||
+      d.id.toLowerCase() === lower,
+  )
+  if (direct) return direct
+
+  if (normTarget.length >= 4) {
+    const sub = allAccounts.find((d) => {
+      const nd = normalizeDoctorName(d.name)
+      return nd.length >= 4 && (nd.includes(normTarget) || normTarget.includes(nd))
+    })
+    if (sub) return sub
+  }
+
+  return undefined
 }
 
 /** Resolves the doctor a session belongs to, from whatever the login handed back. */
@@ -73,15 +254,30 @@ export function resolveDoctorAccount(hint?: {
   username?: string | null
   name?: string | null
 }): DoctorAccount {
-  if (!hint) return DOCTOR_ROSTER[0]
-  return (
-    DOCTOR_ROSTER.find((d) => d.id === hint.doctorId) ||
-    DOCTOR_ROSTER.find(
-      (d) => d.username === (hint.username || "").toLowerCase(),
-    ) ||
-    getDoctorByName(hint.name) ||
-    DOCTOR_ROSTER[0]
-  )
+  if (!hint) return DOCTOR_ROSTER[0] || getAllDoctorAccounts()[0]
+
+  if (hint.doctorId) {
+    const byId = getDoctorById(hint.doctorId)
+    if (byId && byId.id === hint.doctorId) return byId
+  }
+
+  if (hint.username) {
+    const u = hint.username.trim().toLowerCase()
+    const all = getAllDoctorAccounts()
+    const byUser = all.find((d) => d.username === u || d.id.toLowerCase() === u)
+    if (byUser) return byUser
+  }
+
+  if (hint.name) {
+    const byName = getDoctorByName(hint.name)
+    if (byName) return byName
+  }
+
+  if (hint.doctorId) {
+    return getDoctorById(hint.doctorId)
+  }
+
+  return DOCTOR_ROSTER[0] || getAllDoctorAccounts()[0]
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -247,8 +443,25 @@ function writeJson(key: string, value: unknown): boolean {
 
 // ── Notifications (derived from the OP encounter queue) ──────────────────────
 
-/** Statuses that mean the patient is still the doctor's to see. */
-const OPEN_STATUSES: DBOPEncounter["status"][] = [
+/** Statuses that indicate a patient visit has completed or been concluded. */
+export const CLOSED_STATUSES = new Set<string>([
+  "Consultation Completed",
+  "Post-Consultation",
+  "Awaiting Billing",
+  "Billing Completed",
+  "OP Completed",
+  "Discharged",
+  "Cancelled",
+])
+
+/** Whether an encounter is still active / open for clinical consultation. */
+export function isEncounterOpen(status?: string | null): boolean {
+  if (!status) return true
+  return !CLOSED_STATUSES.has(status)
+}
+
+/** Statuses that mean the patient is still the doctor's to see (backward compatibility). */
+export const OPEN_STATUSES: DBOPEncounter["status"][] = [
   "Registered",
   "Symptoms Captured",
   "AI Recommended",
@@ -313,8 +526,8 @@ export class DoctorPortalDatabase {
     const readIds = new Set(this.getReadIds())
 
     return encounters
-      .filter((e) => e.assignedDoctor === doctor.name)
-      .filter((e) => includeClosed || OPEN_STATUSES.includes(e.status))
+      .filter((e) => doesDoctorMatchEncounter(doctor, e))
+      .filter((e) => includeClosed || isEncounterOpen(e.status))
       .map<DoctorNotification>((e) => ({
         id: `NOTIF-${e.id}`,
         doctorId: doctor.id,
@@ -325,7 +538,7 @@ export class DoctorPortalDatabase {
         sex: e.sex,
         phone: e.phone,
         opNumber: e.opNumber,
-        dept: e.dept,
+        dept: e.dept || doctor.specialty,
         room: e.room || doctor.room,
         token: e.queueToken,
         queuePosition: e.queuePosition,
@@ -350,10 +563,7 @@ export class DoctorPortalDatabase {
    *
    * Registration deliberately does not pick a doctor -- `createNewPatientEncounter`
    * and `createRevisitEncounter` both write `assignedDoctor: ""` and leave the
-   * choice to triage. The inbox matches on `assignedDoctor === doctor.name`, so
-   * until someone assigns them these patients are visible on the hospital-wide
-   * board and in nobody's portal. This is the queue they sit in, and
-   * `claimEncounter` is how a doctor takes one.
+   * choice to triage.
    */
   static getUnassigned(doctorId: string): DoctorNotification[] {
     const doctor = getDoctorById(doctorId)
@@ -362,13 +572,11 @@ export class DoctorPortalDatabase {
 
     return (
       encounters
-        .filter((e) => !e.assignedDoctor?.trim())
-        .filter((e) => OPEN_STATUSES.includes(e.status))
+        .filter((e) => isUnassignedDoctor(e.assignedDoctor || (e as any).doctorAssigned))
+        .filter((e) => isEncounterOpen(e.status))
         // Same specialty, not yet triaged into one -- or in a department that has
         // no bookable consultant at all, which would otherwise leave the patient
-        // visible to nobody. Cardiology and Orthopedics are in that position on
-        // the current Imperial master: every doctor printed under them has a name
-        // the OP card did not render legibly, so those visits need whoever is free.
+        // visible to nobody.
         .filter((e) => {
           const dept = (e.dept || "").trim()
           if (!dept || dept === "Awaiting Triage" || dept === doctor.specialty)
@@ -419,8 +627,8 @@ export class DoctorPortalDatabase {
     if (!encounter)
       return { ok: false, message: "That visit no longer exists." }
 
-    const current = encounter.assignedDoctor?.trim()
-    if (current && current !== doctor.name) {
+    const current = (encounter.assignedDoctor || (encounter as any).doctorAssigned || "").trim()
+    if (current && !isUnassignedDoctor(current) && !doesDoctorMatchEncounter(doctor, encounter)) {
       return {
         ok: false,
         message: `${encounter.patientName} was just taken by ${current}.`,
@@ -429,6 +637,9 @@ export class DoctorPortalDatabase {
 
     db.updateEncounter(encounterId, {
       assignedDoctor: doctor.name,
+      doctorAssigned: doctor.name,
+      assignedDoctorId: doctor.id,
+      doctorId: doctor.id,
       dept:
         encounter.dept && encounter.dept !== "Awaiting Triage"
           ? encounter.dept
@@ -438,7 +649,7 @@ export class DoctorPortalDatabase {
         encounter.status === "Under Consultation"
           ? encounter.status
           : "In Queue",
-    })
+    } as any)
     notify()
     return {
       ok: true,

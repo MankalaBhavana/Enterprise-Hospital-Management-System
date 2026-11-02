@@ -26,7 +26,10 @@ import { AppPrescription, PharmacyDatabase } from "./pharmacyDb"
 import {
   DoctorAccount,
   DoctorPortalDatabase,
+  doesDoctorMatchEncounter,
+  isEncounterOpen,
   isFirstVisit,
+  normalizeDoctorName,
 } from "./doctorPortalDb"
 
 // ER visits are the one alert source this feed doesn't derive from a local
@@ -107,7 +110,16 @@ const WAITING_STATUSES: DBOPEncounter["status"][] = [
   "Awaiting Doctor",
   "Doctor Assigned",
   "In Queue",
+  "Vitals Recorded",
+  "Awaiting Consultation",
 ]
+
+/** Whether the encounter is actively waiting for this doctor's consultation. */
+export function isWaitingForDoctor(status?: string | null): boolean {
+  if (!status) return true
+  if (status === "Under Consultation" || (status as string) === "In Consultation") return false
+  return isEncounterOpen(status)
+}
 
 /** Parsed arrival (see encounterTime.ts); the raw text only if nothing parses. */
 function arrivalOf(e: DBOPEncounter): string {
@@ -165,12 +177,7 @@ function countSeenToday(doctor: DoctorAccount, mine: DBOPEncounter[]): number {
   }
 
   for (const encounter of mine) {
-    const finished =
-      encounter.status === "Consultation Completed" ||
-      encounter.status === "OP Completed" ||
-      encounter.status === "Awaiting Billing" ||
-      encounter.status === "Billing Completed" ||
-      encounter.status === "Post-Consultation"
+    const finished = !isEncounterOpen(encounter.status)
     if (
       finished &&
       isToday(arrivalOf(encounter))
@@ -188,32 +195,41 @@ export function buildDoctorLiveBoard(
   erAssignments: ErAssignment[] = [],
 ): DoctorLiveBoard {
   const encounters = db.getEncounters()
-  const mine = encounters.filter((e) => e && doctor && e.assignedDoctor === doctor.name)
+  const mine = encounters.filter((e) => e && doctor && doesDoctorMatchEncounter(doctor, e))
   const myUmrs = new Set(
     mine
       .map((e) => (e.umr ? e.umr.toUpperCase() : ""))
       .filter(Boolean),
   )
 
+  const normDocName = normalizeDoctorName(doctor?.name)
+  const isDocMatch = (docId?: string, docName?: string) => {
+    if (!doctor) return false
+    if (docId && (docId === doctor.id || docId === doctor.staffId || docId === doctor.username)) return true
+    if (!docName) return false
+    const n = normalizeDoctorName(docName)
+    return n === normDocName || (n.length >= 4 && normDocName.length >= 4 && (n.includes(normDocName) || normDocName.includes(n)))
+  }
+
   const labOrders = LabOrderDatabase.getOrders().filter(
     (order) =>
       order &&
       (order.doctorId === doctor?.id ||
-        order.doctorName === doctor?.name ||
+        isDocMatch(order.doctorId, order.doctorName) ||
         (order.umr && myUmrs.has(order.umr.toUpperCase()))),
   )
   const prescriptions = PharmacyDatabase.getPrescriptions().filter(
     (rx) =>
       rx &&
       (rx.doctorId === doctor?.id ||
-        rx.doctorName === doctor?.name ||
+        isDocMatch(rx.doctorId, rx.doctorName) ||
         (rx.uhid && myUmrs.has(rx.uhid.toUpperCase()))),
   )
   const acknowledged = DoctorPortalDatabase.getAcknowledgedAlerts()
 
   // ── Queue ────────────────────────────────────────────────────────────────
   const queue: QueueEntry[] = mine
-    .filter((e) => WAITING_STATUSES.includes(e.status))
+    .filter((e) => isWaitingForDoctor(e.status))
     .map((e) => ({
       encounter: e,
       isNewPatient: isFirstVisit(e, encounters),
@@ -222,7 +238,9 @@ export function buildDoctorLiveBoard(
     }))
     .sort((a, b) => b.waitingMinutes - a.waitingMinutes)
 
-  const activeEncounter = mine.find((e) => e.status === "Under Consultation")
+  const activeEncounter = mine.find(
+    (e) => e.status === "Under Consultation" || (e.status as string) === "In Consultation",
+  )
   const active: QueueEntry | undefined = activeEncounter
     ? {
         encounter: activeEncounter,
