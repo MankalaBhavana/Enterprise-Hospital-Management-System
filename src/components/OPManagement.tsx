@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { ACTIVE_DOCTORS, MasterDoctor } from "../services/doctorMaster"
+import { doesDoctorMatchEncounter, isUnassignedDoctor } from "../services/doctorPortalDb"
 import { notifyPatientCalledToNurse } from "../services/patientMessaging"
 import { Icon } from "./icons"
 import { db, DBOPEncounter, DBPatient } from "../services/db"
@@ -220,11 +221,7 @@ export default function OPManagement({
   const stats = useMemo(() => {
     const totalVisits = encounters.length
     const unassignedCount = encounters.filter(
-      (e) =>
-        !e.assignedDoctor ||
-        e.assignedDoctor.toLowerCase().includes("unassigned") ||
-        e.assignedDoctor === "Assigned by Reception" ||
-        e.assignedDoctor.toLowerCase().includes("duty doctor"),
+      (e) => isUnassignedDoctor(e.assignedDoctor || (e as any).doctorAssigned),
     ).length
     const awaitingVitals = encounters.filter((e) =>
       AWAITING_VITALS_STATUSES.includes(e.status),
@@ -244,7 +241,7 @@ export default function OPManagement({
     const activeDoctorsOnDuty = ACTIVE_DOCTORS.filter(
       (d) =>
         d.section === "Main" ||
-        encounters.some((e) => e.assignedDoctor === d.name),
+        encounters.some((e) => doesDoctorMatchEncounter(d, e)),
     ).length
 
     return {
@@ -262,7 +259,7 @@ export default function OPManagement({
   const doctorRosterData = useMemo(() => {
     const list = ACTIVE_DOCTORS.map((doc) => {
       const docEncounters = encounters.filter(
-        (e) => e.assignedDoctor === doc.name,
+        (e) => doesDoctorMatchEncounter(doc, e),
       )
       const activePatient =
         docEncounters.find((e) => e.status === "Under Consultation") || null
@@ -873,10 +870,16 @@ export default function OPManagement({
                                     ) as HTMLSelectElement
                                     const docName = selectEl?.value
                                     if (docName) {
+                                      const docObj = ACTIVE_DOCTORS.find((d) => d.name === docName)
                                       db.updateEncounter(enc.id, {
                                         assignedDoctor: docName,
-                                        status: "Awaiting Doctor",
-                                      })
+                                        doctorAssigned: docName,
+                                        assignedDoctorId: docObj?.id,
+                                        doctorId: docObj?.id,
+                                        dept: enc.dept && enc.dept !== "Awaiting Triage" ? enc.dept : (docObj?.specialty || enc.dept),
+                                        room: enc.room || docObj?.room || "Room 101",
+                                        status: enc.status === "Registered" ? "Doctor Assigned" : (enc.status || "Doctor Assigned"),
+                                      } as any)
                                     }
                                   }}
                                   className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white text-[10.5px] font-bold border border-amber-700 cursor-pointer shadow-2xs transition-colors"
@@ -1100,10 +1103,16 @@ export default function OPManagement({
                                   ) as HTMLSelectElement
                                   const docName = selectEl?.value
                                   if (docName) {
+                                    const docObj = ACTIVE_DOCTORS.find((d) => d.name === docName)
                                     db.updateEncounter(enc.id, {
                                       assignedDoctor: docName,
-                                      status: "Awaiting Doctor",
-                                    })
+                                      doctorAssigned: docName,
+                                      assignedDoctorId: docObj?.id,
+                                      doctorId: docObj?.id,
+                                      dept: enc.dept && enc.dept !== "Awaiting Triage" ? enc.dept : (docObj?.specialty || enc.dept),
+                                      room: enc.room || docObj?.room || "Room 101",
+                                      status: enc.status === "Registered" ? "Doctor Assigned" : (enc.status || "Doctor Assigned"),
+                                    } as any)
                                   }
                                 }}
                                 className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold border border-amber-700 cursor-pointer shadow-xs transition-colors"

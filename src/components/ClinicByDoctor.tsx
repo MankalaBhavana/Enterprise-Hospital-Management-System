@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { db, DBOPEncounter } from "../services/db"
 import { ACTIVE_DOCTORS } from "../services/doctorMaster"
+import { doesDoctorMatchEncounter } from "../services/doctorPortalDb"
 
 /**
  * "Clinic by doctor" -- a section of OP Management.
@@ -83,7 +84,7 @@ export default function ClinicByDoctor({
     )
     return roster
       .map((doc) => {
-        const mine = live.filter((e) => e.assignedDoctor === doc.name)
+        const mine = live.filter((e) => doesDoctorMatchEncounter(doc, e))
         return {
           doctor: doc,
           total: mine.length,

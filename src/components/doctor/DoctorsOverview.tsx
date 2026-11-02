@@ -22,7 +22,12 @@ import {
   type DoctorPatientRow,
   type VisitStage,
 } from "../../services/doctorOversight"
-import { DOCTOR_ROSTER, DoctorPortalDatabase, type DoctorAccount } from "../../services/doctorPortalDb"
+import {
+  DOCTOR_ROSTER,
+  DoctorPortalDatabase,
+  getAllDoctorAccounts,
+  type DoctorAccount,
+} from "../../services/doctorPortalDb"
 import { STAGE_HUES, TONE, band, gradient, specialtyHue, type Hue } from "./doctorTheme"
 
 // ── Small pieces ─────────────────────────────────────────────────────────────
@@ -714,8 +719,9 @@ function UnclaimedPanel({
             const e = r.encounter
             const hue = STAGE_HUES[r.stage]
             const deptHue = specialtyHue(e.dept)
-            const inDept = DOCTOR_ROSTER.filter((d) => d.specialty === e.dept)
-            const others = DOCTOR_ROSTER.filter((d) => d.specialty !== e.dept)
+            const allDocs = getAllDoctorAccounts()
+            const inDept = allDocs.filter((d) => d.specialty === e.dept)
+            const others = allDocs.filter((d) => d.specialty !== e.dept)
             return (
               <div
                 key={e.id}
