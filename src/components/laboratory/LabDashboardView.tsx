@@ -23,12 +23,21 @@ import { LabLisService, SpecimenRecord, CriticalAlertRecord } from "../../servic
 interface LabDashboardViewProps {
   onNavigate: (module: string) => void
   onOpenOrder?: (order: LabOrder) => void
+  initialOrders?: LabOrder[]
+  initialSpecimens?: SpecimenRecord[]
+  initialCriticalAlerts?: CriticalAlertRecord[]
 }
 
-export default function LabDashboardView({ onNavigate, onOpenOrder }: LabDashboardViewProps) {
-  const [orders, setOrders] = useState<LabOrder[]>([])
-  const [specimens, setSpecimens] = useState<SpecimenRecord[]>([])
-  const [criticalAlerts, setCriticalAlerts] = useState<CriticalAlertRecord[]>([])
+export default function LabDashboardView({
+  onNavigate,
+  onOpenOrder,
+  initialOrders,
+  initialSpecimens,
+  initialCriticalAlerts,
+}: LabDashboardViewProps) {
+  const [orders, setOrders] = useState<LabOrder[]>(initialOrders || [])
+  const [specimens, setSpecimens] = useState<SpecimenRecord[]>(initialSpecimens || [])
+  const [criticalAlerts, setCriticalAlerts] = useState<CriticalAlertRecord[]>(initialCriticalAlerts || [])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDept, setSelectedDept] = useState("All")
   const [selectedPriority, setSelectedPriority] = useState("All")
@@ -41,7 +50,9 @@ export default function LabDashboardView({ onNavigate, onOpenOrder }: LabDashboa
   }
 
   useEffect(() => {
-    loadData()
+    if (!initialOrders || initialOrders.length === 0) {
+      loadData()
+    }
     const unsub1 = LabOrderDatabase.subscribe(loadData)
     const unsub2 = LabLisService.subscribe(loadData)
     return () => {
@@ -50,10 +61,16 @@ export default function LabDashboardView({ onNavigate, onOpenOrder }: LabDashboa
     }
   }, [])
 
+  useEffect(() => {
+    if (initialOrders) setOrders(initialOrders)
+    if (initialSpecimens) setSpecimens(initialSpecimens)
+    if (initialCriticalAlerts) setCriticalAlerts(initialCriticalAlerts)
+  }, [initialOrders, initialSpecimens, initialCriticalAlerts])
+
   // KPI Metrics Calculation
   const metrics = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0]
-    const ordersToday = orders.filter((o) => o.createdAt?.startsWith(todayStr) || true).length
+    const ordersToday = orders.filter((o) => o.createdAt?.startsWith(todayStr)).length
     const awaitingCollection = specimens.filter((s) => s.status === "Collection Pending").length
     const processingCount = orders.filter((o) => o.status === "In Progress" || o.status === "Sample Collected").length
     const awaitingReview = orders.filter((o) =>
