@@ -44,7 +44,7 @@ export default function RadiologyExceptionsView() {
 
   const filteredExceptions = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
-    return allExceptions.filter((ex) => {
+    const list = allExceptions.filter((ex) => {
       if (statusFilter === "open" && ex.status === "Resolved") return false
       if (statusFilter === "resolved" && ex.status !== "Resolved") return false
 
@@ -60,6 +60,16 @@ export default function RadiologyExceptionsView() {
         if (!matches) return false
       }
       return true
+    })
+
+    // Predefined Standardized Sorting: Newest exceptions strictly first (descending).
+    // Uses actual exception event timestamp.
+    // Stable secondary tie-breaker: Exception ID descending.
+    return list.sort((a, b) => {
+      const timeA = new Date(a.timestamp || 0).getTime()
+      const timeB = new Date(b.timestamp || 0).getTime()
+      if (timeA !== timeB) return timeB - timeA
+      return (b.id || "").localeCompare(a.id || "")
     })
   }, [allExceptions, statusFilter, severityFilter, searchQuery])
 

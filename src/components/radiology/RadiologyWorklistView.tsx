@@ -326,28 +326,21 @@ export default function RadiologyWorklistView({
     reportStatusFilter,
   ])
 
-  // Sorted and Paginated studies - Newest orders strictly first by default
+  // Predefined Standardized Sorting: Newest examination orders strictly first (descending).
+  // Uses actual examination order creation / received timestamps (orderedAt / createdAt / history[0].timestamp).
+  // Includes all radiology examination orders (Paid, Unpaid, and Exceptions).
+  // Newly created examinations immediately appear at the top and survive browser refreshes.
+  // Stable secondary tie-breaker: Examination ID descending.
   const sortedStudies = useMemo(() => {
     return [...filteredStudies].sort((a, b) => {
-      if (sortField === "ordered") {
-        const timeA = getStudyTimestamp(a)
-        const timeB = getStudyTimestamp(b)
-        if (timeA !== timeB) {
-          return sortDirection === "asc" ? timeA - timeB : timeB - timeA
-        }
-        // Consistent tie-breaker: newest ID descending
-        return sortDirection === "asc"
-          ? (a.id || "").localeCompare(b.id || "")
-          : (b.id || "").localeCompare(a.id || "")
+      const timeA = RadiologyWorkflowDb.getOrderCreationTimestamp(a)
+      const timeB = RadiologyWorkflowDb.getOrderCreationTimestamp(b)
+      if (timeA !== timeB) {
+        return timeB - timeA // Newest orders first (descending)
       }
-
-      let valA = a[sortField] || ""
-      let valB = b[sortField] || ""
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1
-      return 0
+      return (b.id || "").localeCompare(a.id || "")
     })
-  }, [filteredStudies, sortField, sortDirection])
+  }, [filteredStudies])
 
   const paginatedStudies = useMemo(() => {
     const start = (currentPage - 1) * pageSize

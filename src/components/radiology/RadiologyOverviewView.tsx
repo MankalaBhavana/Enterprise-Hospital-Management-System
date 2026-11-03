@@ -42,8 +42,26 @@ export default function RadiologyOverviewView({
   const studies = useMemo(() => RadiologyWorkflowDb.getStudies(), [tick])
   const analytics = useMemo(() => UniversalRadiologyDb.getDepartmentAnalytics(), [tick])
   const suites = useMemo(() => UniversalRadiologyDb.getSuites(), [tick])
-  const exceptions = useMemo(() => UniversalRadiologyDb.getExceptions(), [tick])
-  const auditEvents = useMemo(() => UniversalRadiologyDb.getAuditEvents(), [tick])
+  const exceptions = useMemo(() => {
+    return UniversalRadiologyDb.getExceptions().sort((a, b) => {
+      const timeA = new Date(a.timestamp || 0).getTime()
+      const timeB = new Date(b.timestamp || 0).getTime()
+      if (timeA !== timeB) return timeB - timeA // Newest first
+      return (b.id || "").localeCompare(a.id || "")
+    })
+  }, [tick])
+
+  // Predefined Standardized Sorting: Latest department activity strictly first (descending).
+  // Uses actual audit event timestamps.
+  // Stable secondary sort: Event ID descending.
+  const auditEvents = useMemo(() => {
+    return UniversalRadiologyDb.getAuditEvents().sort((a, b) => {
+      const timeA = new Date(a.timestamp || 0).getTime()
+      const timeB = new Date(b.timestamp || 0).getTime()
+      if (timeA !== timeB) return timeB - timeA // Latest department activity first
+      return (b.id || "").localeCompare(a.id || "")
+    })
+  }, [tick])
 
   // Single-pass computation for summary counters
   const summary = useMemo(() => {

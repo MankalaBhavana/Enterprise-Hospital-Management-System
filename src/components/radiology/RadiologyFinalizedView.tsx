@@ -52,13 +52,20 @@ export default function RadiologyFinalizedView() {
 
   const allStudies = useMemo(() => RadiologyWorkflowDb.getStudies(), [tick])
 
+  // Predefined Standardized Sorting: Most recently finalized reports strictly first (descending).
+  // Uses actual report finalization timestamp (finalizedAt / signedAt / history finalization event).
+  // Amending a report preserves the original finalization timestamp and does not displace report position.
+  // Stable secondary sort: Examination ID descending.
   const finalizedStudies = useMemo(() => {
     return allStudies
       .filter((s) => s.normalizedReportStatus === "Finalized")
       .sort((a, b) => {
-        const timeA = new Date(a.finalizedAt || a.signedAt || a.updatedAt || 0).getTime()
-        const timeB = new Date(b.finalizedAt || b.signedAt || b.updatedAt || 0).getTime()
-        return timeB - timeA // Newest finalized first
+        const timeA = RadiologyWorkflowDb.getReportFinalizedTimestamp(a)
+        const timeB = RadiologyWorkflowDb.getReportFinalizedTimestamp(b)
+        if (timeA !== timeB) {
+          return timeB - timeA // Newest finalized first (descending)
+        }
+        return (b.id || "").localeCompare(a.id || "")
       })
   }, [allStudies])
 

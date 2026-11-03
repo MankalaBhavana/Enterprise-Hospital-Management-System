@@ -25,7 +25,7 @@ export default function RadiologyAnalyticsView() {
     return unsub
   }, [])
 
-  const analytics = useMemo(() => UniversalRadiologyDb.getDepartmentAnalytics(), [tick])
+  const analytics = useMemo(() => UniversalRadiologyDb.getDepartmentAnalytics(dateRange), [tick, dateRange])
   const studies = useMemo(() => RadiologyWorkflowDb.getStudies(), [tick])
 
   const completionRate = useMemo(() => {
@@ -120,6 +120,42 @@ export default function RadiologyAnalyticsView() {
           <span className="text-[10.5px] text-slate-500 mt-1 block">End-to-end dispatch</span>
         </div>
       </div>
+
+      {/* ── Chronological Examination Throughput Trend ── */}
+      {analytics.chronologicalTrend && analytics.chronologicalTrend.length > 0 && (
+        <div className="bg-white border border-[#DDE2EC] rounded-lg p-5 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div>
+              <h4 className="font-bold text-[13px] text-[#0F172A] flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#1B4FD8]" />
+                <span>Chronological Examination Workflow Progression ({dateRange === "today" ? "Today" : dateRange === "7days" ? "7-Day Daily Trend" : "30-Day Daily Trend"})</span>
+              </h4>
+              <p className="text-[11.5px] text-[#64748B]">
+                Timeline distribution of registered examination orders, completed scans, and finalized diagnostic reports
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-slate-500 font-bold">
+              {analytics.chronologicalTrend.reduce((acc, d) => acc + d.count, 0)} total in range
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="grid grid-flow-col auto-cols-fr gap-2 min-w-[500px] text-center pt-2">
+              {analytics.chronologicalTrend.map((d) => (
+                <div key={d.date} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/60 flex flex-col items-center">
+                  <span className="text-[11px] font-bold text-slate-700">{d.label}</span>
+                  <div className="text-lg font-black text-[#0F172A] font-mono mt-1">{d.count}</div>
+                  <span className="text-[10px] text-slate-500 font-medium">orders</span>
+                  <div className="w-full mt-2 pt-2 border-t border-slate-200 flex items-center justify-around text-[10.5px]">
+                    <span className="text-emerald-700 font-bold" title="Scans Completed">✓ {d.completed}</span>
+                    <span className="text-purple-700 font-bold" title="Reports Finalized">★ {d.finalized}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Charts & Modality Breakdown ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

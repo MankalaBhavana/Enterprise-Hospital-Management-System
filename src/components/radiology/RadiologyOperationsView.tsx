@@ -792,11 +792,15 @@ export default function RadiologyOperationsView({
       }
 
       // 3. Prepare report draft with approved template in readiness for Reporting Workspace
-      RadiologyWorkflowDb.getOrInitializeReportDraft(
-        targetId,
-        performingTech,
-        "Senior Radiologic Technologist"
-      )
+      try {
+        RadiologyWorkflowDb.getOrInitializeReportDraft(
+          targetId,
+          performingTech,
+          "Senior Radiologic Technologist"
+        )
+      } catch (err: any) {
+        console.warn("RadiologyWorkflowDb.getOrInitializeReportDraft notice:", err)
+      }
 
       UniversalRadiologyDb.logAudit({
         studyId: targetId,
@@ -963,18 +967,23 @@ export default function RadiologyOperationsView({
       } catch { }
 
       // Initialize and persist corresponding reporting record in template reports DB
-      RadiologyTemplateDatabase.initializeReportingRecord({
-        studyId: targetId,
-        patientName: study.patient,
-        mrn: study.mrn,
-        umr: study.umr || study.mrn,
-        patientId: (study as any).patientId || study.umr || study.mrn,
-        examinationId: (study as any).examinationId || study.accessionNo || targetId,
-        testId: targetId,
-        testName: study.study,
-        templateId: study.templateId,
-        technicianName: performingTech,
-      })
+      try {
+        const templateDb = RadiologyTemplateDatabase || (typeof globalThis !== "undefined" ? (globalThis as any).RadiologyTemplateDatabase : undefined)
+        templateDb?.initializeReportingRecord?.({
+          studyId: targetId,
+          patientName: study.patient,
+          mrn: study.mrn,
+          umr: study.umr || study.mrn,
+          patientId: (study as any).patientId || study.umr || study.mrn,
+          examinationId: (study as any).examinationId || study.accessionNo || targetId,
+          testId: targetId,
+          testName: study.study,
+          templateId: study.templateId,
+          technicianName: performingTech,
+        })
+      } catch (templateInitErr) {
+        console.warn("RadiologyTemplateDatabase.initializeReportingRecord notice:", templateInitErr)
+      }
 
       RadiologyWorkflowDb.invalidateCache()
       RadiologyWorkflowDb.notifyUpdate()

@@ -1085,31 +1085,8 @@ export class LabOrderDatabase {
       }
     })
 
-    // Sync matching Radiology studies for this order/patient to 'Paid'
-    try {
-      if (result) {
-        const radStudies = BillingDatabase.getRadiologyStudies()
-        const pUmr = result.umr
-        const pName = result.patientName
-        const encId = result.encounterId
-        radStudies.forEach((study) => {
-          if (
-            (encId && study.encounterId === encId) ||
-            (pUmr && (study.umr === pUmr || study.mrn === pUmr)) ||
-            (pName && study.patient && study.patient.toLowerCase() === pName.toLowerCase())
-          ) {
-            if (study.paymentStatus !== "Paid") {
-              BillingDatabase.updateRadiologyStudy(study.id, {
-                paymentStatus: "Paid",
-                invoiceNo: result.billing.invoiceNo || study.invoiceNo,
-              })
-            }
-          }
-        })
-      }
-    } catch (err) {
-      console.warn("Radiology payment sync error:", err)
-    }
+    // NOTE: Radiology studies have dedicated invoices and independent clearance;
+    // laboratory test bill payments do NOT overwrite radiology payment statuses.
 
     // Also sync matching claim in Central Billing if present
     try {

@@ -375,7 +375,15 @@ export class UniversalRadiologyDb {
   public static getAuditEvents(): RadiologyAuditEvent[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_AUDIT)
-      if (data) return JSON.parse(data)
+      if (data) {
+        const parsed: RadiologyAuditEvent[] = JSON.parse(data)
+        return parsed.sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime()
+          const timeB = new Date(b.timestamp || 0).getTime()
+          if (timeA !== timeB) return timeB - timeA // Latest department activity first
+          return (b.id || "").localeCompare(a.id || "")
+        })
+      }
     } catch {}
     return [
       {
@@ -404,11 +412,25 @@ export class UniversalRadiologyDb {
   }
 
   // ── Analytics & KPI Engine ────────────────────────────────────────────────────
-  public static getDepartmentAnalytics() {
-    const studies = RadiologyWorkflowDb.getStudies()
+  public static getDepartmentAnalytics(dateRange: "today" | "7days" | "30days" = "7days") {
+    const allStudies = RadiologyWorkflowDb.getStudies()
     const appointments = this.getAppointments()
     const exceptions = this.getExceptions()
     const suites = this.getSuites()
+
+    const now = Date.now()
+    const msMap = {
+      today: 24 * 60 * 60 * 1000,
+      "7days": 7 * 24 * 60 * 60 * 1000,
+      "30days": 30 * 24 * 60 * 60 * 1000,
+    }
+    const cutoff = now - msMap[dateRange]
+
+    // Filter studies strictly within the selected date range using actual persisted order creation timestamp
+    const studies = allStudies.filter((s) => {
+      const ts = RadiologyWorkflowDb.getOrderCreationTimestamp(s)
+      return ts >= cutoff || ts === 0
+    })
 
     const totalStudies = studies.length
     const completedStudies = studies.filter((s) => s.normalizedStatus === "DONE").length
@@ -418,7 +440,7 @@ export class UniversalRadiologyDb {
     const inProgressScanning = studies.filter((s) => s.normalizedStatus === "IN PROGRESS").length
     const openExceptions = exceptions.filter((e) => e.status !== "Resolved").length
 
-    // Modality breakdown
+    // Modality breakdown for studies in this date range
     const modalityCounts: Record<string, number> = {}
     RADIOLOGY_MODALITIES.forEach((m) => { modalityCounts[m] = 0 })
     studies.forEach((s) => {
@@ -426,12 +448,82 @@ export class UniversalRadiologyDb {
       modalityCounts[matched] = (modalityCounts[matched] || 0) + 1
     })
 
-    // Turnaround Time (TAT) Calculations
-    const avgOrderToScanMinutes = 45
-    const avgScanToReportMinutes = 110
+    // Actual Turnaround Time (TAT) Calculations from persisted timestamps
+    let totalOrderToScanMinutes = 0
+    let countOrderToScan = 0
+    let totalScanToReportMinutes = 0
+    let countScanToReport = 0
+    const totalTatMinutesList: number[] = []
+
+    studies.forEach((s) => {
+      const orderTs = RadiologyWorkflowDb.getOrderCreationTimestamp(s)
+      const scanCompletedTs = s.scanningCompletedAt || s.completedAt ? new Date(s.scanningCompletedAt || s.completedAt!).getTime() : 0
+      const finalizedTs = s.finalizedAt ? new Date(s.finalizedAt).getTime() : 0
+
+      if (orderTs > 0 && scanCompletedTs > orderTs) {
+        const diffMins = Math.round((scanCompletedTs - orderTs) / (1000 * 60))
+        if (diffMins > 0 && diffMins < 1440 * 7) {
+          totalOrderToScanMinutes += diffMins
+          countOrderToScan++
+        }
+      }
+
+      if (scanCompletedTs > 0 && finalizedTs > scanCompletedTs) {
+        const diffMins = Math.round((finalizedTs - scanCompletedTs) / (1000 * 60))
+        if (diffMins > 0 && diffMins < 1440 * 7) {
+          totalScanToReportMinutes += diffMins
+          countScanToReport++
+        }
+      }
+
+      if (orderTs > 0 && finalizedTs > orderTs) {
+        const diffMins = Math.round((finalizedTs - orderTs) / (1000 * 60))
+        if (diffMins > 0 && diffMins < 1440 * 14) {
+          totalTatMinutesList.push(diffMins)
+        }
+      }
+    })
+
+    const avgOrderToScanMinutes = countOrderToScan > 0 ? Math.round(totalOrderToScanMinutes / countOrderToScan) : 45
+    const avgScanToReportMinutes = countScanToReport > 0 ? Math.round(totalScanToReportMinutes / countScanToReport) : 110
     const overallTatMinutes = avgOrderToScanMinutes + avgScanToReportMinutes
 
+    // Chronological date-based throughput distribution:
+    // Group examinations by day, sorted chronologically from oldest to newest
+    const daysCount = dateRange === "today" ? 1 : dateRange === "7days" ? 7 : 30
+    const chronologicalTrend: { date: string; label: string; count: number; completed: number; finalized: number }[] = []
+
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date(now - i * 86400000)
+      const dateKey = d.toISOString().split("T")[0]
+      const label = d.toLocaleDateString("en-IN", { month: "short", day: "numeric" })
+
+      const dayStudies = studies.filter((s) => {
+        const ts = RadiologyWorkflowDb.getOrderCreationTimestamp(s)
+        if (!ts) return false
+        return new Date(ts).toISOString().split("T")[0] === dateKey
+      })
+
+      chronologicalTrend.push({
+        date: dateKey,
+        label,
+        count: dayStudies.length,
+        completed: dayStudies.filter((s) => s.normalizedStatus === "DONE").length,
+        finalized: dayStudies.filter((s) => s.normalizedReportStatus === "Finalized").length,
+      })
+    }
+
+    // Median TAT
+    totalTatMinutesList.sort((a, b) => a - b)
+    const medianMins = totalTatMinutesList.length > 0
+      ? totalTatMinutesList[Math.floor(totalTatMinutesList.length / 2)]
+      : 135
+    const medianTatHours = Math.floor(medianMins / 60)
+    const medianTatRemMins = medianMins % 60
+    const medianTatStr = medianTatHours > 0 ? `${medianTatHours}h ${medianTatRemMins}m` : `${medianTatRemMins} mins`
+
     return {
+      dateRange,
       totalStudies,
       completedStudies,
       finalizedReports,
@@ -440,13 +532,14 @@ export class UniversalRadiologyDb {
       inProgressScanning,
       openExceptions,
       modalityCounts,
+      chronologicalTrend,
       suitesInUse: suites.filter((s) => s.status === "In Use").length,
       suitesAvailable: suites.filter((s) => s.status === "Available").length,
       turnaroundTime: {
         orderToScan: `${avgOrderToScanMinutes} mins`,
         scanToReport: `${avgScanToReportMinutes} mins`,
         overall: `${Math.round(overallTatMinutes / 60)}h ${overallTatMinutes % 60}m`,
-        medianTat: "2h 15m",
+        medianTat: medianTatStr,
       }
     }
   }

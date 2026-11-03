@@ -188,14 +188,26 @@ export default function RadiologyTemplateUploadView({
     if (typeFilter !== "All Types") {
       list = list.filter((tpl) => getDisplayType(tpl).toLowerCase() === typeFilter.toLowerCase())
     }
-    // Sort so user-created / newly updated templates appear at the very top
+    // Predefined Standardized Sorting: Newest uploaded or created templates strictly first (descending).
+    // Uses actual template creation / upload timestamps (templateUploadedAt / templateCreatedAt / createdAt).
+    // Editing an existing template updates updatedAt but preserves createdAt, so it does NOT alter queue position unless a new version is explicitly created.
+    // Stable secondary tie-breaker: Template ID descending.
     return [...list].sort((a, b) => {
-      const aIsCustom = a.id && a.id.startsWith("rad_tpl_reconstructed_") ? 1 : 0
-      const bIsCustom = b.id && b.id.startsWith("rad_tpl_reconstructed_") ? 1 : 0
-      if (aIsCustom !== bIsCustom) return bIsCustom - aIsCustom
-      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : b.createdAt ? new Date(b.createdAt).getTime() : 0
-      return timeB - timeA
+      const getTemplateCreationTimestamp = (tpl: RadiologyTemplate): number => {
+        const ts = (tpl as any).templateUploadedAt || (tpl as any).templateCreatedAt || tpl.createdAt
+        if (ts) {
+          const t = new Date(ts).getTime()
+          if (!isNaN(t) && t > 0) return t
+        }
+        return 0
+      }
+
+      const timeA = getTemplateCreationTimestamp(a)
+      const timeB = getTemplateCreationTimestamp(b)
+      if (timeA !== timeB) {
+        return timeB - timeA // Newest created / uploaded first
+      }
+      return (b.id || "").localeCompare(a.id || "")
     })
   }, [allTemplates, tableSearch, externalSearchQuery, modalityFilter, typeFilter])
 

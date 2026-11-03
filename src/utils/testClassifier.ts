@@ -48,9 +48,30 @@ export function isRadiologyTest(testName: string, category?: string): boolean {
 export function getModalityForTest(testName: string): "XR" | "CT" | "MR" | "US" | "NM" {
   const name = (testName || "").toLowerCase().trim()
   if (name.includes("mri") || name.includes("magnetic")) return "MR"
-  if (name.includes("ct") || name.includes("computed tomography")) return "CT"
-  if (name.includes("ultrasound") || name.includes("usg") || name.includes("echo") || name.includes("doppler") || name.includes("sonogram")) return "US"
-  if (name.includes("pet") || name.includes("nuclear") || name.includes("mammogram")) return "NM"
+  if (
+    name.includes("ct") ||
+    name.includes("computed tomography") ||
+    name.startsWith("ct ") ||
+    name.startsWith("ct-") ||
+    name.endsWith(" ct") ||
+    name.includes(" ct ") ||
+    name.includes("ct scan") ||
+    name.includes("hrct")
+  ) {
+    return "CT"
+  }
+  if (
+    name.includes("ultrasound") ||
+    name.includes("usg") ||
+    name.includes("echo") ||
+    name.includes("doppler") ||
+    name.includes("sonogram") ||
+    name.includes("sonograph")
+  ) {
+    return "US"
+  }
+  if (name.includes("pet") || name.includes("nuclear") || name.includes("spect")) return "NM"
+  if (name.includes("mammogram") || name.includes("mammograph")) return "XR"
   return "XR"
 }
 

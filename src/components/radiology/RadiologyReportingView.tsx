@@ -1636,18 +1636,18 @@ const templateContentCache = new Map<string, any>()
 
           {/* Data Table */}
           <div className="overflow-x-auto min-h-[320px]">
-            <table className="w-full text-left border-collapse text-[12px] min-w-[720px]">
+            <table className="w-full text-left border-collapse text-[12px] min-w-full md:min-w-[640px]">
               <thead>
                 <tr className="bg-[#F8FAFC] text-[#64748B] text-[11px] font-bold uppercase tracking-wider border-b border-[#E2E8F0]">
-                  <th className="py-2.5 px-2 w-10 text-center">#</th>
-                  <th className="py-2.5 px-2 min-w-[125px]">Patient Name</th>
-                  <th className="py-2.5 px-2 min-w-[75px]">UMR No.</th>
-                  <th className="py-2.5 px-2 min-w-[130px]">Examination / Test</th>
-                  <th className="py-2.5 px-1.5 min-w-[55px] text-center">Modality</th>
-                  <th className="py-2.5 px-2 min-w-[75px]">Completed</th>
-                  <th className="py-2.5 px-2 min-w-[110px]">Status</th>
-                  <th className="py-2.5 px-1.5 min-w-[60px] text-center">Priority</th>
-                  <th className="py-2.5 px-1.5 min-w-[55px] text-center">Action</th>
+                  <th className="py-2.5 px-1.5 w-8 text-center">#</th>
+                  <th className="py-2.5 px-2 min-w-[105px]">Patient Name</th>
+                  <th className="py-2.5 px-1.5 min-w-[70px]">UMR No.</th>
+                  <th className="py-2.5 px-2 min-w-[115px]">Examination / Test</th>
+                  <th className="py-2.5 px-1 w-14 text-center">Modality</th>
+                  <th className="py-2.5 px-1.5 min-w-[65px]">Completed</th>
+                  <th className="py-2.5 px-1.5 min-w-[95px]">Status</th>
+                  <th className="py-2.5 px-1 w-14 text-center">Priority</th>
+                  <th className="py-2.5 px-1 w-14 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1876,8 +1876,8 @@ const templateContentCache = new Map<string, any>()
           <div
             className={`${
               isDirectReport || editorMode === "fullscreen"
-                ? "w-full min-h-[calc(100vh-140px)] max-h-[calc(100vh-140px)]"
-                : "w-full xl:w-[calc(30%-0.5rem)] sticky top-2 h-[calc(100vh-120px)] max-h-[calc(100vh-120px)]"
+                ? "w-full min-h-[calc(100vh-150px)] max-h-[calc(100vh-150px)]"
+                : "w-full xl:w-[calc(30%-0.5rem)] sticky top-3 h-[calc(100vh-175px)] max-h-[calc(100vh-175px)]"
             } bg-white border border-[#E2E8F0] rounded-xl shadow-2xs overflow-hidden flex flex-col transition-all min-w-0`}
           >
             {activeStudy ? (
@@ -2194,42 +2194,27 @@ const templateContentCache = new Map<string, any>()
                   )}
 
                   {/* Template Selection & Actions Row */}
-                  <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-md space-y-2 text-[11px]">
-                    <div className="flex items-start justify-between gap-1.5">
-                      <div className="min-w-0 flex-1">
-                        <span className="font-bold text-[#1B4FD8] block text-[10px] uppercase tracking-wider mb-0.5">
+                  <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-md space-y-1.5 text-[11px] overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-[#1B4FD8] text-[10px] uppercase tracking-wider">
                           Report Template:
                         </span>
-                        {currentTemplate ? (
-                          <div className="space-y-0.5">
-                            <div
-                              className="font-bold text-[#0F172A] text-[12px] truncate"
-                              title={currentTemplate.templateName || currentTemplate.testName}
+                        {currentTemplate && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] px-1 py-0.2 rounded bg-blue-100 text-[#1B4FD8] font-mono font-semibold">
+                              v{currentTemplate.version}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                                currentTemplate.status === "Active"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
                             >
-                              {currentTemplate.templateName && currentTemplate.templateName !== currentTemplate.testName
-                                ? `${currentTemplate.templateName} (${currentTemplate.testName})`
-                                : currentTemplate.testName || currentTemplate.templateName || currentTemplate.uploadedFileName}
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-blue-100 text-[#1B4FD8] font-mono font-semibold">
-                                v{currentTemplate.version}
-                              </span>
-                              <span
-                                className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
-                                  currentTemplate.status === "Active"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-amber-100 text-amber-800"
-                                }`}
-                              >
-                                {currentTemplate.status}
-                              </span>
-                            </div>
+                              {currentTemplate.status}
+                            </span>
                           </div>
-                        ) : (
-                          <span className="text-amber-800 font-semibold flex items-center gap-1">
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                            No active template matching test.
-                          </span>
                         )}
                       </div>
 
@@ -2240,43 +2225,61 @@ const templateContentCache = new Map<string, any>()
                       )}
                     </div>
 
+                    <div className="pt-0.5">
+                      {currentTemplate ? (
+                        <div
+                          className="font-bold text-[#0F172A] text-[12.5px] leading-snug break-words"
+                          title={currentTemplate.templateName || currentTemplate.testName}
+                        >
+                          {currentTemplate.templateName && currentTemplate.templateName !== currentTemplate.testName
+                            ? `${currentTemplate.templateName} (${currentTemplate.testName})`
+                            : currentTemplate.testName || currentTemplate.templateName || currentTemplate.uploadedFileName}
+                        </div>
+                      ) : (
+                        <span className="text-amber-800 font-semibold flex items-center gap-1 text-[11px]">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                          No active template matching test.
+                        </span>
+                      )}
+                    </div>
+
                     {activeStudy.normalizedReportStatus !== "Finalized" && (
-                      <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-blue-200/70">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1.5 border-t border-blue-200/70">
                         {currentTemplate && (
                           <button
                             type="button"
                             onClick={() => applyTemplate(currentTemplate, true)}
-                            className="px-2.5 py-1 bg-[#1B4FD8] hover:bg-[#1740B4] text-white rounded font-bold text-[11px] cursor-pointer shadow-2xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                            className="px-2 py-1 bg-[#1B4FD8] hover:bg-[#1740B4] text-white rounded font-bold text-[11px] cursor-pointer shadow-2xs flex items-center justify-center gap-1 transition-colors min-w-0"
                             title="Populate report form with this template's sections and default text"
                           >
-                            <Check className="w-3.5 h-3.5 stroke-[2.2]" />
-                            <span>Apply Template</span>
+                            <Check className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
+                            <span className="truncate">Apply Template</span>
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-                          className="px-2 py-1 bg-white border border-[#BFDBFE] hover:bg-blue-50 text-[#1B4FD8] rounded font-semibold text-[11px] cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                          className="px-2 py-1 bg-white border border-[#BFDBFE] hover:bg-blue-50 text-[#1B4FD8] rounded font-semibold text-[11px] cursor-pointer shadow-2xs transition-colors flex items-center justify-center min-w-0"
                         >
-                          {showTemplateSelector ? "Close" : "Change"}
+                          <span className="truncate">{showTemplateSelector ? "Close" : "Change"}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowImporterModal(true)}
-                          className="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded font-semibold text-[11px] cursor-pointer shadow-2xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                          className="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded font-semibold text-[11px] cursor-pointer shadow-2xs flex items-center justify-center gap-1 transition-colors min-w-0"
                           title="Upload or import template file"
                         >
-                          <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Upload</span>
+                          <UploadCloud className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="truncate">Upload</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowTemplateManagerModal(true)}
-                          className="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded font-semibold text-[11px] cursor-pointer shadow-2xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                          className="px-2 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded font-semibold text-[11px] cursor-pointer shadow-2xs flex items-center justify-center gap-1 transition-colors min-w-0"
                           title="Manage templates catalog"
                         >
-                          <FileText className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Catalog</span>
+                          <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="truncate">Catalog</span>
                         </button>
                       </div>
                     )}
@@ -2714,7 +2717,7 @@ const templateContentCache = new Map<string, any>()
                   </div>
 
                   {/* Pinned Action Buttons Footer at Bottom of Report Panel */}
-                  <div className="shrink-0 bg-slate-50 border-t border-[#E2E8F0] p-2.5 z-10 shadow-xs">
+                  <div className="shrink-0 bg-slate-50 border-t border-[#E2E8F0] px-2.5 py-2 z-10 shadow-xs">
                     {activeStudy.normalizedReportStatus !== "Finalized" ? (
                       <div className="flex flex-col gap-1.5">
                         {/* Upper row: Clear Draft + Save Draft */}
@@ -2723,7 +2726,7 @@ const templateContentCache = new Map<string, any>()
                             type="button"
                             onClick={handleClearDraft}
                             title="Clear all entered report fields and reset draft"
-                            className="px-2.5 py-1.5 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-700 rounded-md font-semibold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                            className="px-2 py-1 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-700 rounded-md font-semibold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs transition-colors shrink-0"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-slate-400" />
                             <span>Clear Draft</span>
@@ -2733,7 +2736,7 @@ const templateContentCache = new Map<string, any>()
                             type="button"
                             onClick={handleSaveDraft}
                             title="Save entered progress as draft"
-                            className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-[#DDE2EC] text-slate-700 rounded-md font-semibold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                            className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-[#DDE2EC] text-slate-700 rounded-md font-semibold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs transition-colors shrink-0"
                           >
                             <Save className="w-3.5 h-3.5 text-slate-500" />
                             <span>
@@ -2750,10 +2753,10 @@ const templateContentCache = new Map<string, any>()
                           <button
                             type="button"
                             onClick={handleSubmitForReview}
-                            className="w-full px-2 py-1.5 bg-[#1B4FD8] hover:bg-[#1740B4] text-white rounded-md font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                            className="w-full px-2 py-1.5 bg-[#1B4FD8] hover:bg-[#1740B4] text-white rounded-md font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
                           >
                             <CheckSquare className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                            <span>
+                            <span className="truncate">
                               {activeStudy.normalizedReportStatus === "Correction Required" ||
                               Boolean(activeStudy.correctionNotes)
                                 ? "Resubmit Review"
@@ -2765,20 +2768,20 @@ const templateContentCache = new Map<string, any>()
                             <button
                               type="button"
                               onClick={handleFinalizeReport}
-                              className="w-full px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                              className="w-full px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
                             >
                               <ShieldCheck className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                              <span>Finalize Report</span>
+                              <span className="truncate">Finalize Report</span>
                             </button>
                           ) : (
                             <button
                               type="button"
                               disabled
                               title="Only authorized Radiologists or Doctors can finalize diagnostic reports"
-                              className="w-full px-1.5 py-1.5 bg-slate-100 border border-slate-200 text-slate-400 rounded-md font-semibold text-[10.5px] flex items-center justify-center gap-1 cursor-not-allowed whitespace-nowrap"
+                              className="w-full px-1.5 py-1.5 bg-slate-100 border border-slate-200 text-slate-400 rounded-md font-semibold text-[10.5px] flex items-center justify-center gap-1 cursor-not-allowed"
                             >
                               <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span>Finalize (Radiologist)</span>
+                              <span className="truncate">Finalize (Radiologist)</span>
                             </button>
                           )}
                         </div>
@@ -2790,11 +2793,11 @@ const templateContentCache = new Map<string, any>()
                             <button
                               type="button"
                               onClick={() => setShowCorrectionModal(true)}
-                              className="w-full py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-md font-semibold text-[11px] flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                              className="w-full py-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-md font-semibold text-[11px] flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
                               title="Return this report to technician for required clinical changes or revisions"
                             >
                               <RotateCcw className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                              <span>Return for Clinical Correction</span>
+                              <span className="truncate">Return for Clinical Correction</span>
                             </button>
                           )}
                       </div>
@@ -2807,7 +2810,7 @@ const templateContentCache = new Map<string, any>()
                         <button
                           type="button"
                           onClick={() => setShowPdfModal(activeStudy)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
                         >
                           <Printer className="w-3.5 h-3.5" />
                           <span>Print PDF</span>

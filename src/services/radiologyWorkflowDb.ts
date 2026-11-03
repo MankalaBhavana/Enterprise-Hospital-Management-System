@@ -364,6 +364,35 @@ export class RadiologyWorkflowDb {
   }
 
   /**
+   * Deterministically resolves the report finalization timestamp (in ms)
+   * for Finalized Reports ordering (Newest finalized reports strictly first).
+   * Does NOT use updatedAt or amendment timestamps, so amendments preserve the original position.
+   */
+  static getReportFinalizedTimestamp(study: Partial<ExtendedRadiologyRecord>): number {
+    if (study.finalizedAt) {
+      const t = new Date(study.finalizedAt).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    if (study.signedAt) {
+      const t = new Date(study.signedAt).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    if (study.history && Array.isArray(study.history)) {
+      for (const log of study.history) {
+        if (log.action?.includes("Report Finalized") || log.action?.includes("Finalized")) {
+          const t = new Date(log.timestamp).getTime()
+          if (!isNaN(t) && t > 0) return t
+        }
+      }
+    }
+    if (study.completedAt) {
+      const t = new Date(study.completedAt).getTime()
+      if (!isNaN(t) && t > 0) return t
+    }
+    return this.getOrderCreationTimestamp(study)
+  }
+
+  /**
    * Loads all radiology studies with live billing payment status synchronization.
    * Utilizes batch loading and in-memory caching to eliminate redundant JSON parses.
    */
@@ -421,7 +450,7 @@ export class RadiologyWorkflowDb {
         const study = raw[i]
         const ext = study as ExtendedRadiologyRecord
 
-        // Check if study is paid
+        // Check if study is paid - AUTHORITATIVE ITEM & INVOICE LEVEL CHECK
         const sInv = (study.invoiceNo || "").toLowerCase().trim()
         const sEnc = (study.encounterId || "").toLowerCase().trim()
         const sId = (study.id || "").toLowerCase().trim()
@@ -432,18 +461,35 @@ export class RadiologyWorkflowDb {
           (ext as any).billingStatus === "Authorized Exception"
         )
 
-        let isPaid =
-          study.paymentStatus === "Paid" ||
-          (study.paymentStatus as string) === "PAID" ||
-          paidStudyIds.has(sId) ||
-          (sInv ? paidInvoices.has(sInv) : false) ||
-          (sEnc ? paidEncounters.has(sEnc) : false)
+        // Find linked invoice in claims database if present
+        const linkedClaim = sInv
+          ? claims.find((c) => c.invoiceNo && c.invoiceNo.toLowerCase().trim() === sInv)
+          : undefined
 
-        const receiptNo =
-          study.paidReceiptNo ||
-          (sInv && paidInvoices.get(sInv)) ||
-          (sEnc && paidEncounters.get(sEnc)) ||
-          (isPaid ? "RCPT-2026-5501" : undefined)
+        let isPaid = false
+        let receiptNo = study.paidReceiptNo
+
+        if (isAuthException) {
+          isPaid = true
+        } else if (linkedClaim) {
+          // If a specific claim is linked, its payment status is authoritative:
+          // Must have status === "Paid" or balanceDue <= 0.
+          const claimFullyPaid = linkedClaim.status === "Paid" || linkedClaim.balanceDue <= 0
+          if (claimFullyPaid) {
+            isPaid = true
+            receiptNo = receiptNo || linkedClaim.payments?.[0]?.receiptNo || `RCPT-2026-${linkedClaim.invoiceNo.replace(/\D/g, "").slice(-4) || "5501"}`
+          } else {
+            isPaid = false
+          }
+        } else if (study.paidReceiptNo || (study.paymentStatus === "Paid" && !linkedClaim)) {
+          isPaid = true
+          receiptNo = study.paidReceiptNo || "RCPT-2026-5501"
+        } else if (paidStudyIds.has(sId) || (sInv ? paidInvoices.has(sInv) : false)) {
+          isPaid = true
+          receiptNo = receiptNo || (sInv && paidInvoices.get(sInv)) || "RCPT-2026-5501"
+        } else {
+          isPaid = false
+        }
 
         const normStatus = this.normalizeInvestigationStatus(study.status)
         const normRepStatus = this.normalizeReportStatus(study)
@@ -1084,18 +1130,23 @@ export class RadiologyWorkflowDb {
     } catch {}
 
     // Initialize and persist corresponding reporting entry in RadiologyTemplateDatabase
-    RadiologyTemplateDatabase.initializeReportingRecord({
-      studyId: study.id || studyId,
-      patientName: study.patient,
-      mrn: study.mrn,
-      umr: study.umr || study.mrn,
-      patientId: (study as any).patientId || study.umr || study.mrn,
-      examinationId: (study as any).examinationId || study.accessionNo || study.id || studyId,
-      testId: study.id || studyId,
-      testName: study.study,
-      templateId: study.templateId,
-      technicianName: staffName,
-    })
+    try {
+      const templateDb = RadiologyTemplateDatabase || (typeof globalThis !== "undefined" ? (globalThis as any).RadiologyTemplateDatabase : undefined)
+      templateDb?.initializeReportingRecord?.({
+        studyId: study.id || studyId,
+        patientName: study.patient,
+        mrn: study.mrn,
+        umr: study.umr || study.mrn,
+        patientId: (study as any).patientId || study.umr || study.mrn,
+        examinationId: (study as any).examinationId || study.accessionNo || study.id || studyId,
+        testId: study.id || studyId,
+        testName: study.study,
+        templateId: study.templateId,
+        technicianName: staffName,
+      })
+    } catch (e) {
+      console.warn("RadiologyTemplateDatabase init warning in sendToReportingWorkspace:", e)
+    }
 
     // Ensure reporting draft is initialized for the Reporting Workspace
     this.getOrInitializeReportDraft(study.id || studyId, staffName, "Radiology Technician")
@@ -1172,10 +1223,10 @@ export class RadiologyWorkflowDb {
       templateName: data.templateName,
       radiologist: data.specialistName,
       reportStatus: data.isFinal ? "Finalized" : "Draft",
-      finalizedAt: data.isFinal ? nowIso : undefined,
-      finalizedBy: data.isFinal ? data.specialistName : undefined,
-      finalizedRole: data.isFinal ? data.specialistRole : undefined,
-      signedAt: data.isFinal ? `${new Date().toLocaleDateString("en-IN")} ${nowTime}` : study.signedAt,
+      finalizedAt: data.isFinal ? (study.finalizedAt || nowIso) : undefined,
+      finalizedBy: data.isFinal ? (study.finalizedBy || data.specialistName) : undefined,
+      finalizedRole: data.isFinal ? (study.finalizedRole || data.specialistRole) : undefined,
+      signedAt: data.isFinal ? (study.signedAt || `${new Date().toLocaleDateString("en-IN")} ${nowTime}`) : study.signedAt,
       status: data.isFinal ? "Final" : "Images Ready",
       history: updatedHistory,
     })
@@ -1638,8 +1689,9 @@ export class RadiologyWorkflowDb {
       study = this.getStudyById(studyId) || (recovered as ExtendedRadiologyRecord)
     }
 
+    const templateDb = RadiologyTemplateDatabase || (typeof globalThis !== "undefined" ? (globalThis as any).RadiologyTemplateDatabase : undefined)
     // Check if existing findings already saved in study or in template DB reports
-    const existingRepRecord = RadiologyTemplateDatabase.getReportByStudyId(study.id)
+    const existingRepRecord = templateDb?.getReportByStudyId?.(study.id)
     const hasStudyFindings = (study.findings && study.findings.length > 0) || (study.impression && study.impression.length > 0)
 
     if (hasStudyFindings || existingRepRecord) {
@@ -1652,9 +1704,9 @@ export class RadiologyWorkflowDb {
       return {
         study,
         template:
-          (existingRepRecord?.templateId ? RadiologyTemplateDatabase.getTemplateById(existingRepRecord.templateId) : undefined) ||
-          (study.templateId ? RadiologyTemplateDatabase.getTemplateById(study.templateId) : undefined) ||
-          RadiologyTemplateDatabase.getTemplateForStudy(study.study, study.gender || "All"),
+          (existingRepRecord?.templateId ? templateDb?.getTemplateById?.(existingRepRecord.templateId) : undefined) ||
+          (study.templateId ? templateDb?.getTemplateById?.(study.templateId) : undefined) ||
+          templateDb?.getTemplateForStudy?.(study.study, study.gender || "All"),
         isExistingDraft: true,
         draftData: {
           indication: study.indication || "Diagnostic investigation ordered per clinical consultation.",
@@ -1669,7 +1721,7 @@ export class RadiologyWorkflowDb {
     }
 
     // Initialize from approved template for that exact examination and protocol
-    const matchedTemplate = RadiologyTemplateDatabase.getTemplateForStudy(
+    const matchedTemplate = templateDb?.getTemplateForStudy?.(
       study.study,
       study.gender || "All"
     )

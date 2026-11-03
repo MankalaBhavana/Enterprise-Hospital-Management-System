@@ -98,13 +98,20 @@ export default function RadiologySchedulingView({
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  // Filtered appointments for selected date and filters
+  // Filtered appointments for selected date and filters - Chronologically sorted
   const filteredAppointments = useMemo(() => {
-    return appointments.filter((appt) => {
+    const list = appointments.filter((appt) => {
       if (activeViewMode !== "list" && appt.scheduledDate !== activeDate) return false
       if (modalityFilter !== "all" && !appt.modality.toLowerCase().includes(modalityFilter.toLowerCase())) return false
       if (suiteFilter !== "all" && appt.suiteId !== suiteFilter) return false
       return true
+    })
+
+    return list.sort((a, b) => {
+      const timeA = new Date(`${a.scheduledDate}T${a.scheduledTime || "00:00"}`).getTime()
+      const timeB = new Date(`${b.scheduledDate}T${b.scheduledTime || "00:00"}`).getTime()
+      if (timeA !== timeB) return timeA - timeB // Chronological (earliest first)
+      return (a.id || "").localeCompare(b.id || "")
     })
   }, [appointments, activeDate, activeViewMode, modalityFilter, suiteFilter])
 

@@ -12,11 +12,7 @@ export type ExtractedDocument = ReconstructedDocument;
 import * as pdfjsLib from "pdfjs-dist"
 import mammoth from "mammoth"
 import JSZip from "jszip"
-import {
-  extractTextFromPdfBuffer,
-  extractTextFromWordBuffer,
-  extractCleanTemplateText
-} from "./radiologyTemplateDb"
+import { extractCleanTemplateText } from "./templateTextCleaner"
 
 export interface TableCell {
   id: string

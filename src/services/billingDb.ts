@@ -6669,22 +6669,42 @@ export class BillingDatabase {
       const radStudies = this.getRadiologyStudies();
       let radChanged = false;
 
-      const updatedRadStudies = radStudies.map((rs) => {
-        const rsName = (rs.patient || "").toLowerCase().trim();
-        const rsMrn = (rs.mrn || rs.umr || "").toLowerCase().replace("umr", "").replace("p-", "").trim();
-        const rsEnc = ((rs as any).encounterId || "").toLowerCase().trim();
-        const rsInv = (rs.invoiceNo || "").toLowerCase().trim();
+      const radItems = matchingClaim
+        ? matchingClaim.items.filter(
+            (i) =>
+              i.category === "Radiology / Imaging" ||
+              (i.category as string) === "Radiology" ||
+              (i.category as string) === "Imaging" ||
+              /(x-ray|xray|radiograph|\bct\b|ct\s|ct-|ct scan|computed tomography|hrct|\bmri\b|mr\s|magnetic resonance|ultrasound|usg|sonograph|doppler|echo|echocardiography|mammograph|dexa|fluoroscop|pet scan)/i.test(
+                i.description,
+              ),
+          )
+        : [];
 
-        const matchName = targetName && (rsName === targetName || (targetName.length > 4 && (rsName.includes(targetName) || targetName.includes(rsName))));
-        const matchMrn = targetMrn && rsMrn && (rsMrn === targetMrn || rsMrn.includes(targetMrn) || targetMrn.includes(rsMrn));
-        const matchEnc = resolvedEncounterId && rsEnc && rsEnc === resolvedEncounterId.toLowerCase();
+      // Only match by exact invoice number, or specific study name if this claim has radiology items
+      const updatedRadStudies = radStudies.map((rs) => {
+        const rsInv = (rs.invoiceNo || "").toLowerCase().trim();
         const matchInv = matchingClaim?.invoiceNo && rsInv && rsInv === matchingClaim.invoiceNo.toLowerCase();
 
-        if (matchName || matchMrn || matchEnc || matchInv) {
+        // Also check if study name matches any item in the cleared invoice for this patient
+        const rsUmr = (rs.umr || rs.mrn || "").toLowerCase().trim();
+        const targetUmrClean = targetMrn ? targetMrn.toLowerCase().trim() : "";
+        const umrMatches = targetUmrClean && rsUmr && (rsUmr === targetUmrClean || rsUmr.includes(targetUmrClean));
+
+        const itemMatches = umrMatches && radItems.some((item) =>
+          rs.study && (
+            rs.study.toLowerCase() === item.description.toLowerCase() ||
+            rs.study.toLowerCase().includes(item.description.toLowerCase()) ||
+            item.description.toLowerCase().includes(rs.study.toLowerCase())
+          )
+        );
+
+        if (matchInv || itemMatches) {
           radChanged = true;
           updatedCount += 1;
           return {
             ...rs,
+            invoiceNo: rs.invoiceNo || matchingClaim?.invoiceNo,
             paymentStatus: "Paid" as const,
             paidReceiptNo: effectiveReceiptNo,
             paidAt: nowIso,
@@ -6704,58 +6724,49 @@ export class BillingDatabase {
           updatedCount,
           message: `✓ Clearance dispatched to Radiology for ${updatedCount} study(ies). Receipt: ${effectiveReceiptNo}.`,
         };
-      } else {
-        const radItems = matchingClaim
-          ? matchingClaim.items.filter(
-              (i) =>
-                i.category === "Radiology / Imaging" ||
-                (i.category as string) === "Radiology" ||
-                (i.category as string) === "Imaging" ||
-                /(x-ray|xray|radiograph|\bct\b|ct\s|ct-|ct scan|computed tomography|hrct|\bmri\b|mr\s|magnetic resonance|ultrasound|usg|sonograph|doppler|echo|echocardiography|mammograph|dexa|fluoroscop|pet scan)/i.test(
-                  i.description,
-                ),
-            )
-          : [];
+      } else if (radItems.length > 0 || optionalTestName) {
+        // Only create a record if actual radiology items were in this claim
+        const itemsToCreate = radItems.length > 0 ? radItems : [{ description: optionalTestName || "Radiology Examination", total: 500, unitPrice: 500 }];
+        const newStudies: RadiologyStudyRecord[] = [];
 
-        const studyName =
-          optionalTestName ||
-          (radItems.length > 0
-            ? radItems.map((i) => i.description).join(", ")
-            : "Diagnostic Imaging Study");
+        for (const item of itemsToCreate) {
+          const studyName = item.description;
+          const lowerName = studyName.toLowerCase();
+          const modality = lowerName.includes("ct") || lowerName.includes("computed tomography")
+            ? "CT"
+            : lowerName.includes("mri") || lowerName.includes("magnetic")
+              ? "MR"
+              : lowerName.includes("ultra") || lowerName.includes("echo") || lowerName.includes("usg") || lowerName.includes("doppler")
+                ? "US"
+                : lowerName.includes("pet") || lowerName.includes("nuclear")
+                  ? "NM"
+                  : "XR";
 
-        const modality = studyName.toLowerCase().includes("ct")
-          ? "CT"
-          : studyName.toLowerCase().includes("mri")
-            ? "MR"
-            : studyName.toLowerCase().includes("ultra") || studyName.toLowerCase().includes("echo")
-              ? "US"
-              : "XR";
+          const newRadStudy: RadiologyStudyRecord = {
+            id: `RAD-${Date.now().toString().slice(-4)}-${Math.floor(10 + Math.random() * 90)}`,
+            patient: resolvedPatientName,
+            mrn: resolvedMrn,
+            umr: matchingClaim?.patientId || resolvedMrn,
+            invoiceNo: matchingClaim?.invoiceNo,
+            encounterId: resolvedEncounterId,
+            study: studyName,
+            modality: modality as any,
+            priority: matchingClaim?.department === "Emergency" ? "STAT" : "Routine",
+            ordered: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            provider: matchingClaim?.attendingDoctor || "Attending Specialist",
+            status: "Orders",
+            room: modality === "CT" ? "CT-1" : modality === "MR" ? "MR-1" : modality === "US" ? "US-1" : "XR-1",
+            price: item.total || item.unitPrice || 500,
+            paymentStatus: "Paid",
+            paidReceiptNo: effectiveReceiptNo,
+            paidAt: nowIso,
+            accessionNo: `RAD-ACC-${(matchingClaim?.invoiceNo || "").replace(/\D/g, "").slice(-4) || Math.floor(1000 + Math.random() * 9000)}`,
+            department: matchingClaim?.department || "Central Clinic",
+          };
+          newStudies.push(newRadStudy);
+        }
 
-        const totalRadPrice = radItems.reduce((s, i) => s + (i.total || i.unitPrice || 0), 0) || 250;
-
-        const newRadStudy: RadiologyStudyRecord = {
-          id: `RAD-${Date.now().toString().slice(-4)}`,
-          patient: resolvedPatientName,
-          mrn: resolvedMrn,
-          umr: matchingClaim?.patientId || resolvedMrn,
-          invoiceNo: matchingClaim?.invoiceNo,
-          encounterId: resolvedEncounterId,
-          study: studyName,
-          modality: modality as any,
-          priority: matchingClaim?.department === "Emergency" ? "STAT" : "Routine",
-          ordered: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          provider: matchingClaim?.attendingDoctor || "Attending Specialist",
-          status: "Orders",
-          room: modality === "CT" ? "CT-1" : modality === "MR" ? "MR-1" : modality === "US" ? "US-1" : "XR-1",
-          price: totalRadPrice,
-          paymentStatus: "Paid",
-          paidReceiptNo: effectiveReceiptNo,
-          paidAt: nowIso,
-          accessionNo: `RAD-ACC-${(matchingClaim?.invoiceNo || "").replace(/\D/g, "").slice(-4) || Math.floor(1000 + Math.random() * 9000)}`,
-          department: matchingClaim?.department || "Central Clinic",
-        };
-
-        const newRadStudies = [newRadStudy, ...radStudies];
+        const newRadStudies = [...newStudies, ...radStudies];
         this.save(STORAGE_KEY_RAD_STUDIES, newRadStudies);
         try {
           new BroadcastChannel("hospai_rad_channel").postMessage("changed");
@@ -6763,8 +6774,14 @@ export class BillingDatabase {
         this.emitUpdate();
         return {
           success: true,
-          updatedCount: 1,
-          message: `✓ Clearance dispatched to Radiology for ${studyName}. Receipt: ${effectiveReceiptNo}.`,
+          updatedCount: newStudies.length,
+          message: `✓ Clearance dispatched to Radiology for ${newStudies.map(s => s.study).join(", ")}. Receipt: ${effectiveReceiptNo}.`,
+        };
+      } else {
+        return {
+          success: true,
+          updatedCount: 0,
+          message: "No radiology examination items found in cleared claim.",
         };
       }
     }
@@ -7520,7 +7537,7 @@ export class BillingDatabase {
           syncedStudies[existingIdx] = {
             ...current,
 
-            paymentStatus: isPaid ? "Paid" : current.paymentStatus,
+            paymentStatus: isPaid ? "Paid" : (claim.status === "Awaiting Billing" || claim.balanceDue > 0 ? "Payment Pending" : current.paymentStatus),
 
             paidReceiptNo: isPaid
               ? current.paidReceiptNo || receiptNo
@@ -7782,6 +7799,15 @@ export class BillingDatabase {
     const seenStudyKeys = new Set<string>()
     const deduplicatedStudies: RadiologyStudyRecord[] = []
     for (const s of syncedStudies) {
+      if (s.study === "Diagnostic Imaging Study") {
+        const hasSpecificStudy = syncedStudies.some(
+          (other) =>
+            other !== s &&
+            ((other.umr && s.umr && other.umr === s.umr) || (other.patient && s.patient && other.patient === s.patient)) &&
+            other.study !== "Diagnostic Imaging Study"
+        )
+        if (hasSpecificStudy) continue
+      }
       const pKey = (s.encounterId || s.umr || s.mrn || s.patient || "").toLowerCase().trim()
       const sBase = (s.study || "").toLowerCase().replace(/\s*\([^\)]*\)/g, "").trim()
       const key = `${pKey}::${sBase}`
@@ -7987,7 +8013,7 @@ export class BillingDatabase {
     }
 
     if (idx < 0) {
-      // Find from initial studies or recover study so update never crashes
+      // Check if study exists in initial seed studies
       const initialMatch = INITIAL_RAD_STUDIES.find(
         (s) =>
           (s.id && s.id.toLowerCase() === target) ||
@@ -7995,32 +8021,20 @@ export class BillingDatabase {
           (s.invoiceNo && s.invoiceNo.toLowerCase() === target) ||
           (s.umr && s.umr.toLowerCase() === target),
       )
-      const baseRecord = initialMatch || {
-        id,
-        patient: updates.patient || "Patient",
-        mrn: updates.mrn || "MRN-1001",
-        study: updates.study || "Diagnostic Imaging Study",
-        modality: updates.modality || "XR",
-        priority: updates.priority || "Routine",
-        ordered:
-          updates.ordered ||
-          new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        provider: updates.provider || "Attending Physician",
-        status: updates.status || "In Progress",
-        price: updates.price || 500,
+      if (initialMatch) {
+        const newRecord = { ...initialMatch, ...updates, id: initialMatch.id || id }
+        const updatedList = [newRecord, ...studies]
+        this.save(STORAGE_KEY_RAD_STUDIES, updatedList)
+        this.invalidateRadiologyStudiesCache()
+        this.emitUpdate()
+        try {
+          new BroadcastChannel("hospai_rad_channel").postMessage("changed")
+        } catch {}
+        return newRecord
       }
-      const newRecord = { ...baseRecord, ...updates, id: baseRecord.id || id }
-      const updatedList = [newRecord, ...studies]
-      this.save(STORAGE_KEY_RAD_STUDIES, updatedList)
-      this.invalidateRadiologyStudiesCache()
-      this.emitUpdate()
-      try {
-        new BroadcastChannel("hospai_rad_channel").postMessage("changed")
-      } catch {}
-      return newRecord
+      // If neither exists, do NOT synthesize a placeholder "Diagnostic Imaging Study"
+      console.warn(`Radiology study '${id}' not found in active records or seed catalog; skipping phantom record creation.`)
+      return null
     }
 
     const updated = { ...studies[idx], ...updates }
