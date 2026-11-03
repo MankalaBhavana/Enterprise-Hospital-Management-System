@@ -2905,7 +2905,14 @@ export default function App() {
                 />
               )}
               {module === "emergency_ui" && (
-                <EmergencyUI onRegister={() => setModule("emergency")} />
+                <EmergencyUI
+                  onRegister={() => setModule("emergency")}
+                  onOpenTriage={(visitId) => {
+                    setSelectedTriageVisitId(visitId)
+                    setModule("triage")
+                  }}
+                  onOpenTrackBoard={() => setModule("emergency")}
+                />
               )}
               {module === "inpatient" && (
                 <Inpatient
