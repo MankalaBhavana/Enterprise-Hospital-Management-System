@@ -4,6 +4,7 @@ import { Download, Fingerprint, LayoutGrid, List, Phone, Plus, Search, Upload, X
 import { hr, HrApiError } from "../../services/hr/client"
 import { EMPLOYEE_CATEGORIES, EMPLOYMENT_TYPES, categoryLabel, type EmployeeDetail, type EmployeeListItem, type Page } from "../../services/hr/types"
 import { Avatar, Btn, Drawer, Empty, ErrorState, Field, fmtDate, filterCls, inputCls, Loading, PageHeader, Pager, Panel, StatusBadge, Table, errorText, useHr } from "./ui"
+import PhoneInput from "../ui/PhoneInput"
 import useOrgRefs, { type OrgRefs } from "./useOrgRefs"
 import EmployeeProfile from "./EmployeeProfile"
 
@@ -392,7 +393,7 @@ function CreateEmployee({ refs, onClose, onCreated }: { refs: OrgRefs; onClose: 
           <input type="date" className={inputCls} value={f.date_of_birth} onChange={(e) => set({ date_of_birth: e.target.value })} />
         </Field>
         <Field label="Phone" error={err("phone")}>
-          <input className={inputCls} value={f.phone} onChange={(e) => set({ phone: e.target.value })} />
+          <PhoneInput size="sm" value={f.phone || ""} onChange={(val) => set({ phone: val })} placeholder="98765 43210" />
         </Field>
         <div className="col-span-3">
           <Field label="Email" error={err("email")}>
@@ -504,7 +505,7 @@ function CreateEmployee({ refs, onClose, onCreated }: { refs: OrgRefs; onClose: 
           <input className={inputCls} value={f.emergency_relationship} onChange={(e) => set({ emergency_relationship: e.target.value })} />
         </Field>
         <Field label="Phone">
-          <input className={inputCls} value={f.emergency_phone} onChange={(e) => set({ emergency_phone: e.target.value })} />
+          <PhoneInput size="sm" value={f.emergency_phone || ""} onChange={(val) => set({ emergency_phone: val })} placeholder="98765 43210" />
         </Field>
       </div>
     </Drawer>

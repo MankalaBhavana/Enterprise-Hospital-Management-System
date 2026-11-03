@@ -2182,9 +2182,9 @@ class HospitalDatabase {
 
       sex: data.sex || "Male",
 
-      phone: data.phone || "(617) 555-0199",
+      phone: data.phone || "+91 98765 43210",
 
-      address: data.address || "Boston, MA",
+      address: data.address || "Main City",
 
       bloodGroup: data.bloodGroup || "O+",
 
@@ -2919,7 +2919,7 @@ class HospitalDatabase {
                 dob: "1985-01-01",
                 age: (demo.age ?? 40) as any,
                 sex: (demo.sex || "Male") as any,
-                phone: demo.phone || "(617) 555-0199",
+                phone: demo.phone || "+91 98765 43210",
                 address: item.patient_address || item.address || "Main City",
                 bloodGroup: demo.bloodGroup || "O+",
                 createdAt: itemDateIso,
@@ -3018,14 +3018,14 @@ export function findMatchingPatient(
       }
     }
 
-    // 2. Phone number comparison (digits only, if phone has at least 4 digits)
-
+    // 2. Phone number comparison (digits only, normalizing national 10-digit if prefixed with country code)
     if (params.phone && params.phone.trim().length >= 4) {
       const inputDigits = params.phone.replace(/\D/g, "")
-
       const dbDigits = candidate.phone.replace(/\D/g, "")
+      const normInput = inputDigits.length >= 10 ? inputDigits.slice(-10) : inputDigits
+      const normDb = dbDigits.length >= 10 ? dbDigits.slice(-10) : dbDigits
 
-      if (inputDigits && dbDigits && inputDigits !== dbDigits) {
+      if (normInput && normDb && normInput !== normDb) {
         candidateMismatches.push(
           `Phone number differs (${params.phone.trim()} vs ${candidate.phone})`,
         )
@@ -3082,10 +3082,11 @@ export function findMatchingPatient(
 
   if (params.phone && params.phone.trim().length >= 4) {
     const inputDigits = params.phone.replace(/\D/g, "")
-
     const dbDigits = primaryCandidate.phone.replace(/\D/g, "")
+    const normInput = inputDigits.length >= 10 ? inputDigits.slice(-10) : inputDigits
+    const normDb = dbDigits.length >= 10 ? dbDigits.slice(-10) : dbDigits
 
-    if (inputDigits && dbDigits && inputDigits !== dbDigits) {
+    if (normInput && normDb && normInput !== normDb) {
       detectedMismatches.push(
         `Phone number differs: "${params.phone.trim()}" vs registered "${primaryCandidate.phone}"`,
       )

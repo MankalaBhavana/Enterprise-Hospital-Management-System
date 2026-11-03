@@ -8,6 +8,7 @@ import {
 } from "../services/appointmentBooking"
 import { Icon } from "./icons"
 import { Btn, Input } from "./shared"
+import PhoneInput from "./ui/PhoneInput"
 import {
   db,
   DBPatient,
@@ -153,15 +154,13 @@ export default function Registration({
     }))
   }
 
-  // Handle Numeric Only Phone Input (strictly numbers only, max 10 digits)
+  // Handle Phone Input with Country Code
   const handlePhoneChange = (val: string) => {
-    const digitsOnly = val.replace(/\D/g, "").slice(0, 10)
-    setFormData((prev) => ({ ...prev, phone: digitsOnly }))
+    setFormData((prev) => ({ ...prev, phone: val }))
   }
 
   const handleEmergencyPhoneChange = (val: string) => {
-    const digitsOnly = val.replace(/\D/g, "").slice(0, 10)
-    setFormData((prev) => ({ ...prev, emergencyPhone: digitsOnly }))
+    setFormData((prev) => ({ ...prev, emergencyPhone: val }))
   }
 
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -245,12 +244,12 @@ export default function Registration({
     }
 
     const rawPhone = formData.phone || ""
-    const cleanPhone = rawPhone.replace(/\D/g, "")
-    const finalPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone
-    if (finalPhone.length < 10) {
-      toast.error("Please enter a valid 10-digit mobile phone number.")
+    const cleanDigits = rawPhone.replace(/\D/g, "")
+    if (cleanDigits.length < 7) {
+      toast.error("Please enter a valid mobile phone number.")
       return
     }
+    const finalPhone = rawPhone.trim() || "+91 98765 43210"
 
     // If ALL entered details match an existing record -> Route through Revisit under existing UMR
     if (matchingExistingPatient) {
@@ -273,7 +272,7 @@ export default function Registration({
           dob: finalDob,
           age: computedAge,
           sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
-          phone: finalPhone || "9876543210",
+          phone: finalPhone,
           address: formData.address.trim() || "Local Address",
         })
 
@@ -831,15 +830,10 @@ export default function Registration({
                     <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
                       Mobile Phone <span className="text-red-500">*</span>
                     </label>
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[0-9]{10}"
-                      maxLength={10}
+                    <PhoneInput
                       value={formData.phone}
                       onChange={handlePhoneChange}
-                      onKeyDown={handleNumericKeyDown}
-                      placeholder="e.g. 9876543210"
+                      placeholder="98765 43210"
                       required
                     />
                   </div>
@@ -918,15 +912,10 @@ export default function Registration({
                     <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
                       Emergency Phone
                     </label>
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[0-9]{10}"
-                      maxLength={10}
+                    <PhoneInput
                       value={formData.emergencyPhone}
                       onChange={handleEmergencyPhoneChange}
-                      onKeyDown={handleNumericKeyDown}
-                      placeholder="e.g. 9876543210"
+                      placeholder="98765 43210"
                     />
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { Plus, Edit2, ToggleRight, ToggleLeft, Shield, X } from "lucide-react"
 
 import PageHeader from "../components/PageHeader"
 import StatusBadge from "../components/StatusBadge"
+import PhoneInput from "../../ui/PhoneInput"
 
 const permMatrix = [
   {
@@ -409,10 +410,10 @@ export default function UserManagement({ onNavigate }: UserManagementProps) {
                 <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-1">
                   Phone Number *
                 </label>
-                <input
+                <PhoneInput
                   value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full px-3 py-2 rounded border border-[#E2E8F0] text-[13px] focus:border-[#0F766E] focus:outline-none transition-colors"
+                  onChange={(val) => setForm({ ...form, phone: val })}
+                  placeholder="98765 43210"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">

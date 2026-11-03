@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { ACTIVE_DOCTORS } from "../services/doctorMaster"
 import { Icon } from "./icons"
+import PhoneInput from "./ui/PhoneInput"
 import { db, DBOPEncounter, DBPatient, DBCallEvent } from "../services/db"
 import {
   notifyAppointmentBooked,
@@ -517,7 +518,7 @@ export default function QueueManagement({
         lastName,
         age: Number(tokenNewAge) || 30,
         sex: tokenNewSex,
-        phone: tokenNewPhone || "(617) 555-0199",
+        phone: tokenNewPhone || "+91 98765 43210",
         dept: tokenDept,
         chiefComplaint: tokenComplaint || `OP Consultation - ${tokenDept}`,
       })
@@ -1379,11 +1380,11 @@ export default function QueueManagement({
                       <label className="text-[10.5px] font-bold text-gray-800 block mb-0.5">
                         Phone
                       </label>
-                      <input
+                      <PhoneInput
                         value={tokenNewPhone}
-                        onChange={(e) => setTokenNewPhone(e.target.value)}
-                        placeholder="(617) 555-0199"
-                        className="w-full border border-[#CBD5E1] rounded p-1.5 text-[12px] bg-white focus:outline-none focus:border-[#1B4FD8]"
+                        onChange={(val) => setTokenNewPhone(val)}
+                        placeholder="98765 43210"
+                        size="sm"
                       />
                     </div>
                   </div>

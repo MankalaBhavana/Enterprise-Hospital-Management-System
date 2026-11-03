@@ -49,6 +49,7 @@ import {
   Tabs,
   TabsTrigger,
   Textarea,
+  PhoneInput,
 } from "../components/ui"
 
 import PrescriptionUploadModal from "../components/PrescriptionUploadModal"
@@ -3049,15 +3050,11 @@ function NewPatientIntakePanel({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Mobile
               </label>
-              <input
-                type="tel"
-                placeholder="10 digit mobile"
-                maxLength={10}
+              <PhoneInput
                 value={newPhone}
-                onChange={(e) =>
-                  setNewPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-                }
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 shadow-2xs focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                onChange={setNewPhone}
+                placeholder="98765 43210"
+                size="sm"
               />
             </div>
           </div>
@@ -3200,17 +3197,11 @@ function NewPatientIntakePanel({
               Contact Mobile
               <span className="text-red-500 font-bold ml-0.5">*</span>
             </label>
-            <input
-              type="tel"
-              placeholder="10 digit mobile"
-              maxLength={10}
+            <PhoneInput
               value={newEmergencyContact}
-              onChange={(e) =>
-                setNewEmergencyContact(
-                  e.target.value.replace(/\D/g, "").slice(0, 10),
-                )
-              }
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 shadow-2xs focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+              onChange={setNewEmergencyContact}
+              placeholder="98765 43210"
+              size="sm"
               required
             />
           </div>
@@ -15073,32 +15064,32 @@ export function VisitDetailPanel({
                   <label className="block text-[11.5px] font-semibold text-slate-700 mb-1">
                     Phone Number
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInput
                     value={editPatientForm.phone}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setEditPatientForm({
                         ...editPatientForm,
-                        phone: e.target.value,
+                        phone: val,
                       })
                     }
-                    className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                    placeholder="98765 43210"
+                    size="sm"
                   />
                 </div>
                 <div>
                   <label className="block text-[11.5px] font-semibold text-slate-700 mb-1">
                     Emergency Contact
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInput
                     value={editPatientForm.emergency_contact}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setEditPatientForm({
                         ...editPatientForm,
-                        emergency_contact: e.target.value,
+                        emergency_contact: val,
                       })
                     }
-                    className="w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                    placeholder="98765 43210"
+                    size="sm"
                   />
                 </div>
               </div>
@@ -18737,12 +18728,12 @@ function ErConsentModal({
           }}
         >
           <div>
-            <Label>Signer 10-Digit Phone</Label>
-            <Input
-              maxLength={10}
-              placeholder="10-digit phone number"
+            <Label>Signer Phone Number</Label>
+            <PhoneInput
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+              onChange={setPhone}
+              placeholder="98765 43210"
+              size="sm"
             />
           </div>
           <div>

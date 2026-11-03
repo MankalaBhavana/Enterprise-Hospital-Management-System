@@ -16,6 +16,7 @@ import {
   type Punch,
 } from "../../services/hr/types"
 import { Avatar, Btn, Drawer, Empty, ErrorState, Field, fmtDate, fmtDateTime, humanize, inputCls, Loading, Pager, Panel, StatusBadge, Table, Tabs, errorText, useHr } from "./ui"
+import PhoneInput from "../ui/PhoneInput"
 import type { OrgRefs } from "./useOrgRefs"
 import { CompensationTab, DocumentsTab, LeaveTab, PerformanceTab, ShiftTab, TrainingTab } from "./ProfileTabs"
 
@@ -235,7 +236,7 @@ function Personal({ e, canEdit, onSaved }: { e: EmployeeDetail; canEdit: boolean
               <div key={i} className="grid grid-cols-3 gap-2">
                 <input className={inputCls} disabled={!canEdit} placeholder="Name" value={c.name} onChange={(ev) => setContacts(contacts.map((x, j) => (j === i ? { ...x, name: ev.target.value } : x)))} />
                 <input className={inputCls} disabled={!canEdit} placeholder="Relationship" value={c.relationship} onChange={(ev) => setContacts(contacts.map((x, j) => (j === i ? { ...x, relationship: ev.target.value } : x)))} />
-                <input className={inputCls} disabled={!canEdit} placeholder="Phone" value={c.phone} onChange={(ev) => setContacts(contacts.map((x, j) => (j === i ? { ...x, phone: ev.target.value } : x)))} />
+                <PhoneInput size="sm" disabled={!canEdit} placeholder="98765 43210" value={c.phone} onChange={(val) => setContacts(contacts.map((x, j) => (j === i ? { ...x, phone: val } : x)))} />
               </div>
             ))}
           </div>
@@ -511,7 +512,16 @@ function EditDrawer({ e, onClose, onSaved }: { e: EmployeeDetail; onClose: () =>
   }
   const input = (k: keyof typeof f, label: string, type = "text") => (
     <Field label={label} error={errors[k] ?? errors[`profile.${k}`]}>
-      <input type={type} className={inputCls} value={f[k]} onChange={(ev) => setF({ ...f, [k]: ev.target.value })} />
+      {k === "phone" ? (
+        <PhoneInput
+          size="sm"
+          value={f.phone}
+          onChange={(val) => setF({ ...f, phone: val })}
+          placeholder="98765 43210"
+        />
+      ) : (
+        <input type={type} className={inputCls} value={f[k]} onChange={(ev) => setF({ ...f, [k]: ev.target.value })} />
+      )}
     </Field>
   )
   return (

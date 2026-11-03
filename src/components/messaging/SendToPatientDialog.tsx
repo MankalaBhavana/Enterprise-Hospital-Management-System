@@ -39,6 +39,7 @@ import {
 } from "../../services/patientMessaging"
 import type { MessageChannel } from "../../services/patientNotifications"
 import { downloadPatientDocument } from "../../lib/patientDocumentPdf"
+import PhoneInput from "../ui/PhoneInput"
 
 /**
  * "Send to patient": one dialog for every document and message a desk sends
@@ -229,14 +230,13 @@ function DialogBody({
             {/* Phone */}
             <label className="block">
               <span className="text-[11.5px] font-medium text-[#475569]">Mobile number</span>
-              <input
+              <PhoneInput
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                inputMode="tel"
-                className={`mt-1 w-full h-9 px-3 text-[13px] border rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#BFDBFE] ${
+                onChange={setPhone}
+                placeholder="98765 43210"
+                className={`mt-1 ${
                   phone && !phoneOk ? "border-[#FCA5A5]" : "border-[#DDE2EC]"
                 }`}
-                placeholder="10-digit mobile number"
               />
               {phone && !phoneOk && (
                 <span className="text-[11px] text-[#B91C1C]">

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { CheckCircle2, Circle, Copy, Plus } from "lucide-react"
 import toast from "react-hot-toast"
 import { hr } from "../../services/hr/client"
+import PhoneInput from "../ui/PhoneInput"
 import { Btn, Drawer, Empty, ErrorState, Field, Loading, PageHeader, Panel, StatusBadge, Table, Tabs, fmtDate, fmtDateTime, humanize, filterCls, inputCls, money, useHr, useRun } from "./ui"
 import useOrgRefs from "./useOrgRefs"
 import type { ShiftTemplate } from "./ShiftsSection"
@@ -179,7 +180,7 @@ function AddCandidate({ vacancies, defaultVacancy, onClose, onDone }: { vacancie
         <Field label="First name" required><input className={inputCls} value={f.first_name} onChange={(e) => setF({ ...f, first_name: e.target.value })} /></Field>
         <Field label="Last name"><input className={inputCls} value={f.last_name} onChange={(e) => setF({ ...f, last_name: e.target.value })} /></Field>
         <Field label="Email"><input type="email" className={inputCls} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-        <Field label="Phone"><input className={inputCls} value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+        <Field label="Phone"><PhoneInput size="sm" value={f.phone || ""} onChange={(val) => setF({ ...f, phone: val })} placeholder="98765 43210" /></Field>
         <Field label="Experience (years)"><input className={inputCls} inputMode="decimal" value={f.experience_years} onChange={(e) => setF({ ...f, experience_years: e.target.value })} /></Field>
         <Field label="Source"><input className={inputCls} value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })} placeholder="Referral, job portal…" /></Field>
         <Field label="Qualification"><input className={inputCls} value={f.qualification} onChange={(e) => setF({ ...f, qualification: e.target.value })} /></Field>

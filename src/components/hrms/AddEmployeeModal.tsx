@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import PhoneInput from "../ui/PhoneInput"
 import {
   HrmsDatabase,
   StaffCategory,
@@ -408,12 +409,10 @@ function AddEmployeeModalBody({
                   <label className="block text-xs font-semibold text-[#334155] mb-1">
                     Primary Mobile Phone <span className="text-[#DC2626] font-bold">*</span>
                   </label>
-                  <input
-                    type="tel"
-                    placeholder="+91 98480 12345"
+                  <PhoneInput
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full text-xs px-3.5 py-2.5 border border-[#DDE2EC] rounded-lg focus:border-[#1B4FD8] focus:ring-2 focus:ring-[#1B4FD8]/20 focus:outline-none transition-all placeholder:text-[#94A3B8]"
+                    onChange={setPhone}
+                    placeholder="98480 12345"
                   />
                 </div>
 
@@ -861,12 +860,10 @@ function AddEmployeeModalBody({
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-[#334155] mb-1">Emergency Phone</label>
-                    <input
-                      type="tel"
-                      placeholder="+91 98480 00000"
+                    <PhoneInput
                       value={emPhone}
-                      onChange={(e) => setEmPhone(e.target.value)}
-                      className="w-full text-xs px-3.5 py-2.5 border border-[#DDE2EC] rounded-lg focus:border-[#1B4FD8] focus:ring-2 focus:ring-[#1B4FD8]/20 focus:outline-none"
+                      onChange={setEmPhone}
+                      placeholder="98480 00000"
                     />
                   </div>
                 </div>

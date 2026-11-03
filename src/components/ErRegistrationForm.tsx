@@ -8,7 +8,7 @@ import {
   FiSearch,
   FiAlertCircle,
 } from "react-icons/fi"
-import { Input, Label, Select, Button, Textarea } from "./ui"
+import { Input, Label, Select, Button, Textarea, PhoneInput } from "./ui"
 import { apiFetch, reportError } from "../lib/api"
 import type { Notice, Patient, TriageCategory } from "../types"
 
@@ -358,14 +358,11 @@ export default function ErRegistrationForm({
                   <label className="text-[11px] font-semibold text-gray-600 mb-1 block">
                     Phone Number
                   </label>
-                  <Input
-                    type="tel"
-                    maxLength={10}
+                  <PhoneInput
                     value={phone}
-                    onChange={(e) =>
-                      setPhone(e.target.value.replace(/\D/g, ""))
-                    }
-                    className="h-8 text-sm font-mono border-[#DDE2EC]"
+                    onChange={(val) => setPhone(val)}
+                    size="sm"
+                    placeholder="98765 43210"
                   />
                 </div>
                 {duplicateMatch && (

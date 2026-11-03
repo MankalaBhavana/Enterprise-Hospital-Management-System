@@ -3,6 +3,7 @@ import { Building2, Calculator, FileCheck2, Handshake, Package as PackageIcon, P
 import { InsuranceEngineService } from "../../services/insuranceDb"
 import type { ClaimEncounterType, DocumentCategory, DocumentRule, InsuranceCompanyConfig, PackageComponent, PackageMaster, PricingRuleSet, TpaConfig } from "../../types/insurance"
 import { Card, Empty, PageHeader, Field, Modal, Tag, attempt, btn, fieldBase, fieldCls, inr, useNotify, type Notify } from "./ui"
+import PhoneInput from "../ui/PhoneInput"
 import { DEPT_SOP_DATA } from "./InsuranceSopModal"
 
 // Masters the whole engine runs on: insurance companies, TPAs, procedure
@@ -211,7 +212,7 @@ function InsurerForm({ initial, notify, onDone }: { initial: InsuranceCompanyCon
         </h4>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Helpline Phone">
-            <input className={fieldCls} value={f.contactPhone} placeholder="+91 1800 102 4455" onChange={(e) => set("contactPhone", e.target.value)} />
+            <PhoneInput size="sm" value={f.contactPhone} placeholder="1800 102 4455" onChange={(val) => set("contactPhone", val)} />
           </Field>
           <Field label="Claims & Settlement Email">
             <input className={fieldCls} type="email" value={f.claimsEmail} placeholder="claims@insurer.com" onChange={(e) => set("claimsEmail", e.target.value)} />
@@ -860,7 +861,7 @@ function TpaForm({ initial, insurers, notify, onDone }: { initial: TpaConfig ;in
           <input className={`${fieldCls} tabular-nums`} value={f.code} onChange={(e) => set("code", e.target.value.toUpperCase())} />
         </Field>
         <Field label="Phone">
-          <input className={fieldCls} value={f.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} />
+          <PhoneInput size="sm" value={f.contactPhone} onChange={(val) => set("contactPhone", val)} placeholder="98765 43210" />
         </Field>
         <Field label="Email">
           <input className={fieldCls} type="email" value={f.email} onChange={(e) => set("email", e.target.value)} />

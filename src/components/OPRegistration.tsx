@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import toast from "react-hot-toast"
 import { Icon } from "./icons"
 import { StatusBadge, Btn, Input } from "./shared"
+import PhoneInput from "./ui/PhoneInput"
 import {
   db,
   DBPatient,
@@ -167,12 +168,12 @@ export default function OPRegistration({
     }
 
     const rawPhone = formData.phone || ""
-    const cleanPhone = rawPhone.replace(/\D/g, "")
-    const finalPhone = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone
-    if (finalPhone.length < 10) {
-      toast.error("Please enter a valid 10-digit mobile phone number.")
+    const cleanDigits = rawPhone.replace(/\D/g, "")
+    if (cleanDigits.length < 7) {
+      toast.error("Please enter a valid mobile phone number.")
       return
     }
+    const finalPhone = rawPhone.trim() || "+91 98765 43210"
 
     // If ALL entered details match an existing record with 0 mismatches -> Revisit under existing UMR
     if (matchingExistingPatient) {
@@ -205,7 +206,7 @@ export default function OPRegistration({
           dob: finalDob,
           age: computedAge,
           sex: (formData.sex as "Male" | "Female" | "Other") || "Male",
-          phone: finalPhone || "(617) 555-0199",
+          phone: finalPhone || "+91 98765 43210",
         })
 
       setSelectedEncounter(createdEncounter)
@@ -517,10 +518,10 @@ export default function OPRegistration({
                   <label className="text-[12px] font-semibold text-gray-800 block mb-1.5">
                     Phone Number <span className="text-red-500">*</span>
                   </label>
-                  <Input
+                  <PhoneInput
                     value={formData.phone}
                     onChange={(v) => setFormData({ ...formData, phone: v })}
-                    placeholder="e.g. (617) 555-0192"
+                    placeholder="98765 43210"
                   />
                 </div>
               </div>

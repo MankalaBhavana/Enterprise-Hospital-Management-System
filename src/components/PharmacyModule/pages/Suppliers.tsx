@@ -17,6 +17,7 @@ import {
 
 import PageHeader from "../components/PageHeader"
 import StatusBadge from "../components/StatusBadge"
+import PhoneInput from "../../ui/PhoneInput"
 
 interface SuppliersProps {
   onNavigate: (page: string) => void
@@ -295,12 +296,12 @@ export default function Suppliers({ onNavigate }: SuppliersProps) {
                   <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-1">
                     Phone
                   </label>
-                  <input
+                  <PhoneInput
                     value={form.phone}
-                    onChange={(e) =>
-                      setForm({ ...form, phone: e.target.value })
+                    onChange={(val) =>
+                      setForm({ ...form, phone: val })
                     }
-                    className="w-full px-3 py-2 border border-[#E2E8F0] text-[13px]"
+                    placeholder="98765 43210"
                   />
                 </div>
                 <div>

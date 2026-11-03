@@ -30,6 +30,7 @@ import {
   TableHead,
   TableRow,
   Textarea,
+  PhoneInput,
 } from "../components/ui"
 import { apiFetch, reportError } from "../lib/api"
 import { generateAndSaveDischargeSummary } from "../lib/dischargeSummary"
@@ -895,7 +896,7 @@ export default function BedManagementPage({
             name: patientQuery.trim(),
             last_name: "",
             gender: "Male",
-            phone: "(555) 000-0000",
+            phone: "+91 98765 43210",
           }
         : null)
 
@@ -3125,10 +3126,10 @@ function BedRequestLamaModal({
       setNotice({ type: "error", message: "Signer name is required." })
       return
     }
-    if (phone && phone.replace(/\D/g, "").length !== 10) {
+    if (phone && phone.replace(/\D/g, "").length < 7) {
       setNotice({
         type: "error",
-        message: "Enter a valid 10-digit mobile number.",
+        message: "Enter a valid mobile number.",
       })
       return
     }
@@ -3275,12 +3276,12 @@ function BedRequestLamaModal({
           }}
         >
           <div>
-            <Label>Signer 10-Digit Phone</Label>
-            <Input
-              maxLength={10}
-              placeholder="10-digit phone number"
+            <Label>Signer Phone Number</Label>
+            <PhoneInput
+              placeholder="98765 43210"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+              onChange={setPhone}
+              size="sm"
             />
           </div>
           <div>

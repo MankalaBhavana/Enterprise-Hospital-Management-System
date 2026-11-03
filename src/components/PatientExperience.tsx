@@ -2,6 +2,7 @@ import React, { useState } from "react"
 import { Icon } from "./icons"
 import { MessageCircle, X, Search } from "lucide-react"
 import SendToPatientDialog from "./messaging/SendToPatientDialog"
+import PhoneInput from "./ui/PhoneInput"
 import { db } from "../services/db"
 
 export default function PatientExperience() {
@@ -325,14 +326,13 @@ export default function PatientExperience() {
                     }
                     className="px-2.5 py-1.5 text-[12px] border border-[#DDE2EC] rounded-md focus:outline-none"
                   />
-                  <input
-                    type="tel"
-                    placeholder="Mobile Number"
+                  <PhoneInput
+                    size="sm"
+                    placeholder="98765 43210"
                     value={selectedPatient.phone}
-                    onChange={(e) =>
-                      setSelectedPatient((prev) => ({ ...prev, phone: e.target.value }))
+                    onChange={(val) =>
+                      setSelectedPatient((prev) => ({ ...prev, phone: val }))
                     }
-                    className="px-2.5 py-1.5 text-[12px] border border-[#DDE2EC] rounded-md focus:outline-none"
                   />
                 </div>
                 <button

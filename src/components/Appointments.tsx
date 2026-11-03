@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react"
 import toast from "react-hot-toast"
 import { StatusBadge, Btn, Card } from "./shared"
 import { Icon } from "./icons"
+import PhoneInput from "./ui/PhoneInput"
 import { db, DBOPEncounter } from "../services/db"
 import {
   bookAppointment,
@@ -377,16 +378,10 @@ export function AppointmentBookingModal({
               <label className="block text-[12px] font-semibold text-gray-700 mb-1">
                 Phone Number
               </label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
+              <PhoneInput
                 value={phone}
-                onChange={(e) =>
-                  setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-                }
-                className="w-full h-9 bg-white border border-[#DDE2EC] rounded-none px-3 text-[13px] focus:outline-none focus:border-[#1B4FD8]"
-                placeholder="e.g. 9876543210"
+                onChange={(val) => setPhone(val)}
+                placeholder="98765 43210"
               />
             </div>
           </div>

@@ -31,6 +31,7 @@ import {
   IdCard,
 } from "lucide-react"
 import { useNotify } from "./ui"
+import PhoneInput from "../ui/PhoneInput"
 import { InsuranceEngineService } from "../../services/insuranceDb"
 import type { InsuranceCompanyConfig } from "../../types/insurance"
 import PatientProfileModal from "./PatientProfileModal"
@@ -601,17 +602,11 @@ export default function InsuranceIntakeView({
                       <label className="h-5 flex items-center text-[11.5px] font-bold text-slate-700 mb-1.5 whitespace-nowrap truncate">
                         Mobile Contact <span className="text-rose-500 ml-0.5">*</span>
                       </label>
-                      <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none">
-                          <Phone size={14} />
-                        </div>
-                        <input
-                          type="tel"
-                          value={contact}
-                          onChange={(e) => setContact(e.target.value)}
-                          className={`${sqField} pl-9 font-mono font-bold`}
-                        />
-                      </div>
+                      <PhoneInput
+                        value={contact}
+                        onChange={setContact}
+                        placeholder="98765 43210"
+                      />
                     </div>
 
                     <div>
