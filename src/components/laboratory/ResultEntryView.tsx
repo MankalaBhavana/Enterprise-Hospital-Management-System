@@ -300,36 +300,17 @@ export default function ResultEntryView({ initialOrder, initialTest, onComplete 
 
           {/* Billing Clearance Status Banner */}
           {!isOrderPaid ? (
-            <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-xl flex flex-wrap items-center justify-between gap-3 text-amber-950">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-200/90 rounded-lg text-amber-900">
-                  <AlertTriangle className="w-5 h-5 text-amber-700" />
-                </div>
-                <div>
-                  <div className="font-bold text-xs uppercase tracking-wider text-amber-900">
-                    Payment Pending Clearance (₹{selectedOrder.billing?.total?.toLocaleString("en-IN") || 0} Unpaid)
-                  </div>
-                  <div className="text-[11.5px] text-amber-800 mt-0.5">
-                    Pre-paid billing policy: Settle at the billing desk, or click below to quick-authorize and enter results.
-                  </div>
-                </div>
+            <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl flex items-center gap-3 text-amber-950">
+              <div className="p-2.5 bg-amber-200/90 rounded-xl text-amber-900 shrink-0">
+                <AlertTriangle className="w-6 h-6 text-amber-700" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    LabOrderDatabase.markBilled(selectedOrder.id, {
-                      mode: "Cash",
-                      collectedBy: "Duty Phlebotomist",
-                    })
-                    loadOrders()
-                    showToast(`Bill of ₹${selectedOrder.billing?.total || 0} settled! Result entry unlocked.`)
-                  }}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>⚡ Quick Authorize & Settle Bill</span>
-                </button>
+              <div>
+                <div className="font-extrabold text-xs uppercase tracking-wider text-amber-900">
+                  Billing Pending at Billing Section (₹{selectedOrder.billing?.total?.toLocaleString("en-IN") || 0} Unpaid)
+                </div>
+                <div className="text-xs text-amber-800 mt-1">
+                  Billing must be completed at the <strong>Billing section</strong>. Result entry is strictly locked until the bill is settled at the billing counter.
+                </div>
               </div>
             </div>
           ) : (
@@ -347,8 +328,18 @@ export default function ResultEntryView({ initialOrder, initialTest, onComplete 
             </div>
           )}
 
-          {/* Parameters Table */}
-          {testDefinition && testDefinition.parameters.length > 0 ? (
+          {/* Locked overlay when bill is pending */}
+          {!isOrderPaid ? (
+            <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xl">
+                🔒
+              </div>
+              <h4 className="font-bold text-sm text-slate-800">Result Entry Locked</h4>
+              <p className="text-xs text-slate-600 max-w-md mx-auto">
+                This test order has an unpaid bill of ₹{selectedOrder.billing?.total?.toLocaleString("en-IN") || 0}. Billing must be cleared in the <strong>Billing Section</strong> before laboratory results can be recorded or submitted.
+              </p>
+            </div>
+          ) : testDefinition && testDefinition.parameters.length > 0 ? (
             <div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
