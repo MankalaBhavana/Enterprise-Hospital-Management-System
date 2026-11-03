@@ -212,6 +212,9 @@ export function usePharmacyData() {
     window.addEventListener("hospai_pharmacy_updated", handleUpdate)
     window.addEventListener("storage", handleUpdate)
 
+    // Immediate refresh on mount to capture any prescriptions dispatched right before opening
+    refresh()
+
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
       unsubPharmacy()
@@ -568,9 +571,18 @@ export function usePharmacyData() {
     return [...prescriptions]
       .filter((p) => p && typeof p === "object" && p.id)
       .sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.date ? new Date(a.date).getTime() : 0)
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.date ? new Date(b.date).getTime() : 0)
-        return timeB - timeA
+        const getTimeSafe = (p: AppPrescription) => {
+          if (p.createdAt) {
+            const t = new Date(p.createdAt).getTime()
+            if (!isNaN(t)) return t
+          }
+          if (p.date) {
+            const t = new Date(p.date).getTime()
+            if (!isNaN(t)) return t
+          }
+          return 0
+        }
+        return getTimeSafe(b) - getTimeSafe(a)
       })
       .map((p) => ({
         id: p.id,
@@ -591,6 +603,8 @@ export function usePharmacyData() {
         time: p.arrivalTime || (p as any).time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""),
         rawItems: Array.isArray(p.items) ? p.items : [],
         verificationNotes: p.verificationNotes || "",
+        imageUrl: p.imageUrl,
+        createdAt: p.createdAt,
       }))
   }, [prescriptions])
 

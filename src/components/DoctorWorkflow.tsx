@@ -963,7 +963,7 @@ export default function DoctorWorkflow({
       }
 
       const nowIso = new Date().toISOString()
-      const rxDate = activeEncounter.date || nowIso.split("T")[0]
+      const rxDate = nowIso.split("T")[0]
       const rxArrival = activeEncounter.registrationTime || new Date().toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -1001,6 +1001,18 @@ export default function DoctorWorkflow({
         ...existingRx.filter((p) => p.id !== rx.id),
       ])
 
+      // Instant cross-tab and in-tab notification for Pharmacy department
+      try {
+        window.dispatchEvent(
+          new CustomEvent("hospai_pharmacy_toast", {
+            detail: {
+              type: "info",
+              message: `New prescription ${rxId} received for ${activeEncounter.patientName} (${rxItems.length} items)`,
+            },
+          }),
+        )
+      } catch {}
+
       AuditDatabase.logEvent(
         "Prescription Created",
         "Clinical",
@@ -1034,8 +1046,40 @@ export default function DoctorWorkflow({
       const file = e.target.files[0]
       const reader = new FileReader()
       reader.onload = (uploadEvent) => {
-        const base64DataUrl = uploadEvent.target?.result as string
-        setUploadedRxImage(base64DataUrl)
+        const rawDataUrl = uploadEvent.target?.result as string
+        if (!rawDataUrl) return
+
+        // Compress image via canvas to prevent localStorage quota exhaustion
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement("canvas")
+          let width = img.width
+          let height = img.height
+          const maxDim = 1200
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width)
+              width = maxDim
+            } else {
+              width = Math.round((width * maxDim) / height)
+              height = maxDim
+            }
+          }
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext("2d")
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height)
+            const compressed = canvas.toDataURL("image/jpeg", 0.75)
+            setUploadedRxImage(compressed)
+          } else {
+            setUploadedRxImage(rawDataUrl)
+          }
+        }
+        img.onerror = () => {
+          setUploadedRxImage(rawDataUrl)
+        }
+        img.src = rawDataUrl
       }
       reader.readAsDataURL(file)
     }

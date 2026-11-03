@@ -2426,6 +2426,13 @@ export default function App() {
                     }
                     return (
                       c.key === item.key ||
+                      (item.key === "pharmacy" &&
+                        (userPermissions.includes("pharmacy") ||
+                          userPermissions.includes("pharmacy_rx") ||
+                          userPermissions.includes("pharmacy_dispensing") ||
+                          userPermissions.includes("ROLE_DOCTOR") ||
+                          userPermissions.includes("ROLE_PHARMACIST") ||
+                          userPermissions.includes("ROLE_PHARMACY"))) ||
                       (item.key === "reports" &&
                         userPermissions.includes("reports")) ||
                       (item.key === "insurance" &&
