@@ -13,6 +13,7 @@ import {
   MessageSquare,
   ChevronRight,
   Clock,
+  RefreshCw,
 } from "lucide-react"
 import { PharmacyDatabase } from "../../../services/pharmacyDb"
 
@@ -33,22 +34,29 @@ interface PrescriptionQueueProps {
 }
 
 function checkItemStock(item: any, medicinesList: any[], batchesList: any[]) {
-  const med = (medicinesList || []).find(
-    (m: any) =>
-      m.id === item.medicineId ||
-      m.name?.toLowerCase().trim() === item.medicineName?.toLowerCase().trim() ||
-      (m.generic && item.genericName && m.generic.toLowerCase().trim() === item.genericName.toLowerCase().trim()) ||
-      (item.medicineName && m.name && (item.medicineName.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(item.medicineName.toLowerCase())))
-  )
+  if (!item || typeof item !== "object") return false
+  const itemName = typeof item.medicineName === "string" ? item.medicineName.toLowerCase().trim() : ""
+  const itemGeneric = typeof item.genericName === "string" ? item.genericName.toLowerCase().trim() : ""
+
+  const med = (medicinesList || []).find((m: any) => {
+    if (!m || typeof m !== "object") return false
+    if (item.medicineId && m.id === item.medicineId) return true
+    const mName = typeof m.name === "string" ? m.name.toLowerCase().trim() : ""
+    if (itemName && mName && mName === itemName) return true
+    const mGeneric = typeof m.generic === "string" ? m.generic.toLowerCase().trim() : ""
+    if (itemGeneric && mGeneric && mGeneric === itemGeneric) return true
+    if (itemName && mName && (itemName.includes(mName) || mName.includes(itemName))) return true
+    return false
+  })
   if (!med) return false
   const activeBatches = (batchesList || []).filter(
-    (b: any) => b.medicineId === med.id && (b.availableQuantity ?? b.quantity ?? 0) > 0
+    (b: any) => b && b.medicineId === med.id && (b.availableQuantity ?? b.quantity ?? 0) > 0
   )
-  return activeBatches.length > 0 || (med.stock && med.stock > 0)
+  return activeBatches.length > 0 || (Number(med.stock) > 0)
 }
 
 function getPrescriptionStockStatus(rawItems: any[], medicinesList: any[], batchesList: any[]) {
-  if (!rawItems || rawItems.length === 0) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return {
       type: "empty",
       label: "No Items",
@@ -102,6 +110,13 @@ export default function PrescriptionQueue({
   const [activeFilter, setActiveFilter] = useState("All")
   const [selected, setSelected] = useState<typeof prescriptions[0] | null>(null)
   const [search, setSearch] = useState("")
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleManualRefresh = () => {
+    setIsRefreshing(true)
+    refresh()
+    setTimeout(() => setIsRefreshing(false), 500)
+  }
 
   const filtered = (prescriptions || []).filter((rx) => {
     if (!rx) return false
@@ -158,6 +173,15 @@ export default function PrescriptionQueue({
             </div>
 
             <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                title="Refresh Prescriptions"
+                className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold text-[#0F766E] bg-white border border-[#E2E8F0] hover:bg-[#F0FDFA] rounded transition-colors"
+              >
+                <RefreshCw size={13} className={isRefreshing ? "animate-spin text-[#0F766E]" : "text-[#0F766E]"} />
+                <span>Sync Live</span>
+              </button>
               <div className="flex items-center gap-2 bg-white border border-[#E2E8F0] rounded px-3 py-2">
                 <Search size={14} className="text-[#94A3B8]" />
                 <input

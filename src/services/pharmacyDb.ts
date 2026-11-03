@@ -645,16 +645,81 @@ export function cleanupStorageQuota(): void {
   }
 }
 
-// Cross-tab real-time memory synchronization
+// Cross-tab real-time memory synchronization & BroadcastChannel fanout
+const PHARMACY_CHANNEL_NAME = "hospai_pharmacy_v1"
+const pharmacyListeners = new Set<(key?: string) => void>()
+let pharmacyChannel: BroadcastChannel | null = null
+
+function ensurePharmacyChannel(): BroadcastChannel | null {
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined")
+    return null
+  if (!pharmacyChannel) {
+    try {
+      pharmacyChannel = new BroadcastChannel(PHARMACY_CHANNEL_NAME)
+      pharmacyChannel.onmessage = (event) => {
+        const key = event?.data?.key
+        if (key && typeof window !== "undefined") {
+          try {
+            const val = window.localStorage.getItem(key)
+            if (val !== null && val !== "" && val !== "undefined") {
+              memoryStorageFallback[key] = val
+            } else if (val === null) {
+              delete memoryStorageFallback[key]
+            }
+          } catch {}
+        }
+        pharmacyListeners.forEach((fn) => {
+          try { fn(key) } catch (e) { console.error("[PharmacyDb] Listener error:", e) }
+        })
+        try {
+          window.dispatchEvent(new CustomEvent("hospai_pharmacy_updated", { detail: event?.data }))
+        } catch {}
+      }
+    } catch {
+      pharmacyChannel = null
+    }
+  }
+  return pharmacyChannel
+}
+
+export function notifyPharmacySubscribers(key?: string, broadcast = true): void {
+  pharmacyListeners.forEach((fn) => {
+    try { fn(key) } catch (e) { console.error("[PharmacyDb] Listener error:", e) }
+  })
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("hospai_pharmacy_updated", { detail: { key, timestamp: Date.now() } }))
+      window.dispatchEvent(new Event("storage"))
+    } catch {}
+  }
+  if (broadcast) {
+    try {
+      ensurePharmacyChannel()?.postMessage({ key, timestamp: Date.now() })
+    } catch {}
+  }
+}
+
+export function subscribePharmacy(listener: (key?: string) => void): () => void {
+  pharmacyListeners.add(listener)
+  ensurePharmacyChannel()
+  return () => {
+    pharmacyListeners.delete(listener)
+  }
+}
+
 if (typeof window !== "undefined") {
   try {
+    ensurePharmacyChannel()
     window.addEventListener("storage", (e) => {
-      if (e.key && memoryStorageFallback[e.key] !== undefined) {
+      if (e.key) {
         if (e.newValue !== null) {
           memoryStorageFallback[e.key] = e.newValue
         } else {
           delete memoryStorageFallback[e.key]
         }
+        pharmacyListeners.forEach((fn) => {
+          try { fn(e.key || undefined) } catch {}
+        })
       }
     })
   } catch {}
@@ -673,6 +738,7 @@ export function safeStorageSetItem(key: string, value: string): void {
   try {
     window.localStorage.setItem(key, value)
     delete unpersistedKeys[key]
+    notifyPharmacySubscribers(key)
     return
   } catch (err) {
     // Quota exceeded: If this is an ephemeral notification or audit log, don't stall the system
@@ -684,6 +750,7 @@ export function safeStorageSetItem(key: string, value: string): void {
     ) {
       // Ephemeral keys can stay safely in memory and sessionStorage
       unpersistedKeys[key] = true
+      notifyPharmacySubscribers(key)
       return
     }
   }
@@ -693,6 +760,7 @@ export function safeStorageSetItem(key: string, value: string): void {
     cleanupStorageQuota()
     window.localStorage.setItem(key, value)
     delete unpersistedKeys[key]
+    notifyPharmacySubscribers(key)
     return
   } catch (secondErr) {
     // Aggressive prune: purge audit logs and older bills/txs
@@ -701,10 +769,12 @@ export function safeStorageSetItem(key: string, value: string): void {
       window.localStorage.removeItem(STOCK_TXS_KEY)
       window.localStorage.setItem(key, value)
       delete unpersistedKeys[key]
+      notifyPharmacySubscribers(key)
       return
     } catch (thirdErr) {
       unpersistedKeys[key] = true
       console.warn(`[PharmacyDb] Persisted "${key}" in memory & sessionStorage fallback.`)
+      notifyPharmacySubscribers(key)
     }
   }
 }
@@ -1302,6 +1372,8 @@ if (typeof window !== "undefined") {
 export const INITIAL_SEED_PRESCRIPTIONS: AppPrescription[] = SEED_PRESCRIPTIONS
 
 export class PharmacyDatabase {
+  static subscribe = subscribePharmacy
+  static notify = notifyPharmacySubscribers
   static purgeSampleData = purgeSampleData
   static clearAllPharmacyData = clearAllPharmacyData
   static seedHospitalTestData = seedPharmacyHospitalData
@@ -2165,8 +2237,7 @@ export class PharmacyDatabase {
   static savePrescriptions(rx: AppPrescription[]) {
     if (typeof window !== "undefined") {
       safeStorageSetItem(PRESCRIPTIONS_KEY, JSON.stringify(rx))
-      window.dispatchEvent(new Event("storage"))
-      window.dispatchEvent(new CustomEvent("hospai_pharmacy_updated"))
+      notifyPharmacySubscribers(PRESCRIPTIONS_KEY)
     }
   }
 

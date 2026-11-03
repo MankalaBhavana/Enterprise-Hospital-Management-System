@@ -1318,6 +1318,11 @@ export default function App() {
     [],
   )
 
+  useEffect(
+    () => PharmacyDatabase.subscribe(() => setBadgeTick((t) => t + 1)),
+    [],
+  )
+
   // Below lg (phones, portrait tablets) the sidebar is an off-canvas drawer:
   // a fixed 288px column would leave a phone ~90px for the page itself. On
   // small laptops (lg..xl) it starts as the icon rail so the page keeps most
