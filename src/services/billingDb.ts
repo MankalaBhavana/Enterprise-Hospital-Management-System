@@ -5166,7 +5166,7 @@ export class BillingDatabase {
             payments: [],
             department: "Outpatient",
             carePathway: `${enc.dept} Consultation (${enc.opNumber})`,
-            dateOfService: new Date().toISOString().split("T")[0],
+            dateOfService: OpReportsService.getEncounterDate(enc) || (enc as any).createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
             insuranceProvider: "Self-Pay",
             policyNumber: "N/A",
             status: isPaid ? "Paid" : "Draft",
@@ -7622,10 +7622,10 @@ export class BillingDatabase {
 
             priority: claim.department === "Emergency" ? "STAT" : "Routine",
 
-            ordered: new Date().toLocaleTimeString([], {
+            ordered: `${claim.dateOfService || "2026-09-12"} · ${new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
-            }),
+            })}`,
 
             provider: claim.attendingDoctor || "Referring Specialist",
 
@@ -7758,10 +7758,10 @@ export class BillingDatabase {
 
             priority: dept.department === "Emergency" ? "STAT" : "Routine",
 
-            ordered: new Date().toLocaleTimeString([], {
+            ordered: `${(dept as any).date || (dept as any).createdAt?.split("T")[0] || "2026-09-12"} · ${new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
-            }),
+            })}`,
 
             provider: dept.attendingDoctor || "Referring Specialist",
 
@@ -7813,7 +7813,40 @@ export class BillingDatabase {
       const key = `${pKey}::${sBase}`
       if (!seenStudyKeys.has(key)) {
         seenStudyKeys.add(key)
-        deduplicatedStudies.push(s)
+        let ord = s.ordered || ""
+        const timeMatch = ord.match(/(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i)
+        const timePart = timeMatch ? timeMatch[1] : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+
+        const dateMatch = ord.match(/\d{4}-\d{2}-\d{2}/)
+        let resolvedDate = dateMatch ? dateMatch[0] : ""
+
+        if (!resolvedDate && (s.umr || s.mrn)) {
+          try {
+            const pat = db.getPatientByUmr(s.umr || s.mrn)
+            if (pat?.createdAt) resolvedDate = pat.createdAt.split("T")[0]
+          } catch {}
+        }
+        if (!resolvedDate && s.encounterId) {
+          try {
+            const enc = db.getEncounterById(s.encounterId)
+            if (enc) resolvedDate = OpReportsService.getEncounterDate(enc)
+          } catch {}
+        }
+        if (!resolvedDate && s.invoiceNo) {
+          const matchingClaim = claims.find((c) => c.invoiceNo === s.invoiceNo)
+          if (matchingClaim?.dateOfService) resolvedDate = matchingClaim.dateOfService
+        }
+        if (!resolvedDate && s.paidAt) {
+          resolvedDate = s.paidAt.split("T")[0]
+        }
+        if (!resolvedDate) {
+          resolvedDate = new Date().toISOString().split("T")[0]
+        }
+
+        deduplicatedStudies.push({
+          ...s,
+          ordered: `${resolvedDate} · ${timePart}`,
+        })
       }
     }
     return deduplicatedStudies
@@ -7954,6 +7987,32 @@ export class BillingDatabase {
       `INV-RAD-${Math.floor(1000 + Math.random() * 9000)}`
 
     const nowIso = new Date().toISOString()
+    // Dynamically resolve patient's original date & time
+    let dynamicDate = ""
+    if (studyData.encounterId) {
+      try {
+        const enc = db.getEncounterById(studyData.encounterId)
+        if (enc) dynamicDate = OpReportsService.getEncounterDate(enc)
+      } catch {}
+    }
+    if (!dynamicDate && (studyData.umr || studyData.mrn)) {
+      try {
+        const pat = db.getPatientByUmr(studyData.umr || studyData.mrn)
+        if (pat?.createdAt) dynamicDate = pat.createdAt.split("T")[0]
+      } catch {}
+    }
+    const todayStr = new Date().toISOString().split("T")[0]
+    const effectiveDate = dynamicDate || todayStr
+
+    let effectiveOrdered = studyData.ordered || ""
+    if (effectiveOrdered && /\d{4}-\d{2}-\d{2}/.test(effectiveOrdered)) {
+      // Already has full date
+    } else if (effectiveOrdered) {
+      effectiveOrdered = `${effectiveDate} · ${effectiveOrdered}`
+    } else {
+      const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      effectiveOrdered = `${effectiveDate} · ${nowTime}`
+    }
     const newStudy: RadiologyStudyRecord = {
       ...studyData,
       id,
@@ -7964,14 +8023,8 @@ export class BillingDatabase {
         `RAD-ACC-${Math.floor(1000 + Math.random() * 9000)}`,
       createdAt: (studyData as any).createdAt || nowIso,
       orderedAt: (studyData as any).orderedAt || nowIso,
-      orderDate: studyData.orderDate || nowIso.split("T")[0],
-      ordered:
-        studyData.ordered ||
-        new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-
+      orderDate: studyData.orderDate || effectiveDate || nowIso.split("T")[0],
+      ordered: effectiveOrdered,
       status: studyData.status || "Orders",
       paymentStatus: studyData.paymentStatus || "Payment Pending",
     }

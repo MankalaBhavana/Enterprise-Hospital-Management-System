@@ -330,44 +330,38 @@ export default function LabOrdersView({ onOpenReport, onOpenBench, onCollectSamp
 
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {!isPaid && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                LabOrderDatabase.markBilled(order.id, {
-                                  mode: "Cash",
-                                  collectedBy: "Billing Counter",
-                                })
-                                loadOrders()
-                              }}
-                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                              title="Clear billing gatekeeper"
+                          {!isPaid ? (
+                            <span
+                              className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold rounded-lg flex items-center gap-1 cursor-default select-none shadow-2xs"
+                              title="Payment must be settled in the central Billing section"
                             >
-                              <DollarSign className="w-3 h-3 text-amber-600" />
-                              <span>Settle Bill</span>
-                            </button>
-                          )}
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>Bill at Billing Section</span>
+                            </span>
+                          ) : (
+                            <>
+                              {order.status === "Billed" && onCollectSample && (
+                                <button
+                                  type="button"
+                                  onClick={() => onCollectSample(order)}
+                                  className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-[#7552B8] border border-purple-200 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="Go to Phlebotomy / Sample Collection"
+                                >
+                                  <span>💉 Draw Sample</span>
+                                </button>
+                              )}
 
-                          {isPaid && order.status === "Billed" && onCollectSample && (
-                            <button
-                              type="button"
-                              onClick={() => onCollectSample(order)}
-                              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-[#7552B8] border border-purple-200 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                              title="Go to Phlebotomy / Sample Collection"
-                            >
-                              <span>💉 Draw Sample</span>
-                            </button>
-                          )}
-
-                          {(order.status === "Sample Collected" || order.status === "In Progress" || (isPaid && order.status !== "Completed" && !onCollectSample)) && onOpenBench && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenBench(order)}
-                              className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                              title="Enter analyzer values on workbench"
-                            >
-                              <span>🔬 Enter Results</span>
-                            </button>
+                              {(order.status === "Sample Collected" || order.status === "In Progress" || (order.status !== "Completed" && !onCollectSample)) && onOpenBench && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenBench(order)}
+                                  className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="Enter analyzer values on workbench"
+                                >
+                                  <span>🔬 Enter Results</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {order.status === "Completed" && onOpenReport && (

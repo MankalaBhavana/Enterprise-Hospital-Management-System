@@ -30,6 +30,7 @@ import {
   MasterDoctor,
 } from "./doctorMaster"
 import { RoleDatabase, AppUser } from "./roleDb"
+import { HrmsDatabase, StaffMember } from "./hrmsDb"
 import { OpReportsService } from "./opReportsDb"
 
 export type DateRangePreset = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "lastMonth" | "custom"
@@ -104,6 +105,47 @@ export interface RecentActivityItem {
 }
 
 const STORAGE_GENERAL_REPORTS_SEEDED = "hospai_gen_reports_seeded_v6"
+
+export function parseRecordTimestampMs(val: any): number {
+  if (!val) return 0
+  if (typeof val === "number") return val
+  if (typeof val === "string") {
+    const parsed = Date.parse(val)
+    if (Number.isFinite(parsed)) return parsed
+
+    const monthNames: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    }
+    const monthMatch = val.match(/([a-zA-Z]{3})[a-z]*\s+(\d{1,2}),?\s+(\d{4})(?:[·\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?/i)
+    if (monthMatch && monthNames[monthMatch[1].toLowerCase()] !== undefined) {
+      const month = monthNames[monthMatch[1].toLowerCase()]
+      const day = parseInt(monthMatch[2], 10)
+      const year = parseInt(monthMatch[3], 10)
+      let hours = monthMatch[4] ? parseInt(monthMatch[4], 10) : 0
+      const minutes = monthMatch[5] ? parseInt(monthMatch[5], 10) : 0
+      const ampm = monthMatch[7]?.toUpperCase()
+      if (ampm === "PM" && hours < 12) hours += 12
+      if (ampm === "AM" && hours === 12) hours = 0
+      return new Date(year, month, day, hours, minutes).getTime()
+    }
+
+    const m = val.match(/(\d{4})-(\d{2})-(\d{2})(?:[T\s·]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?/)
+    if (m) {
+      const year = parseInt(m[1], 10)
+      const month = parseInt(m[2], 10) - 1
+      const day = parseInt(m[3], 10)
+      let hours = m[4] ? parseInt(m[4], 10) : 0
+      const minutes = m[5] ? parseInt(m[5], 10) : 0
+      const ampm = m[7]?.toUpperCase()
+      if (ampm === "PM" && hours < 12) hours += 12
+      if (ampm === "AM" && hours === 12) hours = 0
+      return new Date(year, month, day, hours, minutes).getTime()
+    }
+  }
+  return 0
+}
+
 let generalSeedScheduled = false
 
 export class GeneralReportsService {
@@ -112,21 +154,52 @@ export class GeneralReportsService {
    */
   public static normalizeDateStr(dateVal: any, fallbackDate?: string): string {
     if (!dateVal) return fallbackDate || ""
+    try {
+      const d = new Date(dateVal)
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear()
+        const mm = String(d.getMonth() + 1).padStart(2, "0")
+        const dd = String(d.getDate()).padStart(2, "0")
+        return `${yyyy}-${mm}-${dd}`
+      }
+    } catch {}
     if (typeof dateVal === "string") {
       const trimmed = dateVal.trim()
       if (trimmed.includes("T")) return trimmed.split("T")[0]
       if (trimmed.length >= 10 && trimmed[4] === "-" && trimmed[7] === "-")
         return trimmed.substring(0, 10)
-      // If it's a time of day like "09:50" or "10:02" without a date, treat as today's date
       if (trimmed.includes(":") && !trimmed.includes("-")) {
         return fallbackDate || new Date().toISOString().split("T")[0]
       }
     }
-    try {
-      const d = new Date(dateVal)
-      if (!isNaN(d.getTime())) return d.toISOString().split("T")[0]
-    } catch {}
     return fallbackDate || ""
+  }
+
+  /**
+   * Helper to format ER timestamp into local dynamic "YYYY-MM-DD · hh:mm AM/PM"
+   */
+  public static formatErTimestamp(val?: any): string {
+    if (!val) return "Recent"
+    const str = String(val).trim()
+    if (/^\d{4}-\d{2}-\d{2}\s*·\s*\d{1,2}:\d{2}\s*(?:AM|PM)?$/i.test(str)) {
+      return str
+    }
+    try {
+      const clean = str.replace("·", " ")
+      const d = new Date(clean)
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear()
+        const mm = String(d.getMonth() + 1).padStart(2, "0")
+        const dd = String(d.getDate()).padStart(2, "0")
+        const timePart = d.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+        return `${yyyy}-${mm}-${dd} · ${timePart}`
+      }
+    } catch {}
+    return str.replace("T", " ").substring(0, 16)
   }
 
   /**
@@ -1173,9 +1246,7 @@ export class GeneralReportsService {
       })),
       ...currentEr.map((v) => ({
         id: `ER-${v.id}`,
-        dateTime: v.arrival_at
-          ? v.arrival_at.replace("T", " ").substring(0, 16)
-          : "Recent",
+        dateTime: this.formatErTimestamp(v.arrival_at),
         umr: v.patient_id || "UMR-ER",
         patientName:
           `${v.patient_name || "Emergency"} ${v.patient_last_name || "Patient"}`.trim(),
@@ -1238,7 +1309,7 @@ export class GeneralReportsService {
         priority: "Routine",
         actionRoute: "reports_ip",
       })),
-    ].sort((a, b) => b.dateTime.localeCompare(a.dateTime))
+    ].sort((a, b) => parseRecordTimestampMs(b.dateTime) - parseRecordTimestampMs(a.dateTime))
 
     return {
       range,
@@ -1433,32 +1504,68 @@ export class GeneralReportsService {
       },
     ]
 
-    const patientMap = new Map(patients.map((p) => [p.umr, p]))
+    const patientMap = new Map(patients.map((p) => [(p.umr || "").trim().toUpperCase(), p]))
+    const allEncountersByUmr = new Map<string, DBOPEncounter[]>()
+    encounters.forEach((e) => {
+      const u = (e.umr || "").trim().toUpperCase()
+      if (u) {
+        const arr = allEncountersByUmr.get(u) || []
+        arr.push(e)
+        allEncountersByUmr.set(u, arr)
+      }
+    })
 
-    // Table Records
-    let records = filteredEnc.map((e, idx) => {
-      const pat = e.umr ? patientMap.get(e.umr) : undefined
+    // Table Records: Deduplicate by UMR so each unique patient is listed once with true registration date & latest visit
+    const seenUmrs = new Set<string>()
+    let records: any[] = []
+
+    filteredEnc.forEach((e, idx) => {
+      const u = (e.umr || "").trim().toUpperCase()
+      if (u && seenUmrs.has(u)) return
+      if (u) seenUmrs.add(u)
+
+      const pat = u ? patientMap.get(u) : undefined
+      const patEncs = u ? allEncountersByUmr.get(u) || [e] : [e]
+      const sortedEncs = [...patEncs].sort((a, b) => {
+        const da = OpReportsService.getEncounterDate(a)
+        const db_ = OpReportsService.getEncounterDate(b)
+        return db_.localeCompare(da)
+      })
+      const latestEnc = sortedEncs[0] || e
+
       const rawCreatedAt = pat?.createdAt || (pat as any)?.created_at
       let regDate = ""
       if (rawCreatedAt) {
         regDate = rawCreatedAt.includes("T") ? rawCreatedAt.split("T")[0] : rawCreatedAt.split(" ")[0]
       }
+      if (!regDate && sortedEncs.length > 0) {
+        regDate = OpReportsService.getEncounterDate(sortedEncs[sortedEncs.length - 1])
+      }
       if (!regDate) {
-        regDate = OpReportsService.getEncounterDate(e)
+        regDate = OpReportsService.getEncounterDate(latestEnc)
       }
 
-      return {
-        id: e.umr || `UMR${100200 + idx}`,
-        umr: e.umr || `UMR${100200 + idx}`,
-        name: e.patientName,
-        age: e.age,
-        gender: e.sex,
+      const isNewPatient = patEncs.length <= 1 && (latestEnc.isNew ?? true)
+
+      records.push({
+        id: u || e.umr || `UMR${100200 + idx}`,
+        umr: u || e.umr || `UMR${100200 + idx}`,
+        name: pat?.name || latestEnc.patientName,
+        age: pat?.age ?? latestEnc.age,
+        gender: pat?.sex || latestEnc.sex,
         registrationDate: regDate,
-        patientType: e.isNew ? "New Patient" : "Existing Patient",
-        lastVisit: OpReportsService.getEncounterDate(e),
-        department: e.dept || "General Medicine",
-        status: e.status,
-      }
+        patientType: isNewPatient ? "New Patient" : "Existing Patient",
+        lastVisit: OpReportsService.getEncounterDate(latestEnc),
+        department: latestEnc.dept || "General Medicine",
+        status: latestEnc.status,
+      })
+    })
+
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.registrationDate || a.lastVisit)
+      const msB = parseRecordTimestampMs(b.registrationDate || b.lastVisit)
+      if (msB !== msA) return msB - msA
+      return (b.umr || "").localeCompare(a.umr || "")
     })
 
     if (filters.search) {
@@ -1719,6 +1826,13 @@ export class GeneralReportsService {
       status: e.status,
     }))
 
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.dateTime)
+      const msB = parseRecordTimestampMs(b.dateTime)
+      if (msB !== msA) return msB - msA
+      return (b.opNumber || "").localeCompare(a.opNumber || "", undefined, { numeric: true })
+    })
+
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
       records = records.filter(
@@ -1775,7 +1889,9 @@ export class GeneralReportsService {
     const allVisits = ErDatabase.getVisits("all")
 
     const filtered = allVisits.filter((v) => {
-      const d = v.arrival_at ? v.arrival_at.split("T")[0] : ""
+      const d = this.normalizeDateStr(
+        v.arrival_at || (v as any).arrival_date || (v as any).created_at,
+      )
       if (!d || d < range.startDateStr || d > range.endDateStr) return false
       if (
         filters.doctor &&
@@ -1793,7 +1909,9 @@ export class GeneralReportsService {
     })
 
     const prevVisits = allVisits.filter((v) => {
-      const d = v.arrival_at ? v.arrival_at.split("T")[0] : ""
+      const d = this.normalizeDateStr(
+        v.arrival_at || (v as any).arrival_date || (v as any).created_at,
+      )
       return d >= range.prevStartDateStr && d <= range.prevEndDateStr
     })
 
@@ -1884,7 +2002,9 @@ export class GeneralReportsService {
       dayMap[b.date] = 0
     })
     filtered.forEach((v) => {
-      const d = v.arrival_at ? v.arrival_at.split("T")[0] : ""
+      const d = this.normalizeDateStr(
+        v.arrival_at || (v as any).arrival_date || (v as any).created_at,
+      )
       if (dayMap[d] !== undefined) dayMap[d] += 1
     })
 
@@ -1977,9 +2097,8 @@ export class GeneralReportsService {
     let records = filtered.map((v) => ({
       id: `ER-${v.id}`,
       erNumber: v.visit_no || `ER-${v.id}`,
-      dateTime: v.arrival_at
-        ? v.arrival_at.replace("T", " ").substring(0, 16)
-        : "Recent",
+      dateTime: this.formatErTimestamp(v.arrival_at),
+      rawTimestamp: v.arrival_at,
       umr: v.patient_id || "UMR-ER",
       patientName:
         `${v.patient_name || "Emergency"} ${v.patient_last_name || "Patient"}`.trim(),
@@ -1989,6 +2108,13 @@ export class GeneralReportsService {
       status: v.status || "Active",
       disposition: v.status === "Closed" ? "Discharged" : "In Treatment",
     }))
+
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs((a as any).rawTimestamp || a.dateTime)
+      const msB = parseRecordTimestampMs((b as any).rawTimestamp || b.dateTime)
+      if (msB !== msA) return msB - msA
+      return (b.erNumber || "").localeCompare(a.erNumber || "", undefined, { numeric: true })
+    })
 
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
@@ -2249,6 +2375,13 @@ export class GeneralReportsService {
       })),
     ]
 
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.admissionDate || a.dischargeDate)
+      const msB = parseRecordTimestampMs(b.admissionDate || b.dischargeDate)
+      if (msB !== msA) return msB - msA
+      return (b.admissionNumber || "").localeCompare(a.admissionNumber || "", undefined, { numeric: true })
+    })
+
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
       records = records.filter(
@@ -2477,6 +2610,13 @@ export class GeneralReportsService {
       appointmentType: e.isNew ? "New Consultation" : "Follow-up",
       status: e.status,
     }))
+
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.dateTime)
+      const msB = parseRecordTimestampMs(b.dateTime)
+      if (msB !== msA) return msB - msA
+      return (b.appointmentId || "").localeCompare(a.appointmentId || "", undefined, { numeric: true })
+    })
 
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
@@ -3195,18 +3335,30 @@ export class GeneralReportsService {
     ].filter((s) => s.value > 0)
 
     // Table Records
-    let records = filtered.map((p) => ({
-      id: p.id,
-      prescriptionId: p.id,
-      date: p.createdAt ? p.createdAt.split("T")[0] : range.startDateStr,
-      umr: (p as any).umr || p.patientId || "UMR100412",
-      patient: p.patientName,
-      doctor: p.doctorName || "Dr. Staff Physician",
-      medicines:
-        p.items?.map((i) => `${i.medicineName} (${i.quantity})`).join(", ") ||
-        "Standard Meds",
-      status: p.status,
-    }))
+    let records = filtered.map((p) => {
+      const dStr = p.createdAt ? p.createdAt.split("T")[0] : range.startDateStr
+      const tStr = p.createdAt && p.createdAt.includes("T") ? new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""
+      return {
+        id: p.id,
+        prescriptionId: p.id,
+        date: tStr ? `${dStr} · ${tStr}` : dStr,
+        rawTimestamp: p.createdAt || dStr,
+        umr: (p as any).umr || p.patientId || "UMR100412",
+        patient: p.patientName,
+        doctor: p.doctorName || "Dr. Staff Physician",
+        medicines:
+          p.items?.map((i) => `${i.medicineName} (${i.quantity})`).join(", ") ||
+          "Standard Meds",
+        status: p.status,
+      }
+    })
+
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.rawTimestamp || a.date)
+      const msB = parseRecordTimestampMs(b.rawTimestamp || b.date)
+      if (msB !== msA) return msB - msA
+      return (b.prescriptionId || "").localeCompare(a.prescriptionId || "")
+    })
 
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
@@ -3400,22 +3552,34 @@ export class GeneralReportsService {
     ].filter((s) => s.value > 0)
 
     // Table Records
-    let records = filtered.map((o) => ({
-      id: o.id,
-      labOrderId: o.id,
-      date: o.createdAt ? o.createdAt.split("T")[0] : range.startDateStr,
-      umr: o.umr,
-      patient: o.patientName,
-      doctor: o.doctorName || "Dr. Staff Physician",
-      test: o.tests?.map((t) => t.name).join(", ") || "Diagnostic Test",
-      status: o.status,
-      resultStatus:
-        o.status === "Completed"
-          ? "Verified"
-          : o.status === "Cancelled"
-            ? "Cancelled"
-            : "Pending",
-    }))
+    let records = filtered.map((o) => {
+      const dStr = o.createdAt ? o.createdAt.split("T")[0] : range.startDateStr
+      const tStr = o.createdAt && o.createdAt.includes("T") ? new Date(o.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""
+      return {
+        id: o.id,
+        labOrderId: o.id,
+        date: tStr ? `${dStr} · ${tStr}` : dStr,
+        rawTimestamp: o.createdAt || dStr,
+        umr: o.umr,
+        patient: o.patientName,
+        doctor: o.doctorName || "Dr. Staff Physician",
+        test: o.tests?.map((t) => t.name).join(", ") || "Diagnostic Test",
+        status: o.status,
+        resultStatus:
+          o.status === "Completed"
+            ? "Verified"
+            : o.status === "Cancelled"
+              ? "Cancelled"
+              : "Pending",
+      }
+    })
+
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.rawTimestamp || a.date)
+      const msB = parseRecordTimestampMs(b.rawTimestamp || b.date)
+      if (msB !== msA) return msB - msA
+      return (b.labOrderId || "").localeCompare(a.labOrderId || "")
+    })
 
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
@@ -3605,19 +3769,63 @@ export class GeneralReportsService {
       .sort((a, b) => b.count - a.count)
 
     // Table Records
-    let records = filtered.map((r) => ({
-      id: r.id,
-      orderId: r.id,
-      date: r.ordered || range.startDateStr,
-      umr: r.umr || r.mrn || "UMR100412",
-      patient: r.patient,
-      doctor: r.provider || "Dr. Staff Physician",
-      scanType: r.study,
-      modality: r.modality,
-      status: r.status,
-      reportStatus:
-        r.reportStatus || (r.status === "Final" ? "Final" : "Draft"),
-    }))
+    let records = filtered.map((r) => {
+      let ord = r.ordered || ""
+      const timeMatch = ord.match(/(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i)
+      const timePart = timeMatch ? timeMatch[1] : ""
+
+      const dateMatch = ord.match(/\d{4}-\d{2}-\d{2}/)
+      let resolvedDate = dateMatch ? dateMatch[0] : ""
+
+      // Dynamically resolve original entry date from patient or encounter
+      if (!resolvedDate && (r.umr || r.mrn)) {
+        try {
+          const pat = db.getPatientByUmr(r.umr || r.mrn)
+          if (pat?.createdAt) resolvedDate = pat.createdAt.split("T")[0]
+        } catch {}
+      }
+      if (!resolvedDate && (r as any).encounterId) {
+        try {
+          const enc = db.getEncounterById((r as any).encounterId)
+          if (enc) resolvedDate = OpReportsService.getEncounterDate(enc)
+        } catch {}
+      }
+      if (!resolvedDate && r.invoiceNo) {
+        try {
+          const clm = BillingDatabase.getClaims().find((c) => c.invoiceNo === r.invoiceNo)
+          if (clm?.dateOfService) resolvedDate = clm.dateOfService
+        } catch {}
+      }
+      if (!resolvedDate && (r as any).paidAt) {
+        resolvedDate = String((r as any).paidAt).split("T")[0]
+      }
+      if (!resolvedDate) {
+        resolvedDate = new Date().toISOString().split("T")[0]
+      }
+
+      const displayDate = timePart ? `${resolvedDate} · ${timePart}` : resolvedDate
+
+      return {
+        id: r.id,
+        orderId: r.id,
+        date: displayDate,
+        umr: r.umr || r.mrn || "UMR100412",
+        patient: r.patient,
+        doctor: r.provider || "Dr. Staff Physician",
+        scanType: r.study,
+        modality: r.modality,
+        status: r.status,
+        reportStatus:
+          r.reportStatus || (r.status === "Final" ? "Final" : "Draft"),
+      }
+    })
+
+    records.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.date)
+      const msB = parseRecordTimestampMs(b.date)
+      if (msB !== msA) return msB - msA
+      return (b.orderId || "").localeCompare(a.orderId || "")
+    })
 
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
@@ -3852,20 +4060,131 @@ export class GeneralReportsService {
     )
     const beds = BedDatabase.getBeds()
     const discharges = BedDatabase.getDischargedPatients()
+    const erVisits = ErDatabase.getVisits("all")
 
-    const activeInpatients = beds.filter((b) => b.status === "Occupied")
-    const currentDischarges = discharges.filter((d) => {
-      const admDate = this.normalizeDateStr(d.admissionDate)
-      return admDate >= range.startDateStr && admDate <= range.endDateStr
+    interface AdmissionItem {
+      id: string
+      admissionNumber: string
+      umr: string
+      patient: string
+      admissionType: "Emergency" | "Planned" | "Direct ICU"
+      department: string
+      doctor: string
+      ward: string
+      date: string
+      status: "Admitted" | "Discharged"
+    }
+
+    const admissionsList: AdmissionItem[] = []
+    const seenAdmIds = new Set<string>()
+
+    // 1. Inpatients currently in beds
+    beds.filter((b) => b.status === "Occupied").forEach((b, idx) => {
+      const rawD = b.admission_date || b.allocated_at
+      const d = this.normalizeDateStr(rawD)
+      if (d && (d < range.startDateStr || d > range.endDateStr)) return
+
+      const admId = `ADM-BED-${b.id}`
+      if (seenAdmIds.has(admId)) return
+      seenAdmIds.add(admId)
+
+      const isIcu = b.bed_type === "ICU" || (b.ward || "").toLowerCase().includes("icu")
+      const isEr = (b as any).origin === "ER" || (b as any).transfer_from?.includes("ER") || (b as any).admission_type === "Emergency"
+      const admType: "Emergency" | "Planned" | "Direct ICU" = isIcu ? "Direct ICU" : isEr ? "Emergency" : "Planned"
+      const pName = `${b.patient_name || "Patient"} ${b.patient_last_name || ""}`.trim()
+      const doc = (b as any).attending_doctor || (b as any).doctor_name || "Attending Physician"
+      const ward = b.ward || "Inpatient Wards"
+
+      admissionsList.push({
+        id: admId,
+        admissionNumber: `ADM-${10000 + b.id}`,
+        umr: b.patient_id || `UMR${10000 + idx}`,
+        patient: pName,
+        admissionType: admType,
+        department: ward,
+        doctor: doc,
+        ward,
+        date: d || range.startDateStr,
+        status: "Admitted",
+      })
     })
 
-    const totalAdmissions = Math.max(
-      activeInpatients.length + currentDischarges.length,
-      dateBuckets.length * 2,
-    )
-    const emergencyAdm = Math.round(totalAdmissions * 0.45)
-    const plannedAdm = Math.round(totalAdmissions * 0.35)
-    const directIcu = Math.round(totalAdmissions * 0.2)
+    // 2. Discharged patients whose admission falls in range
+    discharges.forEach((disc) => {
+      const d = this.normalizeDateStr(disc.admissionDate)
+      if (d && (d < range.startDateStr || d > range.endDateStr)) return
+
+      const admId = `ADM-${disc.id}`
+      if (seenAdmIds.has(admId)) return
+      seenAdmIds.add(admId)
+
+      const isIcu = (disc.ward || "").toLowerCase().includes("icu")
+      const isEr = (disc as any).admissionType === "Emergency" || (disc.dischargeReason || "").toLowerCase().includes("emergency")
+      const admType: "Emergency" | "Planned" | "Direct ICU" = isIcu ? "Direct ICU" : isEr ? "Emergency" : "Planned"
+      const ward = disc.ward || "Inpatient Wards"
+      const doc = disc.attendingDoctor || "Dr. Staff Physician"
+
+      admissionsList.push({
+        id: admId,
+        admissionNumber: `ADM-${disc.id.replace("DISC-", "")}`,
+        umr: disc.mrn || disc.patientId || "UMR-IP",
+        patient: disc.patientName,
+        admissionType: admType,
+        department: ward,
+        doctor: doc,
+        ward,
+        date: d || disc.admissionDate || range.startDateStr,
+        status: "Discharged",
+      })
+    })
+
+    // 3. ER visits dispositioned to Inpatient in range
+    erVisits.forEach((v) => {
+      const isAdmitted = (v.status || "").toLowerCase().includes("admitted") ||
+        (v.disposition?.outcome || "").toLowerCase().includes("admit") ||
+        (v.disposition?.outcome || "").toLowerCase().includes("icu")
+      if (!isAdmitted) return
+
+      const d = this.normalizeDateStr(v.arrival_at)
+      if (d && (d < range.startDateStr || d > range.endDateStr)) return
+
+      const u = v.patient_id || `ER-${v.id}`
+      if (admissionsList.some((a) => a.umr === u)) return
+
+      const isIcu = (v.disposition?.outcome || "").toLowerCase().includes("icu") || (v.assigned_bed || "").toLowerCase().includes("icu")
+      const admId = `ADM-ER-${v.id}`
+      seenAdmIds.add(admId)
+
+      const pName = `${v.patient_name || "Emergency"} ${v.patient_last_name || "Patient"}`.trim()
+      const ward = v.assigned_bed ? `ER Bed (${v.assigned_bed})` : "ER / Inpatient Intake"
+      const doc = v.assigned_doctor_name || "ER Physician"
+
+      admissionsList.push({
+        id: admId,
+        admissionNumber: `ADM-ER-${v.er_number || v.id}`,
+        umr: u,
+        patient: pName,
+        admissionType: isIcu ? "Direct ICU" : "Emergency",
+        department: v.assigned_specialty || "Emergency Medicine",
+        doctor: doc,
+        ward,
+        date: d || range.startDateStr,
+        status: "Admitted",
+      })
+    })
+
+    // Sort admissions by date descending
+    admissionsList.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.date)
+      const msB = parseRecordTimestampMs(b.date)
+      if (msB !== msA) return msB - msA
+      return (b.admissionNumber || "").localeCompare(a.admissionNumber || "", undefined, { numeric: true })
+    })
+
+    const totalAdmissions = admissionsList.length
+    const emergencyAdm = admissionsList.filter((a) => a.admissionType === "Emergency").length
+    const plannedAdm = admissionsList.filter((a) => a.admissionType === "Planned").length
+    const directIcu = admissionsList.filter((a) => a.admissionType === "Direct ICU").length
     const daysCount = Math.max(1, dateBuckets.length)
     const avgDailyAdm = (totalAdmissions / daysCount).toFixed(1)
 
@@ -3884,7 +4203,7 @@ export class GeneralReportsService {
         label: "Emergency Admissions",
         value: emergencyAdm.toLocaleString(),
         rawValue: emergencyAdm,
-        change: "45%",
+        change: totalAdmissions > 0 ? `${Math.round((emergencyAdm / totalAdmissions) * 100)}%` : "0%",
         trend: "neutral",
       },
       {
@@ -3892,7 +4211,7 @@ export class GeneralReportsService {
         label: "Planned Admissions",
         value: plannedAdm.toLocaleString(),
         rawValue: plannedAdm,
-        change: "35%",
+        change: totalAdmissions > 0 ? `${Math.round((plannedAdm / totalAdmissions) * 100)}%` : "0%",
         trend: "neutral",
       },
       {
@@ -3900,7 +4219,7 @@ export class GeneralReportsService {
         label: "Direct ICU Admissions",
         value: directIcu.toLocaleString(),
         rawValue: directIcu,
-        change: "20%",
+        change: totalAdmissions > 0 ? `${Math.round((directIcu / totalAdmissions) * 100)}%` : "0%",
         trend: "neutral",
         isPositiveGood: false,
       },
@@ -3915,28 +4234,16 @@ export class GeneralReportsService {
       },
     ]
 
-    // Chart A: Admission Trend (Line)
+    // Chart A: Genuine Admission Trend by date
     const admTrendMap: Record<string, number> = {}
     dateBuckets.forEach((b) => {
       admTrendMap[b.date] = 0
     })
-    currentDischarges.forEach((d) => {
-      const dAdm = this.normalizeDateStr(d.admissionDate)
-      if (dAdm && admTrendMap[dAdm] !== undefined) admTrendMap[dAdm] += 1
+    admissionsList.forEach((a) => {
+      if (admTrendMap[a.date] !== undefined) {
+        admTrendMap[a.date] += 1
+      }
     })
-    activeInpatients.forEach((b) => {
-      const d = this.normalizeDateStr(b.admission_date)
-      if (d && admTrendMap[d] !== undefined) admTrendMap[d] += 1
-    })
-
-    const totalAdmCount = Object.values(admTrendMap).reduce((s, v) => s + v, 0)
-    if (totalAdmCount === 0) {
-      dateBuckets.forEach((b, idx) => {
-        const dNum = new Date(b.date).getDay()
-        admTrendMap[b.date] =
-          dNum === 0 || dNum === 6 ? 1 : 2 + ((idx * 2 + 1) % 4)
-      })
-    }
 
     const admissionTrend = dateBuckets.map((b) => ({
       date: b.date,
@@ -3945,7 +4252,7 @@ export class GeneralReportsService {
       count: admTrendMap[b.date] || 0,
     }))
 
-    // Chart B: Admission Type Distribution (Donut)
+    // Chart B: Admission Type Distribution
     const admTypeDist = [
       {
         name: "Emergency Intake",
@@ -3965,80 +4272,29 @@ export class GeneralReportsService {
         count: directIcu,
         color: "#EA580C",
       },
-    ]
+    ].filter((item) => item.value > 0)
 
-    // Chart C: Department-wise Admissions (Bar)
-    const deptAdmissions = [
-      {
-        department: "General Medicine",
-        count: Math.round(totalAdmissions * 0.35),
-        admissions: Math.round(totalAdmissions * 0.35),
-      },
-      {
-        department: "Cardiology",
-        count: Math.round(totalAdmissions * 0.25),
-        admissions: Math.round(totalAdmissions * 0.25),
-      },
-      {
-        department: "Orthopedics",
-        count: Math.round(totalAdmissions * 0.2),
-        admissions: Math.round(totalAdmissions * 0.2),
-      },
-      {
-        department: "Pediatrics",
-        count: Math.round(totalAdmissions * 0.12),
-        admissions: Math.round(totalAdmissions * 0.12),
-      },
-      {
-        department: "Surgery / OT",
-        count: Math.round(totalAdmissions * 0.08),
-        admissions: Math.round(totalAdmissions * 0.08),
-      },
-    ]
+    // Chart C: Department-wise Admissions (Dynamic from real records)
+    const deptCountMap: Record<string, number> = {}
+    admissionsList.forEach((a) => {
+      const dep = a.department || "Inpatient Wards"
+      deptCountMap[dep] = (deptCountMap[dep] || 0) + 1
+    })
+    const deptAdmissions = Object.entries(deptCountMap)
+      .map(([department, count]) => ({ department, count, admissions: count }))
+      .sort((a, b) => b.count - a.count)
 
-    // Chart D: Ward-wise Admissions (Bar)
+    // Chart D: Ward-wise Admissions
     const wardMap: Record<string, number> = {}
-    beds.forEach((b) => {
-      if (b.status === "Occupied") wardMap[b.ward] = (wardMap[b.ward] || 0) + 1
+    admissionsList.forEach((a) => {
+      const ward = a.ward || "General Ward"
+      wardMap[ward] = (wardMap[ward] || 0) + 1
     })
     const wardAdmissions = Object.entries(wardMap)
       .map(([ward, count]) => ({ ward, count, admissions: count }))
       .sort((a, b) => b.count - a.count)
 
-    // Table Records
-    let records = [
-      ...activeInpatients.map((b, idx) => ({
-        id: `ADM-${b.id}`,
-        admissionNumber: `ADM-${10000 + b.id}`,
-        umr: b.patient_id || `UMR${10000 + idx}`,
-        patient:
-          `${b.patient_name || "Patient"} ${b.patient_last_name || ""}`.trim(),
-        admissionType:
-          b.bed_type === "ICU"
-            ? "Direct ICU"
-            : idx % 2 === 0
-              ? "Emergency"
-              : "Planned",
-        department: "Inpatient Wards",
-        doctor: "Dr. Attending Physician",
-        ward: b.ward,
-        date: b.admission_date || range.startDateStr,
-        status: "Admitted",
-      })),
-      ...currentDischarges.map((d) => ({
-        id: `ADM-${d.id}`,
-        admissionNumber: `ADM-${d.id.replace("DISC-", "")}`,
-        umr: d.mrn || d.patientId,
-        patient: d.patientName,
-        admissionType: d.ward.includes("ICU") ? "Direct ICU" : "Planned",
-        department: "Inpatient Wards",
-        doctor: d.attendingDoctor || "Dr. Staff Physician",
-        ward: d.ward,
-        date: d.admissionDate,
-        status: "Discharged",
-      })),
-    ]
-
+    let records = admissionsList
     if (filters.search) {
       const q = filters.search.toLowerCase().trim()
       records = records.filter(
@@ -4111,7 +4367,15 @@ export class GeneralReportsService {
       return true
     })
 
-    // Chart A: Discharge Trend (Line)
+    // Sort newest discharges first
+    filtered.sort((a, b) => {
+      const msA = parseRecordTimestampMs(a.dischargeDate || a.admissionDate)
+      const msB = parseRecordTimestampMs(b.dischargeDate || b.admissionDate)
+      if (msB !== msA) return msB - msA
+      return (b.id || "").localeCompare(a.id || "")
+    })
+
+    // Chart A: Genuine Discharge Trend (Line)
     const disDayMap: Record<string, number> = {}
     dateBuckets.forEach((b) => {
       disDayMap[b.date] = 0
@@ -4121,15 +4385,6 @@ export class GeneralReportsService {
       if (disD && disDayMap[disD] !== undefined) disDayMap[disD] += 1
     })
 
-    const totalDisCount = Object.values(disDayMap).reduce((s, v) => s + v, 0)
-    if (totalDisCount === 0) {
-      dateBuckets.forEach((b, idx) => {
-        const dNum = new Date(b.date).getDay()
-        disDayMap[b.date] =
-          dNum === 0 || dNum === 6 ? 1 : 1 + ((idx * 2 + 1) % 3)
-      })
-    }
-
     const dischargeTrend = dateBuckets.map((b) => ({
       date: b.date,
       period: b.label,
@@ -4137,40 +4392,43 @@ export class GeneralReportsService {
       count: disDayMap[b.date] || 0,
     }))
 
-    const total = Math.max(
-      filtered.length,
-      Object.values(disDayMap).reduce((s, v) => s + v, 0),
-    )
-    const routine = Math.max(
-      filtered.filter(
-        (d) =>
-          (d.dischargeReason || "").toLowerCase().includes("routine") ||
-          (d.dischargeReason || "").toLowerCase().includes("recover"),
-      ).length,
-      Math.round(total * 0.7),
-    )
-    const transfers = Math.max(
-      filtered.filter((d) =>
-        (d.dischargeReason || "").toLowerCase().includes("transfer"),
-      ).length,
-      Math.round(total * 0.15),
-    )
-    const lama = Math.max(
-      filtered.filter(
-        (d) =>
-          (d.dischargeReason || "").toLowerCase().includes("lama") ||
-          (d.dischargeReason || "").toLowerCase().includes("request"),
-      ).length,
-      Math.round(total * 0.08),
-    )
+    const total = filtered.length
+    const routine = filtered.filter((d) => {
+      const r = (d.dischargeReason || "").toLowerCase()
+      return r.includes("routine") || r.includes("recover") || r.includes("normal") || r.includes("cure") ||
+        (!r.includes("transfer") && !r.includes("lama") && !r.includes("ama") && !r.includes("request"))
+    }).length
+    const transfers = filtered.filter((d) =>
+      (d.dischargeReason || "").toLowerCase().includes("transfer"),
+    ).length
+    const lama = filtered.filter(
+      (d) =>
+        (d.dischargeReason || "").toLowerCase().includes("lama") ||
+        (d.dischargeReason || "").toLowerCase().includes("ama") ||
+        (d.dischargeReason || "").toLowerCase().includes("against medical") ||
+        (d.dischargeReason || "").toLowerCase().includes("request"),
+    ).length
 
     let totalLos = 0
     filtered.forEach((d) => {
-      totalLos += d.lengthOfStayDays || 4
+      totalLos += d.lengthOfStayDays || 1
     })
     const alos =
-      total > 0 ? (totalLos / total).toFixed(1) + " days" : "4.0 days"
-    const pendingSummaries = Math.max(0, Math.round(total * 0.08))
+      total > 0 ? (totalLos / total).toFixed(1) + " days" : "0.0 days"
+
+    // Real signed summaries from Clinical Summaries store
+    let signedCount = 0
+    if (typeof window !== "undefined") {
+      filtered.forEach((d) => {
+        const k1 = `hospai_discharge_summary:${d.id}`
+        const k2 = `hospai_discharge_summary:${d.patientId}`
+        const k3 = `hospai_discharge_summary:${d.mrn}`
+        if (localStorage.getItem(k1) || localStorage.getItem(k2) || localStorage.getItem(k3)) {
+          signedCount++
+        }
+      })
+    }
+    const pendingSummaries = Math.max(0, total - signedCount)
 
     const prevDis = discharges.filter(
       (d) =>
@@ -4259,7 +4517,7 @@ export class GeneralReportsService {
     // Chart C: Department-wise Discharges (Bar)
     const deptDisMap: Record<string, number> = {}
     filtered.forEach((d) => {
-      const ward = d.ward || "General Medical"
+      const ward = d.ward || "Inpatient Wards"
       deptDisMap[ward] = (deptDisMap[ward] || 0) + 1
     })
     const departmentDischarges = Object.entries(deptDisMap)
@@ -4276,9 +4534,8 @@ export class GeneralReportsService {
       doctor: d.attendingDoctor || "Dr. Staff Physician",
       admissionDate: d.admissionDate,
       dischargeDate: d.dischargeDate,
-      lengthOfStay: `${d.lengthOfStayDays || 4} days`,
+      lengthOfStay: `${d.lengthOfStayDays || 1} days`,
       dischargeType: d.dischargeReason || "Routine",
-      status: "Discharged",
     }))
 
     if (filters.search) {
@@ -4318,22 +4575,85 @@ export class GeneralReportsService {
   // ══════════════════════════════════════════════════════════════════════════════
   public static getStaffReportsData(filters: ReportFilters): ReportPayload {
     this.ensureAllLongitudinalData()
+    const hrmsStaff = HrmsDatabase.getStaffList()
     const users = RoleDatabase.getUsers()
     const doctors = getDoctorMaster()
 
-    // Combine users and doctors
-    const totalEmployees = users.length + doctors.length
-    const doctorsCount = doctors.length
-    const nursesCount =
-      users.filter((u) => u.roleId.toLowerCase().includes("nurse")).length || 24
-    const receptionStaff =
-      users.filter((u) => u.roleId.toLowerCase().includes("reception"))
-        .length || 8
-    const pharmacyStaff =
-      users.filter((u) => u.roleId.toLowerCase().includes("pharmacy")).length ||
-      6
-    const labStaff =
-      users.filter((u) => u.roleId.toLowerCase().includes("lab")).length || 5
+    let records: any[] = []
+
+    if (hrmsStaff.length > 0) {
+      records = hrmsStaff.map((s, idx) => ({
+        id: s.id || `EMP-${1001 + idx}`,
+        employeeId: s.id || `EMP-${1001 + idx}`,
+        employeeName: s.name,
+        role: s.designation || s.category || "Staff Member",
+        department: s.department || "Clinical",
+        joiningDate: s.joiningDate || "2024-03-15",
+        status: s.status || "Active",
+        shift: s.shift || "Morning",
+        category: s.category || "Allied",
+      }))
+    } else {
+      records = [
+        ...doctors.map((d, i) => ({
+          id: `EMP-DOC-${i + 1}`,
+          employeeId: d.staffId || `DOC-${1001 + i}`,
+          employeeName: d.name,
+          role: "Attending Physician / Doctor",
+          department: d.specialty || "Clinical",
+          joiningDate: d.joiningDate || "2024-03-15",
+          status: d.verified !== false ? "Active" : "On Request",
+          shift: i % 3 === 0 ? "Morning" : i % 3 === 1 ? "Evening" : "Night",
+          category: "Doctor",
+        })),
+        ...users.map((u, i) => ({
+          id: `EMP-USR-${i + 1}`,
+          employeeId: u.staffId || `STF-${2001 + i}`,
+          employeeName: u.name,
+          role: u.roleId.replace("ROLE_", "").replace(/_/g, " "),
+          department: u.department || "Hospital Administration",
+          joiningDate: u.createdAt ? u.createdAt.split("T")[0] : "2025-01-10",
+          status: u.status || "Active",
+          shift: i % 2 === 0 ? "Morning" : "Evening",
+          category: u.roleId.toLowerCase().includes("nurse")
+            ? "Nursing"
+            : u.roleId.toLowerCase().includes("pharmacy")
+              ? "Pharmacy"
+              : u.roleId.toLowerCase().includes("lab")
+                ? "Laboratory"
+                : "Administration",
+        })),
+      ]
+    }
+
+    const totalEmployees = records.length
+    const doctorsCount = records.filter(
+      (r) =>
+        r.category === "Doctor" ||
+        r.role.toLowerCase().includes("doctor") ||
+        r.role.toLowerCase().includes("physician"),
+    ).length
+    const nursesCount = records.filter(
+      (r) => r.category === "Nursing" || r.role.toLowerCase().includes("nurse"),
+    ).length
+    const receptionStaff = records.filter(
+      (r) =>
+        r.role.toLowerCase().includes("reception") ||
+        r.department.toLowerCase().includes("reception") ||
+        r.role.toLowerCase().includes("front desk"),
+    ).length
+    const pharmacyStaff = records.filter(
+      (r) =>
+        r.category === "Pharmacy" ||
+        r.role.toLowerCase().includes("pharmacy") ||
+        r.department.toLowerCase().includes("pharmacy"),
+    ).length
+    const labStaff = records.filter(
+      (r) =>
+        r.category === "Laboratory" ||
+        r.role.toLowerCase().includes("lab") ||
+        r.department.toLowerCase().includes("laboratory"),
+    ).length
 
     const kpis: KpiMetric[] = [
       {
@@ -4349,7 +4669,7 @@ export class GeneralReportsService {
         label: "Doctors",
         value: doctorsCount.toLocaleString(),
         rawValue: doctorsCount,
-        change: `${Math.round((doctorsCount / totalEmployees) * 100)}% of staff`,
+        change: `${totalEmployees > 0 ? Math.round((doctorsCount / totalEmployees) * 100) : 0}% of staff`,
         trend: "neutral",
       },
       {
@@ -4357,7 +4677,7 @@ export class GeneralReportsService {
         label: "Nurses",
         value: nursesCount.toLocaleString(),
         rawValue: nursesCount,
-        change: `${Math.round((nursesCount / totalEmployees) * 100)}% of staff`,
+        change: `${totalEmployees > 0 ? Math.round((nursesCount / totalEmployees) * 100) : 0}% of staff`,
         trend: "neutral",
       },
       {
@@ -4386,17 +4706,17 @@ export class GeneralReportsService {
       },
     ]
 
-    // Chart A: Department-wise Staff (Bar)
-    const deptStaff = [
-      { department: "Inpatient Wards", count: 28, staff: 28 },
-      { department: "Emergency (ER)", count: 18, staff: 18 },
-      { department: "General Medicine", count: 14, staff: 14 },
-      { department: "Cardiology", count: 10, staff: 10 },
-      { department: "Pharmacy", count: pharmacyStaff, staff: pharmacyStaff },
-      { department: "Laboratory", count: labStaff, staff: labStaff },
-    ]
+    // Chart A: Department-wise Staff
+    const deptStaffMap: Record<string, number> = {}
+    records.forEach((r) => {
+      const dep = r.department || "General Administration"
+      deptStaffMap[dep] = (deptStaffMap[dep] || 0) + 1
+    })
+    const deptStaff = Object.entries(deptStaffMap)
+      .map(([department, count]) => ({ department, count, staff: count }))
+      .sort((a, b) => b.count - a.count)
 
-    // Chart B: Staff Role Distribution (Donut)
+    // Chart B: Staff Role Distribution
     const staffDist = [
       {
         name: "Doctors",
@@ -4428,47 +4748,31 @@ export class GeneralReportsService {
         count: labStaff,
         color: "#06B6D4",
       },
-    ]
+    ].filter((item) => item.value > 0)
 
-    // Chart C: Staff Activity (Bar)
+    // Chart C: Real Staff Shift Activity
+    const morningCount = records.filter(
+      (r) => r.shift === "Morning" || r.shift === "General",
+    ).length
+    const eveningCount = records.filter((r) => r.shift === "Evening").length
+    const nightCount = records.filter((r) => r.shift === "Night").length
+
     const staffActivity = [
       {
         shift: "Morning Shift (08:00 - 16:00)",
-        count: Math.round(totalEmployees * 0.55),
-        activity: Math.round(totalEmployees * 0.55),
+        count: morningCount,
+        activity: morningCount,
       },
       {
         shift: "Evening Shift (16:00 - 00:00)",
-        count: Math.round(totalEmployees * 0.3),
-        activity: Math.round(totalEmployees * 0.3),
+        count: eveningCount,
+        activity: eveningCount,
       },
       {
         shift: "Night Shift (00:00 - 08:00)",
-        count: Math.round(totalEmployees * 0.15),
-        activity: Math.round(totalEmployees * 0.15),
+        count: nightCount,
+        activity: nightCount,
       },
-    ]
-
-    // Table Records
-    let records = [
-      ...doctors.map((d, i) => ({
-        id: `EMP-DOC-${i + 1}`,
-        employeeId: `EMP-${1001 + i}`,
-        employeeName: d.name,
-        role: "Attending Physician / Doctor",
-        department: d.specialty || "Clinical",
-        joiningDate: "2024-03-15",
-        status: "Active",
-      })),
-      ...users.map((u, i) => ({
-        id: `EMP-USR-${i + 1}`,
-        employeeId: u.staffId || `EMP-${2001 + i}`,
-        employeeName: u.name,
-        role: u.roleId.replace("ROLE_", "").replace("_", " "),
-        department: "Hospital Administration",
-        joiningDate: "2025-01-10",
-        status: u.status || "Active",
-      })),
     ]
 
     if (filters.search) {
@@ -4488,8 +4792,8 @@ export class GeneralReportsService {
     return {
       summary: {
         totalEmployees,
-        doctors: doctorsCount,
-        nurses: nursesCount,
+        doctorsCount,
+        nursesCount,
         receptionStaff,
         pharmacyStaff,
         labStaff,

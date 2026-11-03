@@ -432,13 +432,12 @@ export default function LabDashboardView({
 
                       <td className="py-3 px-4 text-right">
                         {!isPaid ? (
-                          <button
-                            type="button"
-                            onClick={() => onNavigate("lab_orders_collection")}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold rounded-lg transition cursor-pointer"
+                          <span
+                            className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold rounded-lg inline-flex items-center gap-1 cursor-default select-none"
+                            title="Payment must be settled in the central Billing section"
                           >
-                            💳 Settle Bill
-                          </button>
+                            Bill at Billing Section
+                          </span>
                         ) : order.status === "Billed" ? (
                           <button
                             type="button"
