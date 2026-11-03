@@ -1592,18 +1592,23 @@ export default function App() {
     setUserRole(userData.role)
     setUserPermissions(userData.permissions)
 
+    const resolvedDoctor = resolveDoctorAccount({
+      doctorId: userData.doctorId,
+      username: userData.user,
+      name: userData.staffName || userData.user,
+    })
+
     const isDoctor =
       userData.role === "ROLE_DOCTOR" ||
-      userData.user.toLowerCase().startsWith("doctor")
+      userData.user.toLowerCase().startsWith("doctor") ||
+      Boolean(userData.doctorId) ||
+      (resolvedDoctor && (
+        resolvedDoctor.username.toLowerCase() === userData.user.trim().toLowerCase() ||
+        resolvedDoctor.id.toLowerCase() === userData.user.trim().toLowerCase() ||
+        resolvedDoctor.staffId.toLowerCase() === userData.user.trim().toLowerCase()
+      ))
 
-    const doctor = isDoctor
-      ? resolveDoctorAccount({
-        doctorId: userData.doctorId,
-        username: userData.user,
-        name: userData.staffName || userData.user,
-      })
-      : null
-
+    const doctor = isDoctor ? resolvedDoctor : null
     setActiveDoctor(doctor)
 
     if (doctor) {
@@ -2900,7 +2905,7 @@ export default function App() {
                 />
               )}
               {module === "emergency_ui" && (
-                <EmergencyUI />
+                <EmergencyUI onRegister={() => setModule("emergency")} />
               )}
               {module === "inpatient" && (
                 <Inpatient
@@ -3301,7 +3306,11 @@ export default function App() {
                     }}
                   />
                 ) : (
-                  <DoctorsOverview />
+                  <DoctorsOverview
+                    onOpenWorkspace={(doc) => {
+                      setActiveDoctor(doc)
+                    }}
+                  />
                 ))}
               {module === "admissions" && (
                 <Admissions setNotice={setNotice} navigate={navigate} />

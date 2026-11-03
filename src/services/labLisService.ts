@@ -419,6 +419,19 @@ const DEFAULT_SETTINGS: LisSettings = {
   ],
 }
 
+let cachedSpecimens: SpecimenRecord[] | null = null
+let cachedCriticalAlerts: CriticalAlertRecord[] | null = null
+
+export function invalidateLisCache(): void {
+  cachedSpecimens = null
+  cachedCriticalAlerts = null
+}
+
+LabOrderDatabase.subscribe(() => {
+  cachedSpecimens = null
+  cachedCriticalAlerts = null
+})
+
 // ─── ENTERPRISE LIS ENGINE ───────────────────────────────────────────────────
 
 export class LabLisService {
@@ -435,6 +448,8 @@ export class LabLisService {
   private static save<T>(key: string, data: T): void {
     try {
       localStorage.setItem(key, JSON.stringify(data))
+      if (key === STORAGE_KEY_SPECIMENS) cachedSpecimens = data as any
+      if (key === STORAGE_KEY_CRITICAL_ALERTS) cachedCriticalAlerts = data as any
       this.dispatchUpdate()
     } catch (e) {
       console.error("Failed to persist LIS data:", e)
@@ -459,7 +474,10 @@ export class LabLisService {
   /**
    * Resolves or generates the specimens needed for an order based on tests ordered.
    */
+
   static getSpecimens(): SpecimenRecord[] {
+    if (cachedSpecimens) return cachedSpecimens
+
     const orders = LabOrderDatabase.getOrders()
     const stored = this.load<SpecimenRecord[]>(STORAGE_KEY_SPECIMENS, [])
     const specimenMap = new Map<string, SpecimenRecord>()
@@ -556,8 +574,11 @@ export class LabLisService {
 
     const list = Array.from(specimenMap.values())
     if (mutated) {
-      this.save(STORAGE_KEY_SPECIMENS, list)
+      try {
+        localStorage.setItem(STORAGE_KEY_SPECIMENS, JSON.stringify(list))
+      } catch {}
     }
+    cachedSpecimens = list
     return list
   }
 
@@ -702,6 +723,7 @@ export class LabLisService {
   // ─── 3. CRITICAL ALERTS & CLINICIAN COMMUNICATION ─────────────────────────
 
   static getCriticalAlerts(): CriticalAlertRecord[] {
+    if (cachedCriticalAlerts) return cachedCriticalAlerts
     const stored = this.load<CriticalAlertRecord[]>(STORAGE_KEY_CRITICAL_ALERTS, [])
     const orders = LabOrderDatabase.getOrders()
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { Icon } from "./icons"
 import { Btn, Input, StatusBadge } from "./shared"
 import { db, DBOPEncounter, DBPatient } from "../services/db"
+import { doesDoctorMatchEncounter } from "../services/doctorPortalDb"
 import { BillingDatabase, InvoiceItem } from "../services/billingDb"
 import {
   PharmacyDatabase,
@@ -576,7 +577,7 @@ export default function DoctorWorkflow({
     const docQueue =
       selectedDoctor.id === "all"
         ? encs
-        : encs.filter((e) => e.assignedDoctor === selectedDoctor.name)
+        : encs.filter((e) => doesDoctorMatchEncounter(selectedDoctor, e))
 
     if (docQueue.length > 0) {
       const match =
@@ -658,7 +659,7 @@ export default function DoctorWorkflow({
   const doctorQueue =
     selectedDoctor.id === "all"
       ? encounters
-      : encounters.filter((e) => e.assignedDoctor === selectedDoctor.name)
+      : encounters.filter((e) => doesDoctorMatchEncounter(selectedDoctor, e))
 
   const activeEncounter =
     doctorQueue.find((e) => e.id === activeEncounterId) ||

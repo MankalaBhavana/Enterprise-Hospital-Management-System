@@ -22,7 +22,12 @@ import {
   type DoctorPatientRow,
   type VisitStage,
 } from "../../services/doctorOversight"
-import { DOCTOR_ROSTER, DoctorPortalDatabase, type DoctorAccount } from "../../services/doctorPortalDb"
+import {
+  DOCTOR_ROSTER,
+  DoctorPortalDatabase,
+  getAllDoctorAccounts,
+  type DoctorAccount,
+} from "../../services/doctorPortalDb"
 import { STAGE_HUES, TONE, band, gradient, specialtyHue, type Hue } from "./doctorTheme"
 
 // ── Small pieces ─────────────────────────────────────────────────────────────
@@ -75,12 +80,12 @@ function Avatar({ name, hue, size = 36, linked = true }: { name: string ;hue: Hu
 
 function Kpi({ label, value, hue, icon: I }: { label: string ;value: number ;hue: Hue ;icon: IconType }) {
   return (
-    <div className="bg-white border border-[#DDE2EC] rounded-[12px] px-3.5 py-3 flex items-center gap-3 min-w-0" style={{ borderTop: `3px solid ${hue.solid}` }}>
-      <span className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 text-white shadow-[0_2px_6px_rgba(15,23,42,0.12)]" style={{ background: gradient(hue) }}>
-        <I size={18} />
+    <div className="bg-white border border-[#E2E8F0] rounded-[12px] px-3.5 py-3 flex items-center gap-3 min-w-0" style={{ borderTop: `2px solid ${hue.solid}` }}>
+      <span className="w-9 h-9 rounded-[9px] flex items-center justify-center shrink-0 border" style={{ backgroundColor: hue.soft, borderColor: hue.border, color: hue.solid }}>
+        <I size={17} />
       </span>
       <div className="min-w-0">
-        <div className="text-[21px] font-bold leading-none tabular-nums" style={{ color: value > 0 ? hue.text : "#94A3B8" }}>{value}</div>
+        <div className="text-[20px] font-bold leading-none tabular-nums text-[#0F172A]">{value}</div>
         <div className="text-[11px] text-[#64748B] mt-1 truncate">{label}</div>
       </div>
     </div>
@@ -124,7 +129,11 @@ const UNCLAIMED = "__unclaimed__"
  * Administrator's view of every doctor: who they have waiting, what they have
  * seen, what they ordered and where each order is.
  */
-export default function DoctorsOverview() {
+export default function DoctorsOverview({
+  onOpenWorkspace,
+}: {
+  onOpenWorkspace?: (doctor: DoctorAccount) => void
+} = {}) {
   const { revision, now } = useLiveClinic()
   const data = useMemo(() => getDoctorOversight(), [revision])
   const [query, setQuery] = useState("")
@@ -157,7 +166,7 @@ export default function DoctorsOverview() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F0F2F5]">
-      <div className="px-5 lg:px-6 py-4 text-white flex flex-wrap items-center gap-x-6 gap-y-2" style={{ background: "linear-gradient(120deg, #1E3A8A 0%, #1B4FD8 55%, #0EA5E9 100%)" }}>
+      <div className="px-5 lg:px-6 py-4 text-white flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-700/40" style={{ background: "linear-gradient(135deg, #0F172A 0%, #1E293B 55%, #29384E 100%)" }}>
         <span className="w-11 h-11 rounded-[12px] bg-white/15 ring-1 ring-white/25 flex items-center justify-center shrink-0">
           <Stethoscope size={22} />
         </span>
@@ -270,7 +279,7 @@ export default function DoctorsOverview() {
                       }`}
                       style={
                         active
-                          ? { backgroundColor: hue.soft, borderLeftColor: hue.solid }
+                          ? { backgroundColor: "#F1F5F9", borderLeftColor: hue.solid }
                           : inRoom
                           ? { borderLeftColor: "#2563EB", backgroundColor: "#F0F7FF" }
                           : queueCount > 0
@@ -332,6 +341,7 @@ export default function DoctorsOverview() {
                 onTab={setTab}
                 now={now}
                 onBack={() => setSelectedKey(null)}
+                onOpenWorkspace={onOpenWorkspace}
               />
             ) : (
               <div className="flex-1 bg-white border border-[#DDE2EC] rounded-[12px]">
@@ -353,12 +363,14 @@ function DoctorDetail({
   onTab,
   now,
   onBack,
+  onOpenWorkspace,
 }: {
   row: DoctorOversightRow
   tab: Tab
   onTab: (t: Tab) => void
   now: number
   onBack: () => void
+  onOpenWorkspace?: (doctor: DoctorAccount) => void
 }) {
   const [onlyOpen, setOnlyOpen] = useState(false)
   const c = row.counts
@@ -410,16 +422,28 @@ function DoctorDetail({
               </div>
             )}
           </div>
+          {acc && onOpenWorkspace && (
+            <button
+              type="button"
+              onClick={() => onOpenWorkspace(acc)}
+              className="px-3.5 py-2 rounded-[8px] bg-white text-[#1E293B] hover:bg-slate-100 text-[12px] font-bold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 ml-auto self-center"
+            >
+              <span>🩺</span>
+              <span>Open Doctor Workspace</span>
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-3 border-b border-[#EEF1F6] grid grid-cols-3 sm:grid-cols-6 gap-2">
+      <div className="px-4 sm:px-5 py-3 border-b border-[#EEF1F6] grid grid-cols-3 sm:grid-cols-6 gap-2 bg-[#F8FAFC]">
         {stats.map((st) => (
-          <div key={st.label} className="rounded-[9px] border px-2.5 py-2 flex items-center gap-2" style={{ backgroundColor: st.hue.soft, borderColor: st.hue.border }}>
-            <st.icon size={15} className="shrink-0" />
-            <div className="min-w-0" style={{ color: st.hue.text }}>
-              <div className="text-[16px] font-bold tabular-nums leading-none">{st.value}</div>
-              <div className="text-[10.5px] mt-1 truncate opacity-90">{st.label}</div>
+          <div key={st.label} className="rounded-[9px] border border-[#E2E8F0] bg-white px-2.5 py-2 flex items-center gap-2.5 shadow-2xs">
+            <span className="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0 border" style={{ backgroundColor: st.hue.soft, borderColor: st.hue.border, color: st.hue.solid }}>
+              <st.icon size={13} />
+            </span>
+            <div className="min-w-0">
+              <div className="text-[16px] font-bold tabular-nums leading-none text-[#0F172A]">{st.value}</div>
+              <div className="text-[10.5px] mt-1 truncate text-[#64748B]">{st.label}</div>
             </div>
           </div>
         ))}
@@ -712,8 +736,9 @@ function UnclaimedPanel({
             const e = r.encounter
             const hue = STAGE_HUES[r.stage]
             const deptHue = specialtyHue(e.dept)
-            const inDept = DOCTOR_ROSTER.filter((d) => d.specialty === e.dept)
-            const others = DOCTOR_ROSTER.filter((d) => d.specialty !== e.dept)
+            const allDocs = getAllDoctorAccounts()
+            const inDept = allDocs.filter((d) => d.specialty === e.dept)
+            const others = allDocs.filter((d) => d.specialty !== e.dept)
             return (
               <div
                 key={e.id}

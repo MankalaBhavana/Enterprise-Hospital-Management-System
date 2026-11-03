@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react"
+
 import {
   FlaskConical,
   LayoutDashboard,
@@ -20,13 +20,22 @@ import {
   Info,
   X,
 } from "lucide-react"
+import React, { useState, useEffect, useMemo, Suspense, lazy } from "react"
 import LabDashboardView from "./LabDashboardView"
-import LabOrdersAndCollectionView from "./LabOrdersAndCollectionView"
-import LabWorkbenchView from "./LabWorkbenchView"
-import LabReportsView from "./LabReportsView"
-import LaboratoryInventory from "./LaboratoryInventory"
-import QualityControlView from "./QualityControlView"
-import AdminConfigurationView from "./AdminConfigurationView"
+
+const LabOrdersAndCollectionView = lazy(() => import("./LabOrdersAndCollectionView"))
+const LabWorkbenchView = lazy(() => import("./LabWorkbenchView"))
+const LabReportsView = lazy(() => import("./LabReportsView"))
+const LaboratoryInventory = lazy(() => import("./LaboratoryInventory"))
+const QualityControlView = lazy(() => import("./QualityControlView"))
+const AdminConfigurationView = lazy(() => import("./AdminConfigurationView"))
+
+const TabLoadingFallback = () => (
+  <div className="p-16 flex flex-col items-center justify-center space-y-3 bg-white rounded-2xl border border-slate-200">
+    <div className="w-8 h-8 border-3 border-[#7552B8] border-t-transparent rounded-full animate-spin" />
+    <span className="text-xs font-semibold text-slate-500">Loading diagnostic workspace...</span>
+  </div>
+)
 import { LabOrder, LabOrderDatabase, LabOrderTest } from "../../services/labOrdersDb"
 import { LabLisService, SpecimenRecord, CriticalAlertRecord } from "../../services/labLisService"
 
@@ -497,12 +506,16 @@ export default function LaboratoryManagementSuite({
 
       {/* ── 5. ACTIVE SUB-MODULE WORKSPACES RENDERING ───────────────────────── */}
       <div className="transition-all">
-        {currentTab === "lab_dashboard" && (
-          <LabDashboardView
-            onNavigate={(mod) => handleTabChange(normalizeKey(mod))}
-            onOpenOrder={(ord) => handleOpenBenchWithOrder(ord)}
-          />
-        )}
+        <Suspense fallback={<TabLoadingFallback />}>
+          {currentTab === "lab_dashboard" && (
+            <LabDashboardView
+              initialOrders={orders}
+              initialSpecimens={specimens}
+              initialCriticalAlerts={criticalAlerts}
+              onNavigate={(mod) => handleTabChange(normalizeKey(mod))}
+              onOpenOrder={(ord) => handleOpenBenchWithOrder(ord)}
+            />
+          )}
 
         {currentTab === "lab_orders_collection" && (
           <LabOrdersAndCollectionView
@@ -526,6 +539,7 @@ export default function LaboratoryManagementSuite({
         {currentTab === "lab_quality_analytics" && <QualityControlView />}
 
         {currentTab === "lab_admin_config" && <AdminConfigurationView />}
+        </Suspense>
       </div>
     </div>
   )

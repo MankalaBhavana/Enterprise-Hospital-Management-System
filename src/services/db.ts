@@ -152,6 +152,9 @@ export interface DBOPEncounter {
     /** When the OP desk called the patient through to the nurse station. */
     calledToNurse?: string
     calledToNurseBy?: string
+    /** When the OP desk called the patient through to the doctor chamber. */
+    calledToDoctor?: string
+    calledToDoctorBy?: string
     /** When the OP nurse took baseline observations, and who took them. */
 
     vitalsRecorded?: string
@@ -1473,6 +1476,19 @@ const STORAGE_KEYS = {
   UMR_COUNTER: "hospai_db_umr_counter_v1",
 
   OP_COUNTER: "hospai_db_op_counter_v1",
+  CALL_HISTORY: "hospai_db_call_history_v1",
+}
+
+export interface DBCallEvent {
+  id: string
+  encounterId: string
+  umr: string
+  patientName: string
+  token: string
+  dept: string
+  room: string
+  eventType: "Call Doctor" | "Call Nurse"
+  timestamp: string
 }
 
 // ─── Emergency Storage Eviction & Quota Recovery ──────────────────────────────
@@ -1635,8 +1651,15 @@ class HospitalDatabase {
             !p.name.toLowerCase().includes("bhupathi"),
         )
 
-        if (filtered.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(filtered))
+        const seenUmrs = new Set()
+        const dedupedPatients = filtered.filter((p) => {
+          const u = (p.umr || "").trim().toUpperCase()
+          if (!u || seenUmrs.has(u)) return false
+          seenUmrs.add(u)
+          return true
+        })
+        if (dedupedPatients.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(dedupedPatients))
         }
       }
 
@@ -1788,10 +1811,19 @@ class HospitalDatabase {
           merged = true
         }
       }
-      if (merged) {
-        safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(list))
+      const seenUmrs = new Set<string>()
+      const uniqueList: DBPatient[] = []
+      for (const p of list) {
+        const u = (p.umr || "").trim().toUpperCase()
+        if (u && !seenUmrs.has(u)) {
+          seenUmrs.add(u)
+          uniqueList.push(p)
+        }
       }
-      return list
+      if (uniqueList.length !== list.length || merged) {
+        safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(uniqueList))
+      }
+      return uniqueList
     } catch {
       return INITIAL_SEED_PATIENTS
     }
@@ -1801,6 +1833,17 @@ class HospitalDatabase {
     return this.getPatients().find(
       (p) => p.umr.toUpperCase() === umr.toUpperCase(),
     )
+  }
+
+  public addPatient(p: DBPatient): void {
+    try {
+      const list = this.getPatients()
+      const u = (p.umr || "").trim().toUpperCase()
+      if (u && !list.some((existing) => (existing.umr || "").trim().toUpperCase() === u)) {
+        localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify([p, ...list]))
+        this.notify()
+      }
+    } catch {}
   }
 
   public searchPatients(query: string): DBPatient[] {
@@ -1885,129 +1928,7 @@ class HospitalDatabase {
       return false
     })
 
-    if (matched.length > 0) return matched
-
-    // Fallback: If this patient is an existing hospital patient or registered ER patient, synthesize realistic prior OP consultation
-
-    const existing =
-      this.getPatientByUmr(q) ||
-      this.getPatients().find((p) =>
-        (p.name || "").toLowerCase().includes(nameTarget),
-      )
-
-    if (existing || q.startsWith("UMR") || q.startsWith("P-")) {
-      const encId = `ENC-${q || "OP"}-PREV`
-
-      const pName = existing?.name || patientName || "Patient"
-
-      const synthEncounter: DBOPEncounter = {
-        id: encId,
-
-        umr: existing?.umr || q || "UMR-00000",
-
-        opNumber: `OP-${Math.floor(100 + Math.random() * 900)}`,
-
-        patientName: pName,
-
-        age: existing?.age || 38,
-
-        sex: existing?.sex || "Male",
-
-        phone: existing?.phone || "(617) 555-0100",
-
-        address: existing?.address || "Metro Hospital District",
-
-        bloodGroup: existing?.bloodGroup || "O+",
-
-        dept: "General Medicine",
-
-        isNew: false,
-
-        registrationTime: "3 months ago",
-
-        chiefComplaint:
-          "Routine clinical follow-up, intermittent fatigue and general wellness check",
-
-        symptoms: ["Fatigue", "Mild weakness"],
-
-        aiSpecialty: "General Medicine",
-
-        aiDoctor: "Dr. Anita Roy",
-
-        aiConfidence: 95,
-
-        doctorGenderPref: "Any",
-
-        assignedDoctor: "Dr. Anita Roy",
-
-        doctorStatus: "Available",
-
-        queueToken: "GM-042",
-
-        queuePosition: 0,
-
-        room: "Consultation Room 102",
-
-        diagnosis: "Mild Nutritional Anemia & Physical Fatigue (Controlled)",
-
-        icd10: "D64.9",
-
-        prescription: [
-          {
-            medicine: "Tab Multivitamin + Zinc",
-            dosage: "1 tab",
-            frequency: "OD after lunch",
-            duration: "30 days",
-          },
-
-          {
-            medicine: "Tab Vitamin D3 60K IU",
-            dosage: "1 cap",
-            frequency: "Once weekly",
-            duration: "8 weeks",
-          },
-        ],
-
-        investigations: [
-          "Complete Blood Count (CBC)",
-          "Serum Ferritin & Vitamin D3 Level",
-        ],
-
-        advice:
-          "Balanced diet rich in leafy greens. Adequate hydration (3L/day). Follow up in 3 months with repeat CBC.",
-
-        vitals: {
-          bp: "120/80 mmHg",
-          pulse: "74 bpm",
-          temp: "98.4 °F",
-          spo2: "99%",
-          weight: "68 kg",
-          notes: "Vitals normal",
-        },
-
-        billing: {
-          consultationFee: 50,
-          labFee: 45,
-          total: 95,
-          status: "Paid",
-          mode: "Cash",
-        },
-
-        furtherAction: "None",
-
-        status: "OP Completed",
-
-        timestamps: {
-          arrival: "09:30 AM",
-          registration: "09:40 AM",
-          consultationStart: "09:55 AM",
-        },
-      }
-
-      return [synthEncounter]
-    }
-
-    return []
+    return matched
   }
 
   public getEncounterById(id: string): DBOPEncounter | undefined {
@@ -2464,6 +2385,66 @@ class HospitalDatabase {
    * The status is untouched -- being called is not a clinical stage, it is a
    * fact about the waiting room. Vitals are still what moves the visit on.
    */
+  public getCallHistory(): DBCallEvent[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CALL_HISTORY)
+      if (!data) return []
+      return JSON.parse(data)
+    } catch {
+      return []
+    }
+  }
+
+  public recordCallEvent(event: Omit<DBCallEvent, "id">): DBCallEvent {
+    try {
+      const history = this.getCallHistory()
+      // Prevent accidental duplicate history entries for the same event
+      const existing = history.find(
+        (h) =>
+          h.encounterId === event.encounterId &&
+          h.eventType === event.eventType &&
+          Math.abs(new Date(h.timestamp).getTime() - new Date(event.timestamp).getTime()) < 5000,
+      )
+      if (existing) return existing
+
+      const newEvent: DBCallEvent = {
+        ...event,
+        id: `CALL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      }
+      const updated = [
+        newEvent,
+        ...history.filter(
+          (h) => !(h.encounterId === event.encounterId && h.eventType === event.eventType),
+        ),
+      ].slice(0, 50)
+      localStorage.setItem(STORAGE_KEYS.CALL_HISTORY, JSON.stringify(updated))
+      this.notify()
+      return newEvent
+    } catch {
+      return { ...event, id: `CALL-${Date.now()}` }
+    }
+  }
+
+  public callToDoctor(
+    id: string,
+    calledBy: string = "OP Desk",
+  ): DBOPEncounter | undefined {
+    const existing = this.getEncounters().find((e) => e.id === id)
+    if (!existing) return undefined
+    const now = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    return this.updateEncounter(id, {
+      status: existing.status === "Under Consultation" ? existing.status : "Awaiting Consultation",
+      timestamps: {
+        ...existing.timestamps,
+        calledToDoctor: now,
+        calledToDoctorBy: calledBy,
+      },
+    })
+  }
+
   public callToNurseStation(
     id: string,
     calledBy: string,

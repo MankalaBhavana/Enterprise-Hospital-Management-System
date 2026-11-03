@@ -1614,13 +1614,16 @@ export async function apiFetch<T = any>(
 ): Promise<T> {
   const method = (options.method || "GET").toUpperCase()
 
-  // Serve reports directly from live database service
+  // Serve ER, bed management, and reports directly from live persistent store
+  if (
+    path.startsWith("/api/er") ||
+    path.startsWith("/api/reports") ||
+    path.startsWith("/api/beds")
+  ) {
+    const localResult = await handleLocalErMock<T>(path, options)
 
-  if (path.startsWith("/api/reports")) {
-    const reportResult = await handleLocalErMock<T>(path, options)
-
-    if (reportResult !== null) {
-      return reportResult as T
+    if (localResult !== null) {
+      return localResult as T
     }
   }
 

@@ -16,9 +16,13 @@ import { db, type DBOPEncounter } from "./db"
 import {
   DOCTOR_ROSTER,
   DoctorPortalDatabase,
+  getAllDoctorAccounts,
+  isUnassignedDoctor,
+  normalizeDoctorName,
   type ConsultationRecord,
   type DoctorAccount,
 } from "./doctorPortalDb"
+import { getDoctorMaster } from "./doctorMaster"
 import { LabOrderDatabase, type LabOrder } from "./labOrdersDb"
 import { PharmacyDatabase, type AppPrescription } from "./pharmacyDb"
 import { encounterArrivalMs, stampMs } from "./encounterTime"
@@ -28,12 +32,17 @@ export type VisitStage = "Registered" | "With nurse" | "Waiting" | "In consultat
 export function visitStage(status: DBOPEncounter["status"] | string): VisitStage {
   switch (status) {
     case "Doctor Assigned":
+    case "Awaiting Doctor":
+    case "With Nurse":
+    case "Triage Done":
       return "With nurse"
     case "Vitals Recorded":
     case "In Queue":
     case "Awaiting Consultation":
+    case "Waiting":
       return "Waiting"
     case "Under Consultation":
+    case "In Consultation":
       return "In consultation"
     case "Consultation Completed":
     case "Post-Consultation":
@@ -42,6 +51,8 @@ export function visitStage(status: DBOPEncounter["status"] | string): VisitStage
     case "Awaiting Investigation":
       return "After consultation"
     case "OP Completed":
+    case "Discharged":
+    case "Cancelled":
       return "Completed"
     default:
       return "Registered"
@@ -185,16 +196,53 @@ export function getDoctorOversight(): DoctorOversight {
   // Every doctor identity that appears anywhere: accounts first, then names without one.
   const byKey = new Map<string, { account: DoctorAccount | null ;name: string ;specialty: string ;room: string }>()
   const keyForName = new Map<string, string>()
-  for (const d of DOCTOR_ROSTER) {
+
+  const allDocs = getAllDoctorAccounts()
+  for (const d of allDocs) {
     byKey.set(d.id, { account: d, name: d.name, specialty: d.specialty, room: d.room })
-    keyForName.set(norm(d.name), d.id)
+    keyForName.set(normalizeDoctorName(d.name), d.id)
+    if (d.username) keyForName.set(normalizeDoctorName(d.username), d.id)
+    if (d.staffId) keyForName.set(normalizeDoctorName(d.staffId), d.id)
   }
+
+  // Also index master doctors in case any custom entries exist
+  try {
+    for (const d of getDoctorMaster()) {
+      if (!byKey.has(d.id)) {
+        const docAcc: DoctorAccount = {
+          id: d.id,
+          username: (d.username || d.id.toLowerCase().replace(/[^a-z0-9]/g, "")).toLowerCase(),
+          name: d.name,
+          specialty: d.specialty || "General Medicine",
+          room: d.room || "Room 101",
+          staffId: d.staffId || d.id,
+          qualification: d.qualification || "Consultant Physician",
+        }
+        byKey.set(d.id, { account: docAcc, name: d.name, specialty: docAcc.specialty, room: docAcc.room })
+      }
+      keyForName.set(normalizeDoctorName(d.name), d.id)
+      if (d.username) keyForName.set(normalizeDoctorName(d.username), d.id)
+      if (d.staffId) keyForName.set(normalizeDoctorName(d.staffId), d.id)
+    }
+  } catch {}
+
   const keyFor = (id?: string | null, name?: string | null): string | null => {
     if (id && byKey.has(id)) return id
-    const n = norm(name)
+    if (!name || isUnassignedDoctor(name)) return null
+    const n = normalizeDoctorName(name)
     if (!n) return null
+
     const known = keyForName.get(n)
     if (known) return known
+
+    // Fuzzy matching by substring against registered doctor names
+    for (const [kn, kid] of keyForName.entries()) {
+      if (kn === n) return kid
+      if (kn.length >= 4 && n.length >= 4 && (kn.includes(n) || n.includes(kn))) {
+        return kid
+      }
+    }
+
     const key = `name:${n}`
     if (!byKey.has(key)) {
       byKey.set(key, { account: null, name: (name || "").trim(), specialty: "", room: "" })
@@ -221,7 +269,9 @@ export function getDoctorOversight(): DoctorOversight {
   const patientsByKey = new Map<string, DoctorPatientRow[]>()
   const unclaimed: DoctorPatientRow[] = []
   for (const e of encounters) {
-    const key = keyFor(null, e.assignedDoctor)
+    const docId = (e as any).assignedDoctorId || (e as any).doctorId
+    const docName = e.assignedDoctor || (e as any).doctorAssigned
+    const key = keyFor(docId, docName)
     const row = rowFor(e)
     if (!key) {
       if (isOpenStage(row.stage)) unclaimed.push(row)
