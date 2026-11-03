@@ -1498,6 +1498,9 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 
 const CROSS_TAB_CHANNEL = "hospai_db_v1"
 
+/** Raised (detail: the DBOPEncounter) when an OP registration is complete. */
+export const OP_REGISTERED_EVENT = "hms:op-registered"
+
 /** The fake phone earlier queue syncs stored when the real one was missed. */
 export const PLACEHOLDER_PHONE = "+91 98765 43210"
 
@@ -1862,6 +1865,19 @@ class HospitalDatabase {
       window.dispatchEvent(new CustomEvent("hms:umr-reassigned", { detail: { from: localUmr, to: serverId } }))
     } catch {}
     this.notify()
+  }
+
+  /**
+   * Tells the rest of the app (patient messaging) that an OP registration is
+   * complete. Raised only after the server write-through has settled, so the
+   * UMR is final (a desk-UMR clash may have re-keyed it) and the patient
+   * exists on the server for anything that needs them there.
+   */
+  private announceRegistered(encounterId: string) {
+    try {
+      const encounter = this.getEncounterById(encounterId)
+      if (encounter) window.dispatchEvent(new CustomEvent(OP_REGISTERED_EVENT, { detail: encounter }))
+    } catch {}
   }
 
   private notify() {
@@ -2300,6 +2316,7 @@ class HospitalDatabase {
     })
       .then((res) => this.adoptServerPatientId(newPatient.umr, res))
       .catch(() => {})
+      .finally(() => this.announceRegistered(newEncounter.id))
 
     this.notify()
 
@@ -2481,6 +2498,7 @@ class HospitalDatabase {
     })
       .then((res) => this.adoptServerPatientId(umr, res))
       .catch(() => {})
+      .finally(() => this.announceRegistered(newEncounter.id))
 
     this.notify()
 

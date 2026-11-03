@@ -9,7 +9,6 @@ import {
   findMatchingPatient,
 } from "../services/db"
 import { HospAILogo } from "./HospAILogo"
-import { notifyOpRegistered } from "../services/patientMessaging"
 
 // Accurate age calculation from Date of Birth
 const calculateAge = (dobString: string): number => {
@@ -210,7 +209,8 @@ export default function OPRegistration({
         })
 
       setSelectedEncounter(createdEncounter)
-      notifyOpRegistered(createdEncounter)
+      // Registration message: sent by patientMessaging when db announces the
+      // registration (after the server write), so every desk path is covered once.
       refreshFromDb()
       toast.success(
         `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
@@ -250,7 +250,8 @@ export default function OPRegistration({
   // 2. Handle Existing Patient Revisit -> Retains Permanent UMR -> generates new OP Number
   const handleCreateRevisitEncounter = (p: DBPatient) => {
     const newEncounter = db.createRevisitEncounter(p.umr)
-    notifyOpRegistered(newEncounter)
+    // Registration message: sent by patientMessaging when db announces the
+    // registration (after the server write), so every desk path is covered once.
 
     setSelectedEncounter(newEncounter)
     setGenerationAlert({

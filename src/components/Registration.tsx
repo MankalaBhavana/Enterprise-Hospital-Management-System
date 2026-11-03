@@ -18,7 +18,7 @@ import PatientJourneyModal from "./PatientJourneyModal"
 import { useBranding } from "./branding/DocumentBranding"
 import { OpCardPreview, cardBarcodeValue, opCardDataFor, printOpCard } from "./opcard/OpCard"
 import { openJourneyForCode } from "./opcard/JourneyScan"
-import { notifyOpRegistered, whatsAppHandoffUrl, smsHandoffUrl } from "../services/patientMessaging"
+import MessageDeliveryStatus from "./messaging/MessageDeliveryStatus"
 
 // Accurate age calculation from Date of Birth
 const calculateAge = (dobString: string): number => {
@@ -278,7 +278,8 @@ export default function Registration({
         })
 
       setSelectedEncounter(createdEncounter)
-      notifyOpRegistered(createdEncounter)
+      // Registration message: sent by patientMessaging when db announces the
+      // registration (after the server write), so every desk path is covered once.
       refreshFromDb()
       toast.success(
         `Patient registered successfully! UMR: ${createdPatient.umr}, OP#: ${createdEncounter.opNumber}`,
@@ -329,7 +330,8 @@ export default function Registration({
   // 2. Handle Existing Patient Workflow -> View Record -> Generate Visit Pass -> Show Digital Card
   const handleCreateRevisitEncounter = (p: DBPatient) => {
     const newEncounter = db.createRevisitEncounter(p.umr)
-    notifyOpRegistered(newEncounter)
+    // Registration message: sent by patientMessaging when db announces the
+    // registration (after the server write), so every desk path is covered once.
 
     setSelectedEncounter(newEncounter)
     setGenerationAlert({
@@ -1098,9 +1100,9 @@ export default function Registration({
                     <p className="text-[10.5px] font-bold uppercase tracking-wide text-[#15803D]">
                       📱 Patient Alert
                     </p>
-                    <p className="text-[11.5px] text-[#166534] mt-0.5 truncate" title={booked.phone}>
-                      SMS &amp; WhatsApp sent ({booked.phone || "patient"})
-                    </p>
+                    <div className="mt-0.5">
+                      <MessageDeliveryStatus encounterId={booked.encounterId} kind="appointment_booked" phone={booked.phone} compact />
+                    </div>
                   </div>
                   <div className="bg-white border border-[#FDE68A] rounded px-3 py-2">
                     <p className="text-[10.5px] font-bold uppercase tracking-wide text-[#92400E]">
@@ -1113,36 +1115,6 @@ export default function Registration({
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {booked.phone && (
-                    <>
-                      <a
-                        href={
-                          whatsAppHandoffUrl(
-                            booked.phone,
-                            `Dear ${booked.name}, your appointment with ${booked.doctor} (${booked.dept}) is confirmed. Token ${booked.token}, Room ${booked.room}. Imperial Hospitals`,
-                          ) || "#"
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3.5 py-2 bg-[#25D366] hover:bg-[#20BD5A] text-white text-[12.5px] font-semibold rounded shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                        title="Open in WhatsApp directly"
-                      >
-                        <span>💬</span> Open in WhatsApp
-                      </a>
-                      <a
-                        href={
-                          smsHandoffUrl(
-                            booked.phone,
-                            `Dear ${booked.name}, your appointment with ${booked.doctor} (${booked.dept}) is confirmed. Token ${booked.token}, Room ${booked.room}. Imperial Hospitals`,
-                          ) || "#"
-                        }
-                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-[12.5px] font-semibold rounded shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                        title="Open SMS app directly"
-                      >
-                        <span>📲</span> Open in SMS
-                      </a>
-                    </>
-                  )}
                   {onGoToBilling && (
                     <button
                       type="button"
@@ -1338,6 +1310,15 @@ export default function Registration({
                   >
                     Open patient record (same as scanning the card) →
                   </button>
+                  {/* The registration message: sent automatically once the
+                      registration reaches the server; its real outcome here. */}
+                  <div className="w-full max-w-xl border-t border-[#E2E8F0] pt-2">
+                    <MessageDeliveryStatus
+                      encounterId={selectedEncounter.id}
+                      kind="op_registered"
+                      phone={selectedEncounter.phone}
+                    />
+                  </div>
                 </div>
               </div>
             )}

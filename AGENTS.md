@@ -2,6 +2,15 @@
 
 React + Vite + Tailwind CSS frontend for a hospital management system, backed by a microservice backend (see `hospital-backend/`, symlinked to `keppler-backend/`).
 
+## Production deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md): `./deploy.sh` (creates `deploy/.env` with generated secrets) then
+`./deploy.sh up` builds and starts the whole system from `deploy/docker-compose.yml` -- web (nginx serving
+the HMS + Keppler OCR builds and mirroring the dev proxy routes), the backend from the bundled
+`keppler-backend/` copy (refresh it with `scripts/sync-backend.sh`), hr-api, the OCR backend, the Node HRMS
+server and four Postgres databases. Only `web` is exposed. A production build never uses a local
+`.env.production` (Docker builds exclude `.env*`) or the build machine's LAN address.
+
 ## Development Server
 
 Start the frontend with `npm run dev`; it serves on `$PORT` (default 8443). That script is
@@ -398,6 +407,56 @@ PDF gets the same header and footer in `buildPatientPdf`. The hospital logo is u
 `hospai_hospital_logo_v1`); until then the hospital's initials stand in. Use the cropped marks in
 `src/assets/brandMarks.ts`, not `HOSPAI_LOGO_BASE64` on paper: that logo sets "Hosp" in white for the
 dark sidebar and vanishes on a white page. `public/*.png` are Git LFS pointers, not images.
+
+## Patient messages on registration and booking
+
+Sending goes through patients-service `POST /api/messaging/send` (Twilio). **It only delivers once the
+Twilio settings in `keppler-backend/.env` are filled in** (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+`TWILIO_SMS_FROM` or `TWILIO_MESSAGING_SERVICE_SID`, `TWILIO_WHATSAPP_FROM`; WhatsApp business-initiated
+messages also need approved templates in `WHATSAPP_TEMPLATE_SIDS`), then `docker compose up -d
+patients-service`. Until then every message is recorded as `not_configured` and waits in the outbox.
+
+- **Registration** (any desk path): `db.registerNewPatient` / `createRevisitEncounter` raise
+  `hms:op-registered` *after* the server write settles (so the UMR is final), and patientMessaging sends
+  `op_registered` -- SMS + WhatsApp by default, with UMR, OP number, department and the patient's no-login
+  record link (the card's QR link). Screens no longer call `notifyOpRegistered` themselves.
+- **Appointment**: `bookAppointment` sends `appointment_booked` (doctor, date, time, token, room + link).
+- Idempotent: the same message is never sent twice for a visit.
+- Screens show the real outcome per channel (`MessageDeliveryStatus`) instead of "SMS & WhatsApp sent",
+  with one-click **Send on WhatsApp / Send by SMS** of the same text from the desk's own app when the
+  service cannot send. Queued messages from the last 6 hours are retried automatically every 2 minutes
+  once the service can send.
+
+## Billing: live server invoices
+
+The billing counters (OP / IP / ER, dashboard, revenue, payment history) all read
+`BillingDatabase.getClaims()`. That used to return only bills held in this browser, plus 16 fictional
+seed bills (one re-added on every read), so the hospital's real invoices -- billing-service's, raised by
+OP registration, IP admission, any other computer -- never appeared. [src/services/billingSync.ts](src/services/billingSync.ts)
+now pulls `GET /api/billing/invoices` (raw `fetch`, never `apiFetch`'s mock), names each from
+`/api/patients/<id>` (cached; a deleted patient's invoices are skipped) and merges them as claims with
+`serverInvoiceId` / id `SRV-<id>`. They are never written to localStorage (`save()` filters them); a
+browser-derived OP bill is dropped when the server already holds that patient's OP invoice for the same
+day. A payment on a server bill is shown at once and posted to `POST /api/billing/invoices/<id>/payments`;
+if the server refuses it the bill reverts on the next sync and `BILLING_PAYMENT_FAILED_EVENT` raises a toast.
+`recordPayment` matches the bill exactly (a loose `includes` match could credit another patient's bill).
+
+Also from the server, in the same sync: each invoice's line items (`GET /api/billing/invoices?include=items`;
+an invoice with none shows one summary line, nothing invented), its payments from any desk
+(`/api/billing/payments`, which now carries `invoice_id`), and the insurer from its insurance claim
+(`/api/billing/claims`). The old `syncClaimsWithBackend` turned each insurance claim into a second,
+placeholder-filled bill; it now just triggers this sync, and bills it created are purged.
+
+**Running IP bills.** billing-service raises the IP invoice (`INV-IP-<admission>-…`) only when the bed is
+released, so a patient in a bed now appears as `RUN-<admission_id>` (`runningAdmissionId`): room charges so
+far from `/api/beds`, ICU when the bed is. It cannot take a payment (`recordPayment` refuses) and is never
+stored; at discharge the final invoice replaces it. Server and running bills cannot be edited here
+(`updateClaim` refuses `SRV-`/`RUN-`). Metrics, CSV export, `getClaimById` and `getAllPayments` read through
+`getClaims()`, so every screen sees the same bills.
+
+Live: `BillingDatabase.onUpdate` (used by every billing screen) fires on in-tab writes, server changes
+(15 s poll while any billing screen is open, plus window focus), new OP visits (`db.subscribe`) and other
+tabs' writes (storage events). Batching uses a timer, not `requestAnimationFrame`, which background tabs pause.
 
 ## Insurance department
 

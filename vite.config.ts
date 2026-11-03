@@ -484,7 +484,10 @@ function lanOrigin(): string {
 
 export default defineConfig({
   define: {
-    "import.meta.env.VITE_LAN_ORIGIN": JSON.stringify(lanOrigin()),
+    // Dev server only: a production build must never bake in the build
+    // machine's LAN address -- deployed, the site's own origin (or
+    // VITE_PUBLIC_APP_URL) is what card QR codes link to.
+    "import.meta.env.VITE_LAN_ORIGIN": JSON.stringify(process.argv.includes("build") ? "" : lanOrigin()),
   },
   plugins: [react(), tailwindcss(), hmsApiMockMiddleware()],
   resolve: {

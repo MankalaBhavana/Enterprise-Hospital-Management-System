@@ -879,7 +879,8 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
     }
 
     const options = {
-      key: "rzp_test_TYrv3Z5h61z8uC", // Global Hospital Test Key
+      // Razorpay key id (public, not a secret): set VITE_RAZORPAY_KEY_ID to the live key in production.
+      key: (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || "rzp_test_TYrv3Z5h61z8uC",
       amount: Math.round(amount * 100), // Convert INR to Paisa
       currency: "INR",
       name: "Global Hospital Pharmacy",
