@@ -154,21 +154,52 @@ export class GeneralReportsService {
    */
   public static normalizeDateStr(dateVal: any, fallbackDate?: string): string {
     if (!dateVal) return fallbackDate || ""
+    try {
+      const d = new Date(dateVal)
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear()
+        const mm = String(d.getMonth() + 1).padStart(2, "0")
+        const dd = String(d.getDate()).padStart(2, "0")
+        return `${yyyy}-${mm}-${dd}`
+      }
+    } catch {}
     if (typeof dateVal === "string") {
       const trimmed = dateVal.trim()
       if (trimmed.includes("T")) return trimmed.split("T")[0]
       if (trimmed.length >= 10 && trimmed[4] === "-" && trimmed[7] === "-")
         return trimmed.substring(0, 10)
-      // If it's a time of day like "09:50" or "10:02" without a date, treat as today's date
       if (trimmed.includes(":") && !trimmed.includes("-")) {
         return fallbackDate || new Date().toISOString().split("T")[0]
       }
     }
-    try {
-      const d = new Date(dateVal)
-      if (!isNaN(d.getTime())) return d.toISOString().split("T")[0]
-    } catch {}
     return fallbackDate || ""
+  }
+
+  /**
+   * Helper to format ER timestamp into local dynamic "YYYY-MM-DD · hh:mm AM/PM"
+   */
+  public static formatErTimestamp(val?: any): string {
+    if (!val) return "Recent"
+    const str = String(val).trim()
+    if (/^\d{4}-\d{2}-\d{2}\s*·\s*\d{1,2}:\d{2}\s*(?:AM|PM)?$/i.test(str)) {
+      return str
+    }
+    try {
+      const clean = str.replace("·", " ")
+      const d = new Date(clean)
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear()
+        const mm = String(d.getMonth() + 1).padStart(2, "0")
+        const dd = String(d.getDate()).padStart(2, "0")
+        const timePart = d.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+        return `${yyyy}-${mm}-${dd} · ${timePart}`
+      }
+    } catch {}
+    return str.replace("T", " ").substring(0, 16)
   }
 
   /**
@@ -1215,9 +1246,7 @@ export class GeneralReportsService {
       })),
       ...currentEr.map((v) => ({
         id: `ER-${v.id}`,
-        dateTime: v.arrival_at
-          ? v.arrival_at.replace("T", " ").substring(0, 16)
-          : "Recent",
+        dateTime: this.formatErTimestamp(v.arrival_at),
         umr: v.patient_id || "UMR-ER",
         patientName:
           `${v.patient_name || "Emergency"} ${v.patient_last_name || "Patient"}`.trim(),
@@ -1860,7 +1889,9 @@ export class GeneralReportsService {
     const allVisits = ErDatabase.getVisits("all")
 
     const filtered = allVisits.filter((v) => {
-      const d = v.arrival_at ? v.arrival_at.split("T")[0] : ""
+      const d = this.normalizeDateStr(
+        v.arrival_at || (v as any).arrival_date || (v as any).created_at,
+      )
       if (!d || d < range.startDateStr || d > range.endDateStr) return false
       if (
         filters.doctor &&
@@ -1878,7 +1909,9 @@ export class GeneralReportsService {
     })
 
     const prevVisits = allVisits.filter((v) => {
-      const d = v.arrival_at ? v.arrival_at.split("T")[0] : ""
+      const d = this.normalizeDateStr(
+        v.arrival_at || (v as any).arrival_date || (v as any).created_at,
+      )
       return d >= range.prevStartDateStr && d <= range.prevEndDateStr
     })
 
@@ -1969,7 +2002,9 @@ export class GeneralReportsService {
       dayMap[b.date] = 0
     })
     filtered.forEach((v) => {
-      const d = v.arrival_at ? v.arrival_at.split("T")[0] : ""
+      const d = this.normalizeDateStr(
+        v.arrival_at || (v as any).arrival_date || (v as any).created_at,
+      )
       if (dayMap[d] !== undefined) dayMap[d] += 1
     })
 
@@ -2062,9 +2097,8 @@ export class GeneralReportsService {
     let records = filtered.map((v) => ({
       id: `ER-${v.id}`,
       erNumber: v.visit_no || `ER-${v.id}`,
-      dateTime: v.arrival_at
-        ? v.arrival_at.replace("T", " ").substring(0, 16)
-        : "Recent",
+      dateTime: this.formatErTimestamp(v.arrival_at),
+      rawTimestamp: v.arrival_at,
       umr: v.patient_id || "UMR-ER",
       patientName:
         `${v.patient_name || "Emergency"} ${v.patient_last_name || "Patient"}`.trim(),
@@ -2076,8 +2110,8 @@ export class GeneralReportsService {
     }))
 
     records.sort((a, b) => {
-      const msA = parseRecordTimestampMs(a.dateTime)
-      const msB = parseRecordTimestampMs(b.dateTime)
+      const msA = parseRecordTimestampMs((a as any).rawTimestamp || a.dateTime)
+      const msB = parseRecordTimestampMs((b as any).rawTimestamp || b.dateTime)
       if (msB !== msA) return msB - msA
       return (b.erNumber || "").localeCompare(a.erNumber || "", undefined, { numeric: true })
     })

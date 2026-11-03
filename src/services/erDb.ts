@@ -4971,11 +4971,53 @@ export class ErDatabase {
 
   // Visits
 
+  private static ensureDynamicActiveVisits(visits: ErVisitRecord[]): boolean {
+    if (!Array.isArray(visits)) return false
+    let changed = false
+    const now = Date.now()
+    const seedOffsets: Record<number, number> = {
+      1: 25 * 60000,
+      2: 40 * 60000,
+      3: 60 * 60000,
+      4: 75 * 60000,
+      5: 90 * 60000,
+      6: 110 * 60000,
+    }
+
+    visits.forEach((v) => {
+      if (seedOffsets[v.id] && v.status === "under_treatment") {
+        const offset = seedOffsets[v.id]
+        const expectedMs = now - offset
+        const currentMs = v.arrival_at ? new Date(v.arrival_at).getTime() : 0
+        const isStale = Math.abs(now - currentMs) > 2 * 3600 * 1000 || !v.arrival_at
+        if (isStale) {
+          v.arrival_at = new Date(expectedMs).toISOString()
+          if (v.doctor_assigned_at) {
+            v.doctor_assigned_at = new Date(expectedMs + 60000).toISOString()
+          }
+          if (v.doctor_accepted_at) {
+            v.doctor_accepted_at = new Date(expectedMs + 120000).toISOString()
+          }
+          changed = true
+        }
+      }
+    })
+
+    if (changed) {
+      try {
+        this.save(ER_STORAGE_KEY_VISITS, visits)
+      } catch {}
+    }
+    return changed
+  }
+
   static getVisits(filter?: "all" | "active" | "closed"): ErVisitRecord[] {
     const visits = this.load<ErVisitRecord[]>(
       ER_STORAGE_KEY_VISITS,
       INITIAL_VISITS,
     )
+
+    this.ensureDynamicActiveVisits(visits)
 
     if (filter === "active") return visits.filter((v) => v.status !== "closed")
 
@@ -5559,14 +5601,27 @@ export class ErDatabase {
 
     if (visitData.arrivalDate) {
       try {
-        const timePart = visitData.arrivalTime || "12:00"
-
-        arrivalTimestamp = new Date(
-          `${visitData.arrivalDate}T${timePart}`,
-        ).toISOString()
+        const timePart = (visitData.arrivalTime || "").trim() || "12:00"
+        const parsed = new Date(`${visitData.arrivalDate} ${timePart}`)
+        if (!isNaN(parsed.getTime())) {
+          arrivalTimestamp = parsed.toISOString()
+        } else {
+          const parsedT = new Date(`${visitData.arrivalDate}T${timePart}`)
+          if (!isNaN(parsedT.getTime())) {
+            arrivalTimestamp = parsedT.toISOString()
+          }
+        }
       } catch (e) {
         arrivalTimestamp = new Date().toISOString()
       }
+    } else if (visitData.arrivalTime) {
+      try {
+        const todayStr = new Date().toISOString().split("T")[0]
+        const parsed = new Date(`${todayStr} ${visitData.arrivalTime.trim()}`)
+        if (!isNaN(parsed.getTime())) {
+          arrivalTimestamp = parsed.toISOString()
+        }
+      } catch {}
     }
 
     const now = new Date().toISOString()
