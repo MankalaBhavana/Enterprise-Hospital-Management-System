@@ -226,34 +226,13 @@ function getBaseTestName(name: string): string {
 }
 
 function normalizeOrder(order: LabOrder): LabOrder {
-  let rawTests = [...(order.tests || [])]
-
-  // Auto-attach matching radiology studies for this patient/encounter if missing from billing order
-  try {
-    const radStudies = BillingDatabase.getRadiologyStudies()
-    const matchingRad = radStudies.filter(
-      (s) =>
-        (order.encounterId && s.encounterId === order.encounterId) ||
-        (order.umr && (s.umr === order.umr || s.mrn === order.umr)),
-    )
-
-    matchingRad.forEach((s) => {
-      const sBase = getBaseTestName(s.study)
-      const alreadyInOrder = rawTests.some(
-        (t) => getBaseTestName(t.name) === sBase,
-      )
-      if (!alreadyInOrder) {
-        rawTests.push({
-          id: `RAD-TEST-${s.id}`,
-          name: s.study,
-          category: "RADIOLOGY",
-          urgency: s.priority === "STAT" ? "STAT" : "Routine",
-          price: s.price || priceForTest(s.study),
-          status: s.paymentStatus === "Paid" ? "Completed" : "Pending",
-        })
-      }
-    })
-  } catch {}
+  // Pure laboratory investigations only - strip any auto-injected radiology studies
+  let rawTests = [...(order.tests || [])].filter(
+    (t) =>
+      !t.id?.startsWith("RAD-TEST-") &&
+      t.category !== "RADIOLOGY" &&
+      !t.name?.toLowerCase().includes("diagnostic imaging study"),
+  )
 
   // Strict deduplication by normalized base test name
   const seenBaseNames = new Set<string>()
@@ -266,13 +245,18 @@ function normalizeOrder(order: LabOrder): LabOrder {
     }
   }
 
-  const isUnbilled = !order.billing || order.billing.status === "Pending"
+  const isUnbilled = !order.billing || order.billing.status !== "Paid"
   const normalizedTests = deduplicatedTests.map((t) => {
     const currentPrice = isUnbilled ? priceForTest(t.name) : t.price
+    const status = isUnbilled && (t.status === "Completed" || t.status === "Verified")
+      ? "Pending"
+      : t.status === "Ordered"
+      ? "Pending"
+      : t.status
     return {
       ...t,
       price: currentPrice,
-      status: (t.status === "Ordered" ? "Pending" : t.status) as LabTestStatus,
+      status: status as LabTestStatus,
     }
   })
 
@@ -282,8 +266,13 @@ function normalizeOrder(order: LabOrder): LabOrder {
   const discount = order.billing?.discount || 0
   const total = isUnbilled ? Math.max(0, subtotal - discount) : order.billing?.total || 0
 
+  const effectiveStatus = isUnbilled && (order.status === "Completed" || order.status === "Sample Collected")
+    ? ("Awaiting Billing" as LabOrderStatus)
+    : order.status
+
   return {
     ...order,
+    status: effectiveStatus,
     tests: normalizedTests,
     history: order.history || [],
     billing: {
@@ -770,13 +759,61 @@ function readOrders(): LabOrder[] {
         return t
       })
 
+      // Strip any injected radiology studies
+      const initialTestsCount = tests.length
+      tests = tests.filter(
+        (t) =>
+          !t.id?.startsWith("RAD-TEST-") &&
+          t.category !== "RADIOLOGY" &&
+          !t.name?.toLowerCase().includes("diagnostic imaging study"),
+      )
+      if (tests.length !== initialTestsCount) {
+        orderMutated = true
+      }
+
       // If Sunita Reddy has 2 tests in cached localStorage, prune to single Troponin I test
       if (order.id === "LAB-2026-0004" && tests.length > 1) {
         orderMutated = true
         tests = tests.filter((t) => t.name.toLowerCase().includes("troponin"))
       }
 
+      // STRICT BILLING ENFORCEMENT: If billing is not Paid, order CANNOT be Completed or Sample Collected
+      const isOrderPaid = order.billing?.status === "Paid"
+      if (!isOrderPaid) {
+        let hadUnpaidCompleted = false
+        tests = tests.map((t) => {
+          if (t.status === "Completed" || t.status === "Verified") {
+            hadUnpaidCompleted = true
+            return {
+              ...t,
+              status: "Pending" as const,
+              result: "",
+              resultUnit: "",
+              flag: "" as const,
+              results: {},
+              clinicalComments: "",
+              verifier: undefined,
+              verifiedAt: undefined,
+              processingCompletedAt: undefined,
+              resultedAt: undefined,
+            }
+          }
+          return t
+        })
+
+        if (hadUnpaidCompleted || order.status === "Completed" || order.status === "Sample Collected") {
+          orderMutated = true
+          return {
+            ...order,
+            tests,
+            status: "Awaiting Billing" as const,
+            processingCompletedAt: undefined,
+          }
+        }
+      }
+
       const allCompleted =
+        isOrderPaid &&
         tests.length > 0 &&
         tests.every((t) => t.status === "Completed" || t.status === "Verified")
 
@@ -795,9 +832,9 @@ function readOrders(): LabOrder[] {
           ...order,
           tests,
           status:
-            order.billing.status === "Paid"
+            order.billing?.status === "Paid"
               ? ("Sample Collected" as const)
-              : order.status,
+              : ("Awaiting Billing" as const),
         }
       }
       return order
@@ -1171,6 +1208,15 @@ export class LabOrderDatabase {
     actor: string,
   ): LabOrder | undefined {
     return this.mutate(id, (order) => {
+      // Payment enforcement: Cannot advance sample collection, processing, or completion if unpaid
+      if (
+        order.billing?.status !== "Paid" &&
+        (status === "Sample Collected" || status === "In Progress" || status === "Completed")
+      ) {
+        console.warn(`[LabOrderDatabase] Blocked advanceStatus to ${status}: Order ${id} is unpaid.`)
+        return order
+      }
+
       const now = new Date().toISOString()
       return {
         ...order,
@@ -1217,6 +1263,20 @@ export class LabOrderDatabase {
     extra?: { sampleCollector?: string; technician?: string; verifier?: string }
   ): LabOrder | undefined {
     return this.mutate(orderId, (order) => {
+      // Payment enforcement: Cannot advance test status on unpaid orders
+      if (
+        order.billing?.status !== "Paid" &&
+        (status === "Processing" ||
+          status === "In Progress" ||
+          status === "Result Entered" ||
+          status === "Completed" ||
+          status === "Verified" ||
+          status === "Sample Collected")
+      ) {
+        console.warn(`[LabOrderDatabase] Blocked updateTestStatus to ${status}: Order ${orderId} is unpaid.`)
+        return order
+      }
+
       const now = new Date().toISOString()
       const isStartingProcessing = status === "Processing" || status === "In Progress"
       const isCompleting = status === "Verified" || status === "Completed" || status === "Result Entered"
@@ -1247,18 +1307,22 @@ export class LabOrderDatabase {
         }
       })
 
-      const allCompleted = tests.every(
-        (t) => t.status === "Completed" || t.status === "Verified",
-      )
+      const isPaid = order.billing?.status === "Paid"
+      const allCompleted =
+        isPaid &&
+        tests.every(
+          (t) => t.status === "Completed" || t.status === "Verified",
+        )
       let nextOrderStatus: LabOrderStatus = order.status
       if (allCompleted) {
         nextOrderStatus = "Completed"
-      } else if (status === "Sample Collected" && order.status === "Billed") {
+      } else if (status === "Sample Collected" && (order.status === "Billed" || isPaid)) {
         nextOrderStatus = "Sample Collected"
       } else if (
-        status === "Processing" ||
-        status === "Result Entered" ||
-        order.status === "Billed"
+        isPaid &&
+        (status === "Processing" ||
+          status === "Result Entered" ||
+          order.status === "Billed")
       ) {
         nextOrderStatus = "In Progress"
       }
@@ -1389,6 +1453,12 @@ export class LabOrderDatabase {
     verifierName: string = "Dr. Rajesh Gupta, MD (Path)"
   ): LabOrder | undefined {
     return this.mutate(orderId, (order) => {
+      // Payment enforcement: Cannot import or enter results on unpaid orders
+      if (order.billing?.status !== "Paid") {
+        console.warn(`[LabOrderDatabase] Blocked importAllResults: Order ${orderId} is unpaid.`)
+        return order
+      }
+
       const now = new Date().toISOString()
       const tests = order.tests.map((t) => {
         const def = findTestDefinition(t.name)
@@ -1459,6 +1529,21 @@ export class LabOrderDatabase {
     verifierName: string = "Dr. Rajesh Gupta, MD (Path)"
   ): LabOrder | undefined {
     return this.mutate(orderId, (order) => {
+      // Payment enforcement: Bill must be paid before an order can be completed
+      if (order.billing?.status !== "Paid") {
+        console.warn(`[LabOrderDatabase] Blocked completeOrder: Order ${orderId} is unpaid (billing: ${order.billing?.status}).`)
+        return order
+      }
+
+      // Result validation: An order cannot be verified or completed if zero results were entered
+      const hasAnyResults = order.tests.some(
+        (t) => Boolean(t.result) || (t.results && Object.keys(t.results).length > 0)
+      )
+      if (!hasAnyResults) {
+        console.warn(`[LabOrderDatabase] Blocked completeOrder: Order ${orderId} has no entered test results.`)
+        return order
+      }
+
       const now = new Date().toISOString()
       const tests = order.tests.map((t) => ({
         ...t,

@@ -76,7 +76,7 @@ export default function LabDashboardView({
     const awaitingReview = orders.filter((o) =>
       o.tests.some((t) => t.status === "Result Entered" || t.status === "In Progress") && o.status !== "Completed"
     ).length
-    const releasedToday = orders.filter((o) => o.status === "Completed").length
+    const releasedToday = orders.filter((o) => o.status === "Completed" && o.billing?.status === "Paid").length
     const activeCritical = criticalAlerts.filter((a) => a.status === "Active Alert" || a.status === "Escalated").length
     const overdueCount = orders.filter(
       (o) => o.status !== "Completed" && o.status !== "Cancelled" && o.tests.some((t) => t.urgency === "STAT")
@@ -417,7 +417,9 @@ export default function LabDashboardView({
                       <td className="py-3 px-4">
                         <span
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                            order.status === "Completed"
+                            !isPaid
+                              ? "bg-amber-50 text-amber-800 border-amber-300"
+                              : order.status === "Completed"
                               ? "bg-indigo-50 text-indigo-700 border-indigo-200"
                               : order.status === "In Progress"
                                 ? "bg-teal-50 text-teal-700 border-teal-200"
@@ -426,7 +428,7 @@ export default function LabDashboardView({
                                   : "bg-slate-100 text-slate-700 border-slate-200"
                           }`}
                         >
-                          {order.status}
+                          {!isPaid ? "Awaiting Billing" : order.status}
                         </span>
                       </td>
 
