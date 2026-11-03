@@ -19,6 +19,10 @@ import {
   FileCheck2,
   Undo2,
   FileSpreadsheet,
+  Search,
+  Trash2,
+  Plus,
+  Eye,
   Maximize2,
   Minimize2,
   Minus
@@ -2533,24 +2537,26 @@ export default function Radiology({
   departmentScope = "all",
   initialStudyId = null,
   onNavigateView,
+  onNavigateTab,
 }: {
   technician?: string
   initialTab?: string
   departmentScope?: RadiologyDepartmentScope
   initialStudyId?: string | null
   onNavigateView?: (view: string, subParam?: string) => void
+  onNavigateTab?: (tab: "worklist" | "reports" | "templates") => void
 }) {
-  const mappedView: RadiologyViewMode =
-    initialTab === "reporting"
-      ? "reporting"
-      : initialTab === "reports" || initialTab === "finalized"
-      ? "finalized"
-      : initialTab === "template_upload"
-      ? "template_upload"
-      : initialTab === "worklist"
+  const mappedView: RadiologyView =
+    initialTab === "worklist"
       ? "worklist"
-      : initialTab === "operations" || initialTab === "nurse_verification"
+      : initialTab === "operations"
       ? "operations"
+      : initialTab === "reporting"
+      ? "reporting"
+      : initialTab === "finalized" || initialTab === "reports"
+      ? "finalized"
+      : initialTab === "template_upload" || initialTab === "templates"
+      ? "template_upload"
       : initialTab === "analytics"
       ? "analytics"
       : "overview"
@@ -2570,7 +2576,14 @@ export default function Radiology({
     <UniversalRadiologyShell
       initialView={mappedView}
       initialStudyId={initialStudyId}
-      onViewChange={onNavigateView}
+      onViewChange={(view, subParam) => {
+        onNavigateView?.(view, subParam)
+        if (onNavigateTab) {
+          if (view === "worklist" || view === "operations") onNavigateTab("worklist")
+          else if (view === "finalized") onNavigateTab("reports")
+          else if (view === "template_upload") onNavigateTab("templates")
+        }
+      }}
       hideSidebar={true}
       initialScope={mappedScope}
       technician={technician}

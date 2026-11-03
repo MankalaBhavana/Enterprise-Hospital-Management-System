@@ -9,6 +9,11 @@ import {
   type PatientNotification,
 } from "../services/patientNotifications"
 import { notifyPatientCalledToNurse } from "../services/patientMessaging"
+import {
+  getAllDoctorAccounts,
+  getDoctorById,
+  getDoctorByName,
+} from "../services/doctorPortalDb"
 
 /** Statuses considered awaiting triage at Nurse Station */
 const AWAITING_VITALS: DBOPEncounter["status"][] = [
@@ -246,6 +251,9 @@ export default function NurseStation({
   const [sent, setSent] = useState<{ name: string; doctor: string } | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [callAlert, setCallAlert] = useState<{ message: string; timestamp: string } | null>(null)
+  const [assignedDoctorName, setAssignedDoctorName] = useState("")
+
+  const allDoctorsList = useMemo(() => getAllDoctorAccounts(), [])
 
   const handleCallPatient = (enc: DBOPEncounter, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
@@ -385,14 +393,30 @@ export default function NurseStation({
 
   useEffect(() => {
     setAbnormalAck(false)
-  }, [selectedId])
+    setAssignedDoctorName(selected?.assignedDoctor || "")
+  }, [selectedId, selected?.assignedDoctor])
 
   const dispatch = () => {
     if (!selected) return
+    const chosenDoctor = (assignedDoctorName || selected.assignedDoctor || "").trim()
+    const docObj = chosenDoctor ? (getDoctorByName(chosenDoctor) || getDoctorById(chosenDoctor)) : null
+
+    if (chosenDoctor) {
+      db.updateEncounter(selected.id, {
+        assignedDoctor: docObj?.name || chosenDoctor,
+        doctorAssigned: docObj?.name || chosenDoctor,
+        assignedDoctorId: docObj?.id,
+        doctorId: docObj?.id,
+        dept: docObj?.specialty || selected.dept || "General Medicine",
+        room: docObj?.room || selected.room || "Room 101",
+        status: "In Queue",
+      } as any)
+    }
+
     db.recordVitals(selected.id, vitals, nurseName)
     setSent({
       name: selected.patientName,
-      doctor: selected.assignedDoctor || "the duty doctor",
+      doctor: docObj?.name || chosenDoctor || "the duty doctor",
     })
     setSelectedId(null)
     clearVitalsDraft()
@@ -928,15 +952,32 @@ export default function NurseStation({
                       )}
                     </div>
 
-                    <div className="text-right bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-none">
-                      <p className="text-[10.5px] uppercase font-bold text-blue-900">
-                        Booked Doctor
-                      </p>
-                      <p className="text-[13px] font-bold text-blue-900">
-                        👨‍⚕️ {selected.assignedDoctor || "Not assigned"}
-                      </p>
-                      <p className="text-[11px] font-mono font-bold text-slate-700">
-                        Chamber: {selected.room || "101"}
+                    <div className="bg-blue-50 border border-blue-200 p-2.5 min-w-[250px] text-left">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10.5px] uppercase font-bold text-blue-900">
+                          Attending Doctor
+                        </span>
+                        {assignedDoctorName && (
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.2">
+                            {allDoctorsList.find((d) => d.name === assignedDoctorName)?.room || selected.room || "Chamber"}
+                          </span>
+                        )}
+                      </div>
+                      <select
+                        value={assignedDoctorName}
+                        onChange={(e) => setAssignedDoctorName(e.target.value)}
+                        aria-label="Select Doctor Chamber"
+                        className="w-full h-8 px-2 border border-blue-300 bg-white text-[12px] font-bold text-slate-900 rounded-none focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                      >
+                        <option value="">-- Assign Doctor Chamber --</option>
+                        {allDoctorsList.map((d) => (
+                          <option key={d.id} value={d.name}>
+                            {d.name} ({d.specialty} · {d.room})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-blue-800 mt-1">
+                        {assignedDoctorName ? `Will dispatch to ${assignedDoctorName}'s queue.` : "Assign a doctor chamber before sending."}
                       </p>
                     </div>
                   </div>
@@ -1155,7 +1196,7 @@ export default function NurseStation({
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-none cursor-pointer shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span>
-                      Send in to {selected.assignedDoctor || "Doctor"}
+                      Send in to {assignedDoctorName || selected.assignedDoctor || "Doctor"}
                     </span>
                     <span>→</span>
                   </button>

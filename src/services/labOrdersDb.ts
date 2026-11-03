@@ -201,12 +201,16 @@ function ensureChannel(): BroadcastChannel | null {
     return null
   if (!channel) {
     channel = new BroadcastChannel(CHANNEL_NAME)
-    channel.onmessage = () => listeners.forEach((fn) => fn())
+    channel.onmessage = () => {
+      cachedOrders = null
+      listeners.forEach((fn) => fn())
+    }
   }
   return channel
 }
 
 function notify() {
+  cachedOrders = null
   listeners.forEach((fn) => fn())
   ensureChannel()?.postMessage("changed")
 }
@@ -701,8 +705,16 @@ function getInitialDemoOrders(): LabOrder[] {
   ]
 }
 
+let cachedOrders: LabOrder[] | null = null
+
+export function invalidateLabOrdersCache(): void {
+  cachedOrders = null
+}
+
 function readOrders(): LabOrder[] {
   if (typeof window === "undefined") return []
+  if (cachedOrders) return cachedOrders
+
   try {
     const raw = window.localStorage.getItem(ORDERS_KEY)
     if (!raw) {
@@ -797,7 +809,8 @@ function readOrders(): LabOrder[] {
       } catch {}
     }
 
-    return sanitized.map(normalizeOrder)
+    cachedOrders = sanitized.map(normalizeOrder)
+    return cachedOrders
   } catch {
     return []
   }
@@ -805,6 +818,7 @@ function readOrders(): LabOrder[] {
 
 function writeOrders(orders: LabOrder[]): void {
   if (typeof window === "undefined") return
+  cachedOrders = orders
   try {
     window.localStorage.setItem(ORDERS_KEY, JSON.stringify(orders))
   } catch (err) {

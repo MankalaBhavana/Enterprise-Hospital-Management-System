@@ -152,6 +152,9 @@ export interface DBOPEncounter {
     /** When the OP desk called the patient through to the nurse station. */
     calledToNurse?: string
     calledToNurseBy?: string
+    /** When the OP desk called the patient through to the doctor chamber. */
+    calledToDoctor?: string
+    calledToDoctorBy?: string
     /** When the OP nurse took baseline observations, and who took them. */
 
     vitalsRecorded?: string
@@ -1473,6 +1476,130 @@ const STORAGE_KEYS = {
   UMR_COUNTER: "hospai_db_umr_counter_v1",
 
   OP_COUNTER: "hospai_db_op_counter_v1",
+  CALL_HISTORY: "hospai_db_call_history_v1",
+}
+
+export interface DBCallEvent {
+  id: string
+  encounterId: string
+  umr: string
+  patientName: string
+  token: string
+  dept: string
+  room: string
+  eventType: "Call Doctor" | "Call Nurse"
+  timestamp: string
+}
+
+// ─── Emergency Storage Eviction & Quota Recovery ──────────────────────────────
+const dbMemoryFallback: Record<string, string> = {}
+
+export function emergencyDbStorageEviction(): void {
+  if (typeof window === "undefined" || !window.localStorage) return
+  try {
+    const todayStr = new Date().toISOString().split("T")[0]
+    const keysToRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (!k) continue
+      // 1. Purge all multi-day ICU flowsheets (except today's active note)
+      if (k.startsWith("icu.flowsheet.") && !k.endsWith(todayStr)) {
+        keysToRemove.push(k)
+      }
+      // 2. Remove OCR & preview temporary caches
+      if (
+        k.startsWith("hospai_ocr_") ||
+        k.startsWith("receipt_preview_") ||
+        k.startsWith("temp_") ||
+        k.includes("_scratch")
+      ) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        window.localStorage.removeItem(k)
+      } catch {}
+    })
+
+    // 3. Trim audit logs down to 20
+    try {
+      const auditRaw = window.localStorage.getItem("hospai_audit_logs_v1")
+      if (auditRaw) {
+        const logs = JSON.parse(auditRaw)
+        if (Array.isArray(logs) && logs.length > 20) {
+          window.localStorage.setItem("hospai_audit_logs_v1", JSON.stringify(logs.slice(0, 20)))
+        }
+      }
+    } catch {
+      try { window.localStorage.removeItem("hospai_audit_logs_v1") } catch {}
+    }
+  } catch (e) {
+    console.warn("[HospitalDatabase] Storage eviction warning:", e)
+  }
+}
+
+export function aggressiveDbStorageEviction(): void {
+  if (typeof window === "undefined" || !window.localStorage) return
+  try {
+    const keysToRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (!k) continue
+      if (
+        k.startsWith("icu.flowsheet.") ||
+        k === "hospai_audit_logs_v1" ||
+        k.startsWith("hospai_notif") ||
+        k.includes("notifications")
+      ) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try { window.localStorage.removeItem(k) } catch {}
+    })
+  } catch {}
+}
+
+export function safeDbSetItem(key: string, value: string): void {
+  if (typeof window === "undefined") return
+  // Always update memory fallback so in-session patient/encounter state is 100% preserved
+  dbMemoryFallback[key] = value
+
+  // Fast path: try saving directly to localStorage
+  try {
+    localStorage.setItem(key, value)
+    return
+  } catch (err: any) {
+    console.warn(`[HospitalDatabase] Quota exceeded on "${key}". Performing emergency eviction...`)
+  }
+
+  // Pass 1: Prune bloated ICU flowsheets & trim audit logs
+  try {
+    emergencyDbStorageEviction()
+    localStorage.setItem(key, value)
+    return
+  } catch (secondErr: any) {
+    console.warn(`[HospitalDatabase] Second setItem attempt on "${key}" failed. Aggressive eviction...`)
+  }
+
+  // Pass 2: Aggressive eviction
+  try {
+    aggressiveDbStorageEviction()
+    localStorage.setItem(key, value)
+    return
+  } catch (finalErr: any) {
+    console.warn(`[HospitalDatabase] Critical: localStorage full for "${key}". Falling back to in-memory store.`)
+  }
+}
+
+export function safeDbGetItem(key: string): string | null {
+  if (typeof window === "undefined") return dbMemoryFallback[key] || null
+  try {
+    const val = localStorage.getItem(key)
+    if (val !== null) return val
+  } catch {}
+  return dbMemoryFallback[key] || null
 }
 
 class HospitalDatabase {
@@ -1485,26 +1612,29 @@ class HospitalDatabase {
   private init() {
     if (typeof window === "undefined") return
 
-    if (!localStorage.getItem(STORAGE_KEYS.PATIENTS)) {
-      localStorage.setItem(
+    // Reclaim storage quota on initialization
+    emergencyDbStorageEviction()
+
+    if (!safeDbGetItem(STORAGE_KEYS.PATIENTS)) {
+      safeDbSetItem(
         STORAGE_KEYS.PATIENTS,
         JSON.stringify(INITIAL_SEED_PATIENTS),
       )
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.ENCOUNTERS)) {
-      localStorage.setItem(
+    if (!safeDbGetItem(STORAGE_KEYS.ENCOUNTERS)) {
+      safeDbSetItem(
         STORAGE_KEYS.ENCOUNTERS,
         JSON.stringify(INITIAL_SEED_ENCOUNTERS),
       )
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.UMR_COUNTER)) {
-      localStorage.setItem(STORAGE_KEYS.UMR_COUNTER, "10048")
+    if (!safeDbGetItem(STORAGE_KEYS.UMR_COUNTER)) {
+      safeDbSetItem(STORAGE_KEYS.UMR_COUNTER, "10048")
     }
 
-    if (!localStorage.getItem(STORAGE_KEYS.OP_COUNTER)) {
-      localStorage.setItem(STORAGE_KEYS.OP_COUNTER, "33")
+    if (!safeDbGetItem(STORAGE_KEYS.OP_COUNTER)) {
+      safeDbSetItem(STORAGE_KEYS.OP_COUNTER, "33")
     }
 
     // Clean up Mangapathi Bhupathi data and deduplicate redundant encounters
@@ -1521,8 +1651,15 @@ class HospitalDatabase {
             !p.name.toLowerCase().includes("bhupathi"),
         )
 
-        if (filtered.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(filtered))
+        const seenUmrs = new Set()
+        const dedupedPatients = filtered.filter((p) => {
+          const u = (p.umr || "").trim().toUpperCase()
+          if (!u || seenUmrs.has(u)) return false
+          seenUmrs.add(u)
+          return true
+        })
+        if (dedupedPatients.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(dedupedPatients))
         }
       }
 
@@ -1663,7 +1800,7 @@ class HospitalDatabase {
 
   public getPatients(): DBPatient[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.PATIENTS)
+      const data = safeDbGetItem(STORAGE_KEYS.PATIENTS)
       if (!data) return INITIAL_SEED_PATIENTS
       const parsed: DBPatient[] = JSON.parse(data)
       let merged = false
@@ -1674,12 +1811,19 @@ class HospitalDatabase {
           merged = true
         }
       }
-      if (merged) {
-        try {
-          localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(list))
-        } catch {}
+      const seenUmrs = new Set<string>()
+      const uniqueList: DBPatient[] = []
+      for (const p of list) {
+        const u = (p.umr || "").trim().toUpperCase()
+        if (u && !seenUmrs.has(u)) {
+          seenUmrs.add(u)
+          uniqueList.push(p)
+        }
       }
-      return list
+      if (uniqueList.length !== list.length || merged) {
+        safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(uniqueList))
+      }
+      return uniqueList
     } catch {
       return INITIAL_SEED_PATIENTS
     }
@@ -1689,6 +1833,17 @@ class HospitalDatabase {
     return this.getPatients().find(
       (p) => p.umr.toUpperCase() === umr.toUpperCase(),
     )
+  }
+
+  public addPatient(p: DBPatient): void {
+    try {
+      const list = this.getPatients()
+      const u = (p.umr || "").trim().toUpperCase()
+      if (u && !list.some((existing) => (existing.umr || "").trim().toUpperCase() === u)) {
+        localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify([p, ...list]))
+        this.notify()
+      }
+    } catch {}
   }
 
   public searchPatients(query: string): DBPatient[] {
@@ -1708,7 +1863,7 @@ class HospitalDatabase {
 
   public getEncounters(): DBOPEncounter[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.ENCOUNTERS)
+      const data = safeDbGetItem(STORAGE_KEYS.ENCOUNTERS)
       if (!data) return INITIAL_SEED_ENCOUNTERS
       const parsed: DBOPEncounter[] = JSON.parse(data)
       let merged = false
@@ -1720,9 +1875,7 @@ class HospitalDatabase {
         }
       }
       if (merged) {
-        try {
-          localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(list))
-        } catch {}
+        safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(list))
       }
       return list
     } catch {
@@ -1775,129 +1928,7 @@ class HospitalDatabase {
       return false
     })
 
-    if (matched.length > 0) return matched
-
-    // Fallback: If this patient is an existing hospital patient or registered ER patient, synthesize realistic prior OP consultation
-
-    const existing =
-      this.getPatientByUmr(q) ||
-      this.getPatients().find((p) =>
-        (p.name || "").toLowerCase().includes(nameTarget),
-      )
-
-    if (existing || q.startsWith("UMR") || q.startsWith("P-")) {
-      const encId = `ENC-${q || "OP"}-PREV`
-
-      const pName = existing?.name || patientName || "Patient"
-
-      const synthEncounter: DBOPEncounter = {
-        id: encId,
-
-        umr: existing?.umr || q || "UMR-00000",
-
-        opNumber: `OP-${Math.floor(100 + Math.random() * 900)}`,
-
-        patientName: pName,
-
-        age: existing?.age || 38,
-
-        sex: existing?.sex || "Male",
-
-        phone: existing?.phone || "(617) 555-0100",
-
-        address: existing?.address || "Metro Hospital District",
-
-        bloodGroup: existing?.bloodGroup || "O+",
-
-        dept: "General Medicine",
-
-        isNew: false,
-
-        registrationTime: "3 months ago",
-
-        chiefComplaint:
-          "Routine clinical follow-up, intermittent fatigue and general wellness check",
-
-        symptoms: ["Fatigue", "Mild weakness"],
-
-        aiSpecialty: "General Medicine",
-
-        aiDoctor: "Dr. Anita Roy",
-
-        aiConfidence: 95,
-
-        doctorGenderPref: "Any",
-
-        assignedDoctor: "Dr. Anita Roy",
-
-        doctorStatus: "Available",
-
-        queueToken: "GM-042",
-
-        queuePosition: 0,
-
-        room: "Consultation Room 102",
-
-        diagnosis: "Mild Nutritional Anemia & Physical Fatigue (Controlled)",
-
-        icd10: "D64.9",
-
-        prescription: [
-          {
-            medicine: "Tab Multivitamin + Zinc",
-            dosage: "1 tab",
-            frequency: "OD after lunch",
-            duration: "30 days",
-          },
-
-          {
-            medicine: "Tab Vitamin D3 60K IU",
-            dosage: "1 cap",
-            frequency: "Once weekly",
-            duration: "8 weeks",
-          },
-        ],
-
-        investigations: [
-          "Complete Blood Count (CBC)",
-          "Serum Ferritin & Vitamin D3 Level",
-        ],
-
-        advice:
-          "Balanced diet rich in leafy greens. Adequate hydration (3L/day). Follow up in 3 months with repeat CBC.",
-
-        vitals: {
-          bp: "120/80 mmHg",
-          pulse: "74 bpm",
-          temp: "98.4 °F",
-          spo2: "99%",
-          weight: "68 kg",
-          notes: "Vitals normal",
-        },
-
-        billing: {
-          consultationFee: 50,
-          labFee: 45,
-          total: 95,
-          status: "Paid",
-          mode: "Cash",
-        },
-
-        furtherAction: "None",
-
-        status: "OP Completed",
-
-        timestamps: {
-          arrival: "09:30 AM",
-          registration: "09:40 AM",
-          consultationStart: "09:55 AM",
-        },
-      }
-
-      return [synthEncounter]
-    }
-
-    return []
+    return matched
   }
 
   public getEncounterById(id: string): DBOPEncounter | undefined {
@@ -1963,26 +1994,26 @@ class HospitalDatabase {
     // Next UMR Generator
 
     const currentCounter = parseInt(
-      localStorage.getItem(STORAGE_KEYS.UMR_COUNTER) || "10048",
+      safeDbGetItem(STORAGE_KEYS.UMR_COUNTER) || "10048",
       10,
     )
 
     const nextUmrCounter = currentCounter + 1
 
-    localStorage.setItem(STORAGE_KEYS.UMR_COUNTER, nextUmrCounter.toString())
+    safeDbSetItem(STORAGE_KEYS.UMR_COUNTER, nextUmrCounter.toString())
 
     const newUmr = `UMR${nextUmrCounter}`
 
     // Global Continuous Unique OP Number Generator
 
     const currentOpCounter = parseInt(
-      localStorage.getItem(STORAGE_KEYS.OP_COUNTER) || "33",
+      safeDbGetItem(STORAGE_KEYS.OP_COUNTER) || "33",
       10,
     )
 
     const nextOpCounter = currentOpCounter + 1
 
-    localStorage.setItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
+    safeDbSetItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
 
     const newOpNumber = `OP${String(nextOpCounter).padStart(3, "0")}`
 
@@ -2117,12 +2148,12 @@ class HospitalDatabase {
 
     // Commit to database
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.PATIENTS,
       JSON.stringify([newPatient, ...patients]),
     )
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.ENCOUNTERS,
       JSON.stringify([newEncounter, ...encounters]),
     )
@@ -2174,13 +2205,13 @@ class HospitalDatabase {
     // Generate Next Global Continuous OP Number across hospital
 
     const currentOpCounter = parseInt(
-      localStorage.getItem(STORAGE_KEYS.OP_COUNTER) || "33",
+      safeDbGetItem(STORAGE_KEYS.OP_COUNTER) || "33",
       10,
     )
 
     const nextOpCounter = currentOpCounter + 1
 
-    localStorage.setItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
+    safeDbSetItem(STORAGE_KEYS.OP_COUNTER, nextOpCounter.toString())
 
     const newOpNumber = `OP${String(nextOpCounter).padStart(3, "0")}`
 
@@ -2293,9 +2324,9 @@ class HospitalDatabase {
       p.umr === umr ? { ...p, updatedAt: new Date().toISOString() } : p,
     )
 
-    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
+    safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.ENCOUNTERS,
       JSON.stringify([newEncounter, ...encounters]),
     )
@@ -2354,6 +2385,66 @@ class HospitalDatabase {
    * The status is untouched -- being called is not a clinical stage, it is a
    * fact about the waiting room. Vitals are still what moves the visit on.
    */
+  public getCallHistory(): DBCallEvent[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CALL_HISTORY)
+      if (!data) return []
+      return JSON.parse(data)
+    } catch {
+      return []
+    }
+  }
+
+  public recordCallEvent(event: Omit<DBCallEvent, "id">): DBCallEvent {
+    try {
+      const history = this.getCallHistory()
+      // Prevent accidental duplicate history entries for the same event
+      const existing = history.find(
+        (h) =>
+          h.encounterId === event.encounterId &&
+          h.eventType === event.eventType &&
+          Math.abs(new Date(h.timestamp).getTime() - new Date(event.timestamp).getTime()) < 5000,
+      )
+      if (existing) return existing
+
+      const newEvent: DBCallEvent = {
+        ...event,
+        id: `CALL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      }
+      const updated = [
+        newEvent,
+        ...history.filter(
+          (h) => !(h.encounterId === event.encounterId && h.eventType === event.eventType),
+        ),
+      ].slice(0, 50)
+      localStorage.setItem(STORAGE_KEYS.CALL_HISTORY, JSON.stringify(updated))
+      this.notify()
+      return newEvent
+    } catch {
+      return { ...event, id: `CALL-${Date.now()}` }
+    }
+  }
+
+  public callToDoctor(
+    id: string,
+    calledBy: string = "OP Desk",
+  ): DBOPEncounter | undefined {
+    const existing = this.getEncounters().find((e) => e.id === id)
+    if (!existing) return undefined
+    const now = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    return this.updateEncounter(id, {
+      status: existing.status === "Under Consultation" ? existing.status : "Awaiting Consultation",
+      timestamps: {
+        ...existing.timestamps,
+        calledToDoctor: now,
+        calledToDoctorBy: calledBy,
+      },
+    })
+  }
+
   public callToNurseStation(
     id: string,
     calledBy: string,
@@ -2485,7 +2576,7 @@ class HospitalDatabase {
 
     if (!updated) throw new Error(`Encounter ${id} not found.`)
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(newEncounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(newEncounters))
 
     this.notify()
 
@@ -2505,9 +2596,9 @@ class HospitalDatabase {
       (e) => e.umr.toUpperCase() !== umr.toUpperCase(),
     )
 
-    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
+    safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
 
     this.notify()
   }
@@ -2527,9 +2618,9 @@ class HospitalDatabase {
       (e) => !e.patientName.toLowerCase().includes(cleanName),
     )
 
-    localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
+    safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients))
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
 
     this.notify()
   }
@@ -2541,7 +2632,7 @@ class HospitalDatabase {
   public deleteEncounterById(id: string): void {
     const encounters = this.getEncounters().filter((e) => e.id !== id)
 
-    localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+    safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
 
     this.notify()
   }
@@ -2551,17 +2642,18 @@ class HospitalDatabase {
    */
 
   public resetDatabase() {
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.PATIENTS,
       JSON.stringify(INITIAL_SEED_PATIENTS),
     )
 
-    localStorage.setItem(
+    safeDbSetItem(
       STORAGE_KEYS.ENCOUNTERS,
       JSON.stringify(INITIAL_SEED_ENCOUNTERS),
     )
 
-    localStorage.setItem(STORAGE_KEYS.UMR_COUNTER, "10048")
+    safeDbSetItem(STORAGE_KEYS.UMR_COUNTER, "10048")
+    safeDbSetItem(STORAGE_KEYS.OP_COUNTER, "33")
 
     this.notify()
   }
@@ -2645,7 +2737,7 @@ class HospitalDatabase {
         }
 
         if (hasChanges) {
-          localStorage.setItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
+          safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(encounters))
           this.notify()
         }
       }

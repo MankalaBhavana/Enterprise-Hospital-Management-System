@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react"
+import { Toaster } from "react-hot-toast"
 import {
   LayoutDashboard,
   Stethoscope,
@@ -15,7 +16,7 @@ import {
   Scissors,
   CreditCard,
   ShieldCheck,
-  UsersRound,
+  UsersRound, UserRound,
   Calendar,
   Sparkles,
   BarChart3,
@@ -124,10 +125,14 @@ import DoctorScheduling from "./components/DoctorScheduling"
 import PatientExperience from "./components/PatientExperience"
 import PatientMessages from "./components/messaging/PatientMessages"
 
-import HRMS from "./components/HRMS"
+import HrWorkspace, { type HrSection } from "./components/hr/HrWorkspace"
+import MyHR from "./components/hr/MyHR"
+import OnDutyStrip from "./components/hr/OnDutyStrip"
+import { hr } from "./services/hr/client"
 import { HrmsDatabase } from "./services/hrmsDb"
 
 import Employees from "./components/Employees"
+import HRMS from "./components/HRMS"
 
 import ApplyLeaveModal from "./components/hrms/ApplyLeaveModal"
 
@@ -188,7 +193,27 @@ const insuranceModule = (m: string): string =>
         : m
 
 
-type Module = "dashboard" | "patients" | "appointments" | "emergency" | "emergency_ui" | "clinical" | "inpatient" | "nursing" | "laboratory" | "lab_dashboard" | "lab_orders_collection" | "lab_workbench" | "lab_review_reports" | "lab_admin_config" | "lab_orders" | "lab_sample_collection" | "lab_sample_reception" | "lab_worklists" | "lab_analyzers" | "lab_result_entry" | "lab_pathologist_review" | "lab_critical_alerts" | "lab_reports" | "lab_test_master" | "lab_quality_analytics" | "lab_settings" | "lab_processing" | "lab_critical" | "lab_catalog" | "lab_inventory" | "lab_analytics" | "lab_tat" | "radiology" | "radiology_overview" | "radiology_worklist" | "radiology_scheduling" | "radiology_operations" | "radiology_reporting" | "radiology_finalized" | "radiology_exceptions" | "radiology_analytics" | "radiology_admin" | "radiology_template_upload" | "radiology_xray" | "radiology_ct" | "radiology_usg" | "radiology_mri" | "radiology_reports" | "pharmacy" | "pharmacy_dispensing" | "pharmacy_rx" | "pharmacy_ocr" | "pharmacy_returns" | "pharmacy_supplier_returns" | "pharmacy_medicine" | "pharmacy_category" | "pharmacy_suppliers" | "pharmacy_po" | "pharmacy_grn" | "pharmacy_ledger" | "pharmacy_transfers" | "pharmacy_expiry" | "pharmacy_write_off" | "pharmacy_analytics" | "pharmacy_notifications" | "pharmacy_users" | "pharmacy_audit" | "pharmacy_settings" | "surgery" | "billing" | "billing_op" | "billing_ip" | "billing_er" | "billing_unified" | "billing_revenue" | "icu" | "icu_micu" | "icu_sicu" | "icu_ccu" | "icu_nicu" | "icu_picu" | "discharge" | "triage" | "insurance" | "insurance_overview" | "insurance_desk" | "insurance_board" | "insurance_case" | "insurance_discharge" | "insurance_reports" | "insurance_preauth" | "insurance_eligibility" | "insurance_claims" | "insurance_queries" | "insurance_emails" | "insurance_settlement" | "insurance_reconciliation" | "insurance_masters" | "insurance_tpas" | "insurance_packages" | "insurance_pricing" | "insurance_docrules" | "insurance_patient_policies" | "analytics" | "reports" | "reports_overview" | "reports_patients" | "reports_op" | "reports_er" | "reports_inpatient" | "reports_appointments" | "reports_doctors" | "reports_pharmacy" | "reports_laboratory" | "reports_radiology" | "reports_beds" | "reports_admissions" | "reports_discharges" | "reports_staff" | "admin" | "chart" | "register" | "outpatient" | "queue" | "op_management" | "op_registration" | "op_workflow" | "op_nurse" | "opd_procedures" | "doctor_workflow" | "doctor_portal" | "scheduling" | "lab_billing" | "admissions" | "readmission" | "payments" | "revenue_reports" | "reports_pharmacy_damaged" | "reports_supplier_returns" | "hrms" | "employees" | "patient_exp" | "patient_messages" | "intelligence" | "ocr" | "dpi_ocr" | "symptom_ai" | "clinical_rag" | "clinical_summaries" | "bulk_ai" | "nl_filtering" | "beds" | "accounts" | "accounts_dashboard" | "accounts_coa" | "accounts_gl" | "accounts_receipts" | "accounts_payments" | "accounts_ar" | "accounts_ap" | "accounts_cash_bank" | "accounts_pharmacy" | "accounts_insurance" | "accounts_tax" | "accounts_budget" | "accounts_assets" | "accounts_reports" | "accounts_period_close" | "accounts_audit" | "accounts_manager"
+type Module = "dashboard" | "patients" | "appointments" | "emergency" | "emergency_ui" | "clinical" | "inpatient" | "nursing" | "laboratory" | "lab_dashboard" | "lab_orders_collection" | "lab_workbench" | "lab_review_reports" | "lab_admin_config" | "lab_orders" | "lab_sample_collection" | "lab_sample_reception" | "lab_worklists" | "lab_analyzers" | "lab_result_entry" | "lab_pathologist_review" | "lab_critical_alerts" | "lab_reports" | "lab_test_master" | "lab_quality_analytics" | "lab_settings" | "lab_processing" | "lab_critical" | "lab_catalog" | "lab_inventory" | "lab_analytics" | "lab_tat" | "radiology" | "radiology_overview" | "radiology_worklist" | "radiology_scheduling" | "radiology_operations" | "radiology_reporting" | "radiology_finalized" | "radiology_exceptions" | "radiology_analytics" | "radiology_admin" | "radiology_template_upload" | "radiology_templates" | "radiology_xray" | "radiology_ct" | "radiology_usg" | "radiology_mri" | "radiology_reports" | "pharmacy" | "pharmacy_dispensing" | "pharmacy_rx" | "pharmacy_ocr" | "pharmacy_returns" | "pharmacy_supplier_returns" | "pharmacy_medicine" | "pharmacy_category" | "pharmacy_suppliers" | "pharmacy_po" | "pharmacy_grn" | "pharmacy_ledger" | "pharmacy_transfers" | "pharmacy_expiry" | "pharmacy_write_off" | "pharmacy_analytics" | "pharmacy_notifications" | "pharmacy_users" | "pharmacy_audit" | "pharmacy_settings" | "surgery" | "billing" | "billing_op" | "billing_ip" | "billing_er" | "billing_unified" | "billing_revenue" | "icu" | "icu_micu" | "icu_sicu" | "icu_ccu" | "icu_nicu" | "icu_picu" | "discharge" | "triage" | "insurance" | "insurance_overview" | "insurance_desk" | "insurance_board" | "insurance_case" | "insurance_discharge" | "insurance_reports" | "insurance_preauth" | "insurance_eligibility" | "insurance_claims" | "insurance_queries" | "insurance_emails" | "insurance_settlement" | "insurance_reconciliation" | "insurance_masters" | "insurance_tpas" | "insurance_packages" | "insurance_pricing" | "insurance_docrules" | "insurance_patient_policies" | "analytics" | "reports" | "reports_overview" | "reports_patients" | "reports_op" | "reports_er" | "reports_inpatient" | "reports_appointments" | "reports_doctors" | "reports_pharmacy" | "reports_laboratory" | "reports_radiology" | "reports_beds" | "reports_admissions" | "reports_discharges" | "reports_staff" | "admin" | "chart" | "register" | "outpatient" | "queue" | "op_management" | "op_registration" | "op_workflow" | "op_nurse" | "opd_procedures" | "doctor_workflow" | "doctor_portal" | "scheduling" | "lab_billing" | "admissions" | "readmission" | "payments" | "revenue_reports" | "reports_pharmacy_damaged" | "reports_supplier_returns" | "hrms" | "my_hr" | "employees" | "hr_dashboard" | "hr_attendance" | "hr_staffing" | "hr_leave" | "hr_approvals" | "hr_payroll" | "hr_recruitment" | "hr_organization" | "hr_training" | "hr_performance" | "hr_compliance" | "hr_grievances" | "hr_reports" | "hr_announcements" | "patient_exp" | "patient_messages" | "intelligence" | "ocr" | "dpi_ocr" | "symptom_ai" | "clinical_rag" | "clinical_summaries" | "bulk_ai" | "nl_filtering" | "beds" | "accounts" | "accounts_dashboard" | "accounts_coa" | "accounts_gl" | "accounts_receipts" | "accounts_payments" | "accounts_ar" | "accounts_ap" | "accounts_cash_bank" | "accounts_pharmacy" | "accounts_insurance" | "accounts_tax" | "accounts_budget" | "accounts_assets" | "accounts_reports" | "accounts_period_close" | "accounts_audit" | "accounts_manager"
+
+const HR_MODULE_SECTION_MAP: Record<string, HrSection> = {
+  hrms: "dashboard",
+  hr_dashboard: "dashboard",
+  employees: "employees",
+  hr_attendance: "attendance",
+  scheduling: "shifts",
+  hr_staffing: "staffing",
+  hr_leave: "leave",
+  hr_approvals: "approvals",
+  hr_payroll: "payroll",
+  hr_recruitment: "recruitment",
+  hr_organization: "organization",
+  hr_training: "training",
+  hr_performance: "performance",
+  hr_compliance: "compliance",
+  hr_grievances: "grievances",
+  hr_reports: "reports",
+  hr_announcements: "announcements",
+}
 
 interface NavItem {
   key: Module
@@ -469,7 +494,30 @@ const NAV: NavItem[] = [
     ],
   },
 
-  { key: "hrms", label: "HR & Staff", Icon: UsersRound },
+  {
+    key: "hrms",
+    label: "HR & Staff",
+    Icon: UsersRound,
+    children: [
+      { key: "hrms", label: "Executive Dashboard" },
+      { key: "employees", label: "Employees Master" },
+      { key: "hr_attendance", label: "Attendance & eSSL" },
+      { key: "scheduling", label: "Shifts & Rosters" },
+      { key: "hr_staffing", label: "Staffing & Allocation" },
+      { key: "hr_leave", label: "Leave Management" },
+      { key: "hr_approvals", label: "Approvals Inbox" },
+      { key: "hr_payroll", label: "Payroll & Compensation" },
+      { key: "hr_recruitment", label: "Recruitment & Talent" },
+      { key: "hr_organization", label: "Organization Structure" },
+      { key: "hr_training", label: "Training & Development" },
+      { key: "hr_performance", label: "Performance & Appraisals" },
+      { key: "hr_compliance", label: "Compliance & Licenses" },
+      { key: "hr_grievances", label: "Grievances & Discipline" },
+      { key: "hr_reports", label: "HR Reports & Analytics" },
+      { key: "hr_announcements", label: "Announcements & Feed" },
+    ],
+  },
+  { key: "my_hr", label: "My HR", Icon: UserRound },
 
   {
     key: "intelligence",
@@ -698,6 +746,21 @@ function NotificationPanel({
     }
   })
 
+  const [hrNotes, setHrNotes] = useState<{ id: string; severity: string; title: string; body: string | null; at: string | null; target: string }[]>([])
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      hr.get<typeof hrNotes>("/api/v1/me/notifications")
+        .then((rows) => alive && setHrNotes(rows.slice(0, 8)))
+        .catch(() => alive && setHrNotes([])) // HR service down: the bell just shows the rest
+    load()
+    const t = setInterval(load, 60_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [])
+
   const items = React.useMemo(() => {
     const list: {
       id: string
@@ -789,8 +852,22 @@ function NotificationPanel({
       })
     }
 
+    // 6. HR: approvals waiting for me, leave decisions, expiring credentials,
+    // roster changes, payslips, announcements (derived server-side, like the rest).
+    for (const n of hrNotes) {
+      list.push({
+        id: `hr-${n.id}`,
+        type: n.severity === "warning" ? "warning" : "info",
+        icon: "👥",
+        title: n.title,
+        body: n.body ?? "",
+        time: n.at ? new Date(n.at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "",
+        target: n.target === "approvals" ? "hrms" : "my_hr",
+      })
+    }
+
     return list
-  }, [])
+  }, [hrNotes])
 
   const markAllRead = () => {
     const updated: Record<string, boolean> = { ...readState }
@@ -1428,8 +1505,11 @@ export default function App() {
       module !== "dashboard" &&
       !userPermissions.includes(module)
     ) {
-      // Check if it matches laboratory sub-modules
+      // Check if it matches laboratory or radiology sub-modules
       if (module.startsWith("lab_") && userPermissions.includes("laboratory")) {
+        return
+      }
+      if (module.startsWith("radiology_") && userPermissions.includes("radiology")) {
         return
       }
 
@@ -1530,18 +1610,23 @@ export default function App() {
     setUserRole(userData.role)
     setUserPermissions(userData.permissions)
 
+    const resolvedDoctor = resolveDoctorAccount({
+      doctorId: userData.doctorId,
+      username: userData.user,
+      name: userData.staffName || userData.user,
+    })
+
     const isDoctor =
       userData.role === "ROLE_DOCTOR" ||
-      userData.user.toLowerCase().startsWith("doctor")
+      userData.user.toLowerCase().startsWith("doctor") ||
+      Boolean(userData.doctorId) ||
+      (resolvedDoctor && (
+        resolvedDoctor.username.toLowerCase() === userData.user.trim().toLowerCase() ||
+        resolvedDoctor.id.toLowerCase() === userData.user.trim().toLowerCase() ||
+        resolvedDoctor.staffId.toLowerCase() === userData.user.trim().toLowerCase()
+      ))
 
-    const doctor = isDoctor
-      ? resolveDoctorAccount({
-        doctorId: userData.doctorId,
-        username: userData.user,
-        name: userData.staffName || userData.user,
-      })
-      : null
-
+    const doctor = isDoctor ? resolvedDoctor : null
     setActiveDoctor(doctor)
 
     if (doctor) {
@@ -1901,6 +1986,7 @@ export default function App() {
         zoom: zoomLevel,
       }}
     >
+      <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
       {!loggedIn ? (
         <Login onLogin={handleLogin} />
       ) : (
@@ -2386,7 +2472,11 @@ export default function App() {
                   const filteredChildren = item.children?.filter((c) => {
                     // Strictly isolate HRMS from regular staff
                     if (item.key === "hrms") {
-                      return userPermissions.includes(c.key)
+                      return (
+                        userPermissions.includes("hrms") ||
+                        userPermissions.includes("ROLE_ADMIN") ||
+                        userPermissions.includes(c.key)
+                      )
                     }
                     return (
                       c.key === item.key ||
@@ -2396,6 +2486,8 @@ export default function App() {
                         userPermissions.includes("insurance")) ||
                       (item.key === "laboratory" &&
                         userPermissions.includes("laboratory")) ||
+                      (item.key === "radiology" &&
+                        userPermissions.includes("radiology")) ||
                       (c.key === "pharmacy_write_off" &&
                         (userPermissions.includes("pharmacy") ||
                           userPermissions.includes("pharmacy_ledger") ||
@@ -2408,6 +2500,8 @@ export default function App() {
                   const isActive =
                     module === item.key ||
                     (item.key === "laboratory" && (module === "laboratory" || module.startsWith("lab_"))) ||
+                    (item.key === "radiology" && (module === "radiology" || module.startsWith("radiology_"))) ||
+                    (item.key === "hrms" && (module === "hrms" || module === "employees" || module === "scheduling" || module.startsWith("hr_"))) ||
                     filteredChildren?.some((c) => c.key === module)
 
                   const isExpanded = expanded.includes(item.key)
@@ -2794,7 +2888,7 @@ export default function App() {
                   }}
                 />
               )}
-              {module === "register" && (
+              {(module === "register" || module === "op_registration") && (
                 <Registration
                   onBookAppointment={(patient) => {
                     if (patient?.id) setSelectedWorkflowEncounterId(patient.id)
@@ -2824,6 +2918,7 @@ export default function App() {
                   onGoToBilling={() => setModule("billing")}
                 />
               )}
+              {module === "emergency" && <OnDutyStrip hmsModule="er" label="ER staff on duty" />}
               {module === "emergency" && (
                 <ErPage
                   setNotice={stableSetNotice}
@@ -2836,7 +2931,7 @@ export default function App() {
                 />
               )}
               {module === "emergency_ui" && (
-                <EmergencyUI />
+                <EmergencyUI onRegister={() => setModule("emergency")} />
               )}
               {module === "inpatient" && (
                 <Inpatient
@@ -2867,6 +2962,7 @@ export default function App() {
                   onNavigate={(m) => setModule(m as Module)}
                 />
               )}
+              {module === "surgery" && <OnDutyStrip hmsModule="ot" label="OT staff on duty" />}
               {module === "surgery" && <Surgery />}
               {(module === "billing_op" ||
                 module === "billing_ip" ||
@@ -2930,6 +3026,7 @@ export default function App() {
                 />
               )}
               {(module === "radiology" ||
+                module === "radiology_templates" ||
                 module.startsWith("radiology_")) && (
                 <Radiology
                   initialTab={
@@ -2941,7 +3038,7 @@ export default function App() {
                       ? "reporting"
                       : module === "radiology_reports" || module === "radiology_finalized"
                       ? "finalized"
-                      : module === "radiology_template_upload"
+                      : module === "radiology_template_upload" || module === "radiology_templates"
                       ? "template_upload"
                       : module === "radiology_analytics"
                       ? "analytics"
@@ -2988,8 +3085,14 @@ export default function App() {
                       setModule(mapping[view])
                     }
                   }}
+                  onNavigateTab={(tab: "worklist" | "reports" | "templates") => {
+                    if (tab === "worklist") setModule("radiology_worklist")
+                    else if (tab === "reports") setModule("radiology_reports")
+                    else if (tab === "templates") setModule("radiology_template_upload")
+                  }}
                 />
               )}
+              {(module === "icu" || module.startsWith("icu_")) && <OnDutyStrip hmsModule="icu" label="ICU staff on duty" />}
               {(module === "icu" || module.startsWith("icu_")) && (
                 <ICU
                   unit={
@@ -3181,6 +3284,7 @@ export default function App() {
               {module === "admin" && <Administration />}
 
               {/* Outpatient Department Modular Suite */}
+              {module === "op_management" && <OnDutyStrip hmsModule="op" category="doctor" label="Doctors on duty in OP" />}
               {module === "op_management" && (
                 <OPManagement
                   staffName={activeStaff?.name || "OP desk"}
@@ -3277,7 +3381,11 @@ export default function App() {
                     }}
                   />
                 ) : (
-                  <DoctorsOverview />
+                  <DoctorsOverview
+                    onOpenWorkspace={(doc) => {
+                      setActiveDoctor(doc)
+                    }}
+                  />
                 ))}
               {module === "admissions" && (
                 <Admissions setNotice={setNotice} navigate={navigate} />
@@ -3285,9 +3393,19 @@ export default function App() {
               {module === "readmission" && (
                 <Readmission setNotice={setNotice} />
               )}
-              {(module === "hrms" || module === "employees" || module === "scheduling") && (
-                <HRMS onNavigate={(m) => setModule(m as any)} />
+              {Boolean(HR_MODULE_SECTION_MAP[module]) && (
+                <HrWorkspace
+                  section={HR_MODULE_SECTION_MAP[module]}
+                  onNavigateSection={(sec) => {
+                    const targetModule = Object.entries(HR_MODULE_SECTION_MAP).find(
+                      ([k, v]) => v === sec && k !== "hr_dashboard" && k !== "hr_shifts"
+                    )?.[0]
+                    if (targetModule) setModule(targetModule as Module)
+                  }}
+                  legacy={<HRMS onNavigate={(m) => setModule(m as any)} />}
+                />
               )}
+              {module === "my_hr" && <MyHR />}
               {module === "ocr" && <SmartOCR setNotice={setNotice} />}
               {ocrMounted && (
                 <div

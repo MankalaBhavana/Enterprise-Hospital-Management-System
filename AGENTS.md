@@ -392,6 +392,26 @@ Reception gets view + capture; doctors get the clinical side.
 
 The backend has no insurance service yet; the engine is localStorage-backed like the rest of the frontend.
 
+## HR & Staff
+
+**HR & Staff** (`hrms`, also `employees` / `scheduling`) opens
+[src/components/hr/HrWorkspace.tsx](src/components/hr/HrWorkspace.tsx); **My HR** (`my_hr`, every
+non-admin role) opens [MyHR.tsx](src/components/hr/MyHR.tsx). Both talk to the FastAPI service
+`keppler-backend/hr-api/` (own `hr-postgres` with tenant RLS, Celery `hr-worker`). Its README is the
+reference — features, API inventory (`docs/API.md`), schema, eSSL setup, env, tests, security,
+deployment, limitations. All 15 areas are built; the old `HRMS.tsx` / Node `server/` are no longer
+mounted but still run and are not yet retired (see README §11–12).
+
+- Client: [src/services/hr/client.ts](src/services/hr/client.ts), **not** `apiFetch` (its offline mock
+  would show invented HR data).
+- Clinical integration is read-only: `OnDutyStrip` above ER/ICU/OT/OP, `WorkforcePanel` on the main
+  Dashboard, HR items in the notification bell. Nothing appears until HR maps departments to HMS modules.
+- The eSSL `GetTransactionsLog` contract comes from community sources and has not run against a real
+  server; the adapter only calls operations the server's WSDL declares.
+- Statutory payroll rates are not built in; payroll refuses PF/ESI without configured settings.
+- hr-api tests: `keppler-backend/hr-api/run_tests.sh` (throwaway Postgres — never run them against
+  `hr-postgres`; the bootstrap resets the cluster-wide `hr_app` password).
+
 ## Project Structure
 
 This is the canonical project structure. Start with task-relevant files below. Only follow imports or inspect other files when required, when a documented path is missing, or when the repository contradicts this guide.

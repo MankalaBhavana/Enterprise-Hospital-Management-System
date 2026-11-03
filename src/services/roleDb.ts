@@ -36,7 +36,8 @@ export interface AppUser {
 //      settlements, reconciliation and five master pages.
 // v19: insurance.* action permissions; Insurance Officer, Finance and Billing roles.
 // v20: Added dedicated Email & TPA Decision Hub (insurance_emails) to Insurance suite.
-const ROLES_STORAGE_KEY = "hospai_rbac_roles_v25"
+// v27: Added radiology_reports and radiology_templates submodules to Enterprise Radiology.
+const ROLES_STORAGE_KEY = "hospai_rbac_roles_v27"
 
 const USERS_STORAGE_KEY = "hospai_rbac_users_v2"
 
@@ -53,6 +54,7 @@ export const ALL_SYSTEM_MODULES = [
 
   "radiology",
   "radiology_reports",
+  "radiology_templates",
   "pharmacy",
   "pharmacy_dispensing",
   "pharmacy_rx",
@@ -147,6 +149,19 @@ export const ALL_SYSTEM_MODULES = [
   "reports_supplier_returns",
   "hrms",
   "employees",
+  "hr_attendance",
+  "hr_staffing",
+  "hr_leave",
+  "hr_approvals",
+  "hr_payroll",
+  "hr_recruitment",
+  "hr_organization",
+  "hr_training",
+  "hr_performance",
+  "hr_compliance",
+  "hr_grievances",
+  "hr_reports",
+  "hr_announcements",
   "patient_exp",
   "patient_messages",
 
@@ -272,6 +287,7 @@ const INITIAL_ROLES: AppRole[] = [
       "laboratory",
       "radiology",
       "radiology_reports",
+      "radiology_templates",
       "intelligence",
       "dpi_ocr",
       "discharge",
@@ -391,6 +407,7 @@ const INITIAL_ROLES: AppRole[] = [
       "laboratory",
       "radiology",
       "radiology_reports",
+      "radiology_templates",
       "patients",
       "chart",
       "reports",
@@ -509,6 +526,15 @@ const INITIAL_ROLES: AppRole[] = [
     ],
   },
 ]
+
+// Employee self-service ("My HR") for every staff login. Administrators use
+// HR & Staff instead; the page answers only from the signed-in user's own
+// record, so granting it widely exposes nothing.
+for (const role of INITIAL_ROLES) {
+  if (role.allowedModules !== ALL_SYSTEM_MODULES && !role.allowedModules.includes("my_hr")) {
+    role.allowedModules = [...role.allowedModules, "my_hr"]
+  }
+}
 
 export function getInitialUsers(): AppUser[] {
   const baseUsers: AppUser[] = [
@@ -822,6 +848,23 @@ export class RoleDatabase {
       return false
     })
 
+    // Check if username represents any doctor in doctor master
+    const masterDocs = getDoctorMaster()
+    const cleanUserNorm = cleanUser.replace(/^dr\.?\s*/i, "").replace(/[^a-z0-9]/g, "")
+    const matchedDoc = masterDocs.find((d) => {
+      const u = (d.username || "").toLowerCase()
+      const did = d.id.toLowerCase()
+      const sid = d.staffId.toLowerCase()
+      const dname = d.name.toLowerCase().replace(/^dr\.?\s*/i, "").replace(/[^a-z0-9]/g, "")
+      return (
+        u === cleanUser ||
+        did === cleanUser ||
+        sid === cleanUser ||
+        (dname.length >= 3 && dname === cleanUserNorm)
+      )
+    })
+    const isDoc = Boolean(matchedDoc) || cleanUser === "doctor" || cleanUser.startsWith("doctor")
+
     if (!user) {
       // Fallback check against initial seeded users
       const initial = getInitialUsers()
@@ -833,15 +876,23 @@ export class RoleDatabase {
       } else {
         // Guaranteed fallback user for any username
         user = {
-          id: `U_${cleanUser.toUpperCase()}`,
+          id: matchedDoc ? matchedDoc.id : `U_${cleanUser.toUpperCase()}`,
           username: cleanUser,
           password: "password123",
-          roleId: cleanUser === "doctor" ? "ROLE_DOCTOR" : "ROLE_ADMIN",
-          name: cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1),
-          staffId: cleanUser === "admin" ? "ADM-001" : "STF-101",
+          roleId: isDoc ? "ROLE_DOCTOR" : (cleanUser === "admin" ? "ROLE_ADMIN" : "ROLE_ADMIN"),
+          name: matchedDoc ? matchedDoc.name : cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1),
+          staffId: matchedDoc ? (matchedDoc.staffId || matchedDoc.id) : (cleanUser === "admin" ? "ADM-001" : "STF-101"),
           status: "Active",
         }
       }
+    }
+
+    if (matchedDoc && user) {
+      user.roleId = "ROLE_DOCTOR"
+      user.staffId = matchedDoc.staffId || matchedDoc.id
+      user.name = matchedDoc.name
+    } else if (isDoc && user) {
+      user.roleId = "ROLE_DOCTOR"
     }
 
     let roles: AppRole[] = INITIAL_ROLES

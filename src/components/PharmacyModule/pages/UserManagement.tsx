@@ -68,15 +68,7 @@ export default function UserManagement({ onNavigate }: UserManagementProps) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingUser, setEditingUser] = useState<any | null>(null)
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
+
   const [form, setForm] = useState({
     name: "",
     email: "",

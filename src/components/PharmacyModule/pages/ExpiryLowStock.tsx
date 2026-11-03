@@ -1,6 +1,6 @@
 import { usePharmacyData } from "../data/usePharmacyData"
 import { PharmacyDatabase } from "../../../services/pharmacyDb"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   AlertTriangle,
   Clock,
@@ -259,16 +259,6 @@ export default function ExpiryLowStock({ onNavigate }: ExpiryLowStockProps) {
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
   // Close modals on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -283,18 +273,27 @@ export default function ExpiryLowStock({ onNavigate }: ExpiryLowStockProps) {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const outOfStock = medicines.filter((m) => m.stock === 0)
-  const lowStock = medicines.filter(
-    (m) => m.stock > 0 && m.stock < m.reorderLevel,
+  const outOfStock = useMemo(() => medicines.filter((m) => m.stock === 0), [medicines])
+  const lowStock = useMemo(
+    () => medicines.filter((m) => m.stock > 0 && m.stock < m.reorderLevel),
+    [medicines],
   )
-  const expiredMeds = expiringMedicines.filter((m) => m.status === "expired")
-  const expiringSoon = expiringMedicines.filter((m) => m.status === "expiring")
+  const expiredMeds = useMemo(
+    () => expiringMedicines.filter((m) => m.status === "expired"),
+    [expiringMedicines],
+  )
+  const expiringSoon = useMemo(
+    () => expiringMedicines.filter((m) => m.status === "expiring"),
+    [expiringMedicines],
+  )
 
   // Active / Pending orders
-  const allPOs = PharmacyDatabase.getPurchaseOrders()
-  const activeOrders = allPOs.filter(
-    (po) => po.status === "Ordered" || po.status === "Submitted",
-  )
+  const activeOrders = useMemo(() => {
+    const allPOs = PharmacyDatabase.getPurchaseOrders()
+    return allPOs.filter(
+      (po) => po.status === "Ordered" || po.status === "Submitted",
+    )
+  }, [medicines])
 
   const tabs = [
     {
@@ -341,7 +340,7 @@ export default function ExpiryLowStock({ onNavigate }: ExpiryLowStockProps) {
     const medName = (medItem.name || medItem.medicine || "").trim().toLowerCase()
     const medId = medItem.id || medItem.medicineId
     return activeOrders.find(
-      (po) =>
+      (po: any) =>
         po.items &&
         po.items.some(
           (it: any) =>
@@ -828,7 +827,7 @@ Thank you!
               </tr>
             </thead>
             <tbody>
-              {lowStock.map((m, i) => {
+              {lowStock.map((m: any, i: number) => {
                 const pendingPO = findActiveOrderForMed(m)
                 return (
                   <tr
@@ -918,7 +917,7 @@ Thank you!
               </tr>
             </thead>
             <tbody>
-              {outOfStock.map((m, i) => {
+              {outOfStock.map((m: any, i: number) => {
                 const pendingPO = findActiveOrderForMed(m)
                 return (
                   <tr
@@ -1004,7 +1003,7 @@ Thank you!
             </thead>
             <tbody>
               {(activeTab === "expiring" ? expiringSoon : expiredMeds).map(
-                (m, i) => {
+                (m: any, i: number) => {
                   const cleanedExp = cleanExpiryDate(m.expiry)
                   const expTime = new Date(cleanedExp).getTime()
                   const daysLeft = isNaN(expTime)
@@ -1109,7 +1108,7 @@ Thank you!
               </tr>
             </thead>
             <tbody>
-              {activeOrders.map((po: any, i) => {
+              {activeOrders.map((po: any, i: number) => {
                 const item = po.items?.[0] as any
                 return (
                   <tr

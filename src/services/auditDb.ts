@@ -458,12 +458,17 @@ export class AuditDatabase {
 
     try {
       logs.unshift(entry)
-      if (logs.length > 100) {
-        logs.length = 100
+      if (logs.length > 30) {
+        logs.splice(30)
       }
       safeLocalStorageSetItem(STORAGE_KEY, JSON.stringify(logs))
     } catch (e) {
-      // Graceful error silence
+      console.warn("AuditDatabase: Unable to persist log to localStorage, trimming to 10", e)
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(logs.slice(0, 10)))
+      } catch {
+        try { localStorage.removeItem(STORAGE_KEY) } catch {}
+      }
     }
   }
 }

@@ -23,15 +23,7 @@ export default function GRN({ onNavigate }: GRNProps) {
   const [search, setSearch] = useState("")
   const [selectedPoId, setSelectedPoId] = useState<string>("")
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
+
 
   const approvedPOs = purchaseOrders.filter((po) => po.status === "Approved")
 

@@ -11,6 +11,8 @@ import {
   DoctorNotification,
   DoctorPortalDatabase,
   formatBytes,
+  getAllDoctorAccounts,
+  getDoctorById,
   ParsedLabTest,
   ParsedMedication,
   readPrescriptionFile,
@@ -26,6 +28,7 @@ import {
   checkPrescriptionAiStatus,
   splitPrescriptionFile,
   splitPrescriptionText,
+  localSplit,
   PrescriptionSplit,
 } from "../../lib/prescriptionAI"
 import {
@@ -148,12 +151,16 @@ const EMPTY_MEDICATION: ParsedMedication = {
 }
 
 export default function DoctorPortal({
-  doctor,
+  doctor: initialDoctor,
   onOpenErVisit,
 }: {
   doctor: DoctorAccount
   onOpenErVisit?: (visitId: number) => void
 }) {
+  const [doctor, setDoctor] = useState<DoctorAccount>(initialDoctor)
+  useEffect(() => {
+    setDoctor(initialDoctor)
+  }, [initialDoctor?.id])
   // One clock and one data revision for the whole portal: `revision` covers
   // changes made here, on another screen, or in another tab (reception billing,
   // the pharmacy, the lab); `now` ticks every second for the waiting timers.
@@ -225,6 +232,59 @@ export default function DoctorPortal({
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current)
     }
   }, [])
+
+  // Real-time live separation whenever the doctor types or updates the prescription sheet
+  useEffect(() => {
+    if (sheetMode !== "type") return
+    const trimmed = sheetText.trim()
+    if (!trimmed) {
+      if (split) {
+        setSplit(null)
+        setMedications([])
+        setLabTests([])
+      }
+      return
+    }
+
+    // 1. Instant local split (0ms synchronous preview)
+    const instant = localSplit(sheetText)
+    setSplit(instant)
+    setMedications(instant.medications)
+    setLabTests(instant.labTests)
+    if (instant.diagnosis) setDiagnosis(instant.diagnosis)
+    if (instant.advice) setAdvice(instant.advice)
+
+    if (consultation) {
+      DoctorPortalDatabase.updateConsultation(consultation.id, {
+        rawText: sheetText,
+        aiEngine: instant.engine,
+        summary: instant.summary,
+        diagnosis: instant.diagnosis || diagnosis,
+        advice: instant.advice || advice,
+        medications: instant.medications,
+        labTests: instant.labTests,
+        unclassified: instant.unclassified,
+      })
+    }
+
+    // 2. Debounced backend AI refinement if reachable (500ms)
+    const timer = setTimeout(async () => {
+      try {
+        const refined = await splitPrescriptionText(sheetText)
+        if (refined && (refined.medications.length > 0 || refined.labTests.length > 0)) {
+          setSplit(refined)
+          setMedications(refined.medications)
+          setLabTests(refined.labTests)
+          if (refined.diagnosis) setDiagnosis(refined.diagnosis)
+          if (refined.advice) setAdvice(refined.advice)
+        }
+      } catch {
+        // Keeps the instant local split
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [sheetText, sheetMode])
 
   const notifications = useMemo(
     () => DoctorPortalDatabase.getNotifications(doctor.id),
@@ -453,16 +513,19 @@ export default function DoctorPortal({
 
   const startConsultation = () => {
     if (!selected) return
+    const existingEnc = db.getEncounterById(selected.encounterId)
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     db.updateEncounter(selected.encounterId, {
       status: "Under Consultation",
       timestamps: {
-        ...(db.getEncounterById(selected.encounterId)?.timestamps || {
+        ...(existingEnc?.timestamps || {
           arrival: new Date().toISOString(),
         }),
-        consultationStart: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        // Record consultation start only once at the actual start of consultation
+        consultationStart: existingEnc?.timestamps?.consultationStart || nowTime,
       },
     })
     setTab("voice")
@@ -751,6 +814,13 @@ export default function DoctorPortal({
           setView(next)
           if (next === "patient" && !selected && notifications.length)
             openPatient(notifications[0])
+        }}
+        onSwitchDoctor={(newDocId) => {
+          const nextDoc = getDoctorById(newDocId)
+          if (nextDoc) {
+            setDoctor(nextDoc)
+            setSelectedEncounterId(null)
+          }
         }}
       />
 
@@ -1060,6 +1130,7 @@ function PortalHeader({
   now,
   view,
   onView,
+  onSwitchDoctor,
 }: {
   doctor: DoctorAccount
   unreadCount: number
@@ -1071,8 +1142,10 @@ function PortalHeader({
   now: number
   view: "live" | "patient"
   onView: (view: "live" | "patient") => void
+  onSwitchDoctor?: (doctorId: string) => void
 }) {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false)
+  const allDoctors = useMemo(() => getAllDoctorAccounts(), [])
   const stats: { label: string ;value: number ;tone: string }[] = [
     { label: "Waiting", value: waitingCount, tone: waitingCount ? "text-[#C2410C]" : "text-[#0F172A]" },
     { label: "In room", value: inRoomCount, tone: inRoomCount ? "text-[#1D4ED8]" : "text-[#0F172A]" },
@@ -1087,8 +1160,24 @@ function PortalHeader({
           {doctorInitials(doctor.name)}
         </div>
         <div className="min-w-0">
-          <h1 className="text-[15.5px] font-bold text-[#0F172A] leading-tight truncate">{doctor.name}</h1>
-          <p className="text-[12px] text-[#64748B] truncate">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-[15.5px] font-bold text-[#0F172A] leading-tight truncate">{doctor.name}</h1>
+            <select
+              value={doctor.id}
+              onChange={(e) => onSwitchDoctor?.(e.target.value)}
+              aria-label="Switch Doctor Workspace"
+              className="h-6 px-2 text-[11px] font-semibold border border-[#CBD5E1] rounded-[6px] bg-[#F8FAFC] hover:bg-white text-[#1E293B] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1B4FD8]"
+            >
+              <optgroup label="Switch Doctor Workspace">
+                {allDoctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.name} ({doc.specialty} · {doc.room})
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+          <p className="text-[12px] text-[#64748B] truncate mt-0.5">
             {doctor.specialty} · {doctor.room} · {doctor.qualification}
           </p>
         </div>
@@ -1732,10 +1821,8 @@ function PatientContextPanel({
             {previousVisits.length === 0 ? (
               // Registered as a returning patient, but nothing earlier is on this
               // system -- say so rather than showing an empty box.
-              <p className="px-4 py-4 text-[12px] text-[#64748B]">
-                Reception registered this patient as a revisit, but no earlier
-                encounter exists on this system. Ask the patient for records
-                from their previous visit.
+              <p className="px-4 py-4 text-[12px] text-[#64748B] italic">
+                No previous OP consultation records are available for this patient.
               </p>
             ) : (
               <div className="divide-y divide-[#F1F5F9]">
@@ -3621,9 +3708,16 @@ function PrescriptionSheetStep({
         <section className="xl:col-span-5 space-y-4 sticky top-4">
           <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
             <header className="px-4 py-3 border-b border-[#F1F5F9] flex items-center justify-between gap-2">
-              <h3 className="text-[13px] font-bold text-[#0F172A]">
-                Read off the sheet
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[13px] font-bold text-[#0F172A]">
+                  Read off the sheet
+                </h3>
+                {(medications.length > 0 || labTests.length > 0) && (
+                  <span className="text-[10px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ✓ Live Separated
+                  </span>
+                )}
+              </div>
               {split && (
                 <span
                   title="Which engine produced this split"
@@ -3713,6 +3807,28 @@ function PrescriptionSheetStep({
                   </li>
                 ))}
               </OrderGroup>
+
+              {split?.diagnosis && (
+                <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-lg p-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] mb-0.5">
+                    Provisional Diagnosis
+                  </div>
+                  <div className="text-[11.5px] font-semibold text-[#0F172A]">
+                    {split.diagnosis}
+                  </div>
+                </div>
+              )}
+
+              {split?.advice && (
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#475569] mb-0.5">
+                    Patient Advice &amp; Follow-up
+                  </div>
+                  <div className="text-[11.5px] text-[#334155] leading-relaxed whitespace-pre-line">
+                    {split.advice}
+                  </div>
+                </div>
+              )}
 
               {split?.unclassified.length ? (
                 <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5">
@@ -4084,12 +4200,13 @@ function ReviewAndDispatch({
           <label className="block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8] mb-1">
             Advice
           </label>
-          <input
+          <textarea
             value={advice}
             onChange={(event) => onAdvice(event.target.value)}
             disabled={alreadyDispatched}
-            placeholder="General advice / follow-up"
-            className="w-full border border-[#DDE2EC] rounded px-3 py-2 text-[13px] focus:outline-none focus:border-[#1B4FD8] disabled:bg-[#F8FAFC]"
+            rows={2}
+            placeholder="General advice / follow-up instructions"
+            className="w-full border border-[#DDE2EC] rounded px-3 py-2 text-[13px] focus:outline-none focus:border-[#1B4FD8] disabled:bg-[#F8FAFC] resize-y"
           />
           {!alreadyDispatched &&
             voiceSummary &&

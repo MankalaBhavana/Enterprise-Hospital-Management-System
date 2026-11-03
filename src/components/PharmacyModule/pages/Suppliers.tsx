@@ -1,6 +1,7 @@
 import { usePharmacyData } from "../data/usePharmacyData"
 import { PharmacyDatabase } from "../../../services/pharmacyDb"
 import { useState, useEffect } from "react"
+import { toast } from "react-hot-toast"
 import {
   Plus,
   Eye,
@@ -27,15 +28,6 @@ export default function Suppliers({ onNavigate }: SuppliersProps) {
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
   const [form, setForm] = useState({
     supplierName: "",
     contactInformation: "",
@@ -51,15 +43,15 @@ export default function Suppliers({ onNavigate }: SuppliersProps) {
   const handleEdit = (s: typeof suppliers[0]) => {
     setEditingId(s.id)
     setForm({
-      supplierName: s.supplierName || s.name,
-      contactInformation: s.contactInformation || s.contact,
+      supplierName: s.supplierName || s.name || "",
+      contactInformation: s.contactInformation || s.contact || "",
       phone: s.phone || "",
       email: s.email || "",
-      address: s.address,
-      gstInformation: s.gstInformation || s.gstin,
+      address: s.address || "",
+      gstInformation: s.gstInformation || s.gstin || "",
       licenseDetails: s.licenseDetails || s.drugLicense || "",
-      paymentTerms: s.paymentTerms,
-      status: s.status as any,
+      paymentTerms: s.paymentTerms || "Net 30",
+      status: (s.status as any) || "Active",
     })
     setShowModal(true)
   }
@@ -98,6 +90,7 @@ export default function Suppliers({ onNavigate }: SuppliersProps) {
     if (confirm("Delete supplier?")) {
       PharmacyDatabase.deleteSupplier(id)
       refresh()
+      toast.success("Supplier deleted successfully")
     }
   }
 

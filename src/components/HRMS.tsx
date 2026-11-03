@@ -65,10 +65,12 @@ import {
   Settings2,
   Cpu,
   FileSpreadsheet,
+  Fingerprint,
 } from "lucide-react"
 
 interface HRMSProps {
   onNavigate?: (module: string) => void
+  initialTab?: TabType
 }
 
 type TabType =
@@ -83,8 +85,14 @@ type TabType =
   | "compliance"
   | "audit"
 
-export default function HRMS({ onNavigate }: HRMSProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("directory")
+export default function HRMS({ onNavigate, initialTab = "directory" }: HRMSProps) {
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab)
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
   const [showDeviceDiagnostics, setShowDeviceDiagnostics] = useState<boolean>(false)
   const [selectedDoctorForSchedule, setSelectedDoctorForSchedule] = useState<string>("")
   const [selectedCompany, setSelectedCompany] = useState<string>("All")
@@ -487,9 +495,9 @@ export default function HRMS({ onNavigate }: HRMSProps) {
         </div>
       </header>
 
-      {/* ── Modern Streamlined 5-Pillar Navigation Bar ────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center justify-between flex-shrink-0">
-        <nav className="flex items-center gap-2">
+      {/* ── Modern Streamlined Workforce Navigation Bar ────────────────────────── */}
+      <div className="bg-white border-b border-slate-200 px-6 py-2 flex items-center justify-between flex-shrink-0">
+        <nav className="flex items-center gap-1.5 overflow-x-auto py-0.5 max-w-full">
           {[
             {
               id: "directory",
@@ -505,9 +513,15 @@ export default function HRMS({ onNavigate }: HRMSProps) {
             },
             {
               id: "monthly_roster",
-              label: "Duty Roster (1–31 Days)",
+              label: "Duty Roster",
               badge: "Active",
               icon: Calendar,
+            },
+            {
+              id: "muster_roll",
+              label: "Muster Roll",
+              badge: undefined,
+              icon: FileText,
             },
             {
               id: "leaves",
@@ -517,9 +531,35 @@ export default function HRMS({ onNavigate }: HRMSProps) {
             },
             {
               id: "payroll",
-              label: "Payroll & Staff Loans",
+              label: "Payroll & Loans",
               badge: `₹${(Number(kpiStats.totalPayrollGross || 0) / 100000).toFixed(1)}L`,
               icon: DollarSign,
+            },
+            {
+              id: "compliance",
+              label: "Credentials & Licenses",
+              badge: credentialsList.filter((c) => c.status === "Expiring Soon" || c.status === "Expired").length > 0
+                ? `${credentialsList.filter((c) => c.status === "Expiring Soon" || c.status === "Expired").length} Alert`
+                : undefined,
+              icon: ShieldCheck,
+            },
+            {
+              id: "biometric",
+              label: "eSSL Biometric Hub",
+              badge: "TCP 4370",
+              icon: Fingerprint,
+            },
+            {
+              id: "timetables",
+              label: "Doctor Scheduling",
+              badge: undefined,
+              icon: Stethoscope,
+            },
+            {
+              id: "audit",
+              label: "Audit Logs",
+              badge: undefined,
+              icon: History,
             },
           ].map((tab) => {
             const active = activeTab === tab.id
@@ -528,17 +568,17 @@ export default function HRMS({ onNavigate }: HRMSProps) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   active
                     ? "bg-blue-600 text-white shadow-xs font-bold"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
-                <IconComp className={`w-4 h-4 ${active ? "text-white" : "text-slate-500"}`} />
+                <IconComp className={`w-3.5 h-3.5 ${active ? "text-white" : "text-slate-500"}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
                       active
                         ? "bg-white/20 text-white"
                         : "bg-slate-100 text-slate-600 border border-slate-200"
@@ -552,7 +592,7 @@ export default function HRMS({ onNavigate }: HRMSProps) {
           })}
         </nav>
 
-        <div className="flex items-center gap-2 text-xs">
+        <div className="hidden xl:flex items-center gap-2 text-xs shrink-0 pl-3">
           <span className="text-slate-400 font-medium">Shift Handover:</span>
           <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
             {currentShift.remainingMinutes}m remaining

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 
 import {
   PharmacyDatabase,
@@ -162,136 +162,34 @@ export function usePharmacyData() {
     PharmacyDatabase.getWriteOffs(),
   )
 
-  const mappedMedicines = medicines.map((m) => {
-    const mBatches = batches.filter((b) => b.medicineId === m.id)
-    const latestBatch =
-      mBatches.length > 0 ? mBatches[mBatches.length - 1] : null
+  const isRefreshing = useRef(false)
+  const debounceTimer = useRef<any>(null)
 
-    const mrp = latestBatch?.mrp || (m as any).mrp || 0
-    const batchStock = mBatches.reduce((sum, b) => sum + (b.availableQuantity ?? b.quantity ?? 0), 0)
-    const stock = Math.max(0, mBatches.length > 0 ? batchStock : ((m as any).stock || 0))
-    const purchasePrice = latestBatch?.purchasePrice || (m as any).purchasePrice || (mrp > 0 ? +(mrp * 0.75).toFixed(2) : 0)
-    const gstRate = m.taxPercentage !== undefined ? m.taxPercentage : 5
-
-    return {
-      id: m.id,
-      name: m.brandName || m.medicineName,
-      generic: m.genericName,
-      strength: m.strength || "N/A",
-      form: m.dosageForm || "N/A",
-      packing: (m as any).packing || (m as any).pack || "",
-      manufacturer: m.manufacturer,
-      stock,
-      mrp,
-      price: purchasePrice,
-      purchasePrice,
-      gst: gstRate,
-      batchNumber: latestBatch?.batchNumber || (m as any).batchNumber || "",
-      expiryDate: latestBatch?.expiryDate || (m as any).expiryDate || "",
-      discount: latestBatch?.discount || (m as any).discount || 0,
-      status: m.activeStatus === "Active" ? "active" : "inactive",
-      sku: m.hsnCode || m.id,
-      hsnCode: m.hsnCode || "3004 039",
-      mnfCode: (m as any).mnfCode || (m.manufacturer ? m.manufacturer.substring(0, 4).toUpperCase() : "MANK"),
-      binNo: (latestBatch as any)?.location || (m as any).binNo || "",
-      supplierName: (m as any).supplierName || latestBatch?.supplierName || "",
-      barcode: m.barcode || "89000000000",
-      schedule: m.scheduleType || "H",
-      prescription: m.controlledSubstanceFlag || false,
-      category: (m as any).categoryId || "General",
-      reorderLevel: m.reorderLevel || 10,
+  const refresh = useCallback(() => {
+    if (isRefreshing.current) return
+    isRefreshing.current = true
+    try {
+      setMedicines(PharmacyDatabase.getMedicines())
+      setPrescriptions(PharmacyDatabase.getPrescriptions())
+      setSuppliers(PharmacyDatabase.getSuppliers())
+      setPurchaseOrders(PharmacyDatabase.getPurchaseOrders())
+      setCategories(PharmacyDatabase.getCategories())
+      setBatches(PharmacyDatabase.getBatches())
+      setBills(PharmacyDatabase.getBills())
+      setUsers(PharmacyDatabase.getUsers())
+      setNotifications(PharmacyDatabase.getNotifications())
+      setAuditLogs(PharmacyDatabase.getAuditLogs())
+      setStockTransfers(PharmacyDatabase.getTransfers())
+      setStockTransactions(PharmacyDatabase.getStockTransactions())
+      setGrns(PharmacyDatabase.getGRNs())
+      setSupplierReturns(PharmacyDatabase.getSupplierReturns())
+      setAdjustments(PharmacyDatabase.getAdjustments())
+      setReturns(PharmacyDatabase.getReturns())
+      setWriteOffs(PharmacyDatabase.getWriteOffs())
+    } finally {
+      isRefreshing.current = false
     }
-  })
-
-  const expiringMedicines = batches
-    .filter((b) => medicines.some((m) => m.id === b.medicineId))
-    .filter(
-      (b) =>
-        new Date(b.expiryDate).getTime() <
-        new Date().getTime() + 90 * 24 * 60 * 60 * 1000,
-    )
-    .map((b) => {
-      const m = medicines.find((m) => m.id === b.medicineId)
-      const daysLeft = Math.ceil(
-        (new Date(b.expiryDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
-      )
-      return {
-        id: b.id,
-        medicineId: b.medicineId,
-        name: m ? m.medicineName : "Unknown",
-        medicine: m ? m.medicineName : "Unknown",
-        batch: b.batchNumber,
-        expiry: b.expiryDate,
-        stock: b.availableQuantity,
-        quantity: b.availableQuantity,
-        daysLeft,
-        status: new Date(b.expiryDate) < new Date() ? "expired" : "expiring",
-      }
-    })
-
-  const last7Days = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date()
-
-    d.setDate(d.getDate() - (6 - i))
-
-    return d.toISOString().split("T")[0]
-  })
-
-  const mappedBills = bills.map((b) => ({
-    ...b,
-
-    billDate: b.createdAt,
-    finalAmount: b.totalAmount,
-    pharmacistId: b.createdBy,
-    items: b.items.map((i) => ({ ...i, price: i.unitPrice })),
-  }))
-
-  const salesData = last7Days.map((dateStr) => {
-    // Only original bills (not modified return bills) count toward orders and gross sales
-    const dayBills = mappedBills.filter(
-      (b) =>
-        (b.billDate || "").startsWith(dateStr) &&
-        !b.billNumber?.startsWith("MOD-") &&
-        !(b as any).isModifiedReturnBill,
-    )
-    const dayReturns = returns.filter((r: any) =>
-      (r.createdAt || "").startsWith(dateStr),
-    )
-    const dayGross = dayBills.reduce((acc, b) => acc + (b.totalAmount || 0), 0)
-    const dayRefunds = dayReturns.reduce(
-      (acc: number, r: any) => acc + (r.refundAmount || 0),
-      0,
-    )
-    const dayNetRevenue = Math.max(0, dayGross - dayRefunds)
-
-    return {
-      date: new Date(dateStr).toLocaleDateString("en-US", { weekday: "short" }),
-      revenue: dayNetRevenue,
-      gross: dayGross,
-      refunds: dayRefunds,
-      orders: dayBills.length,
-    }
-  })
-
-  const refresh = () => {
-    setMedicines(PharmacyDatabase.getMedicines())
-    setPrescriptions(PharmacyDatabase.getPrescriptions())
-    setSuppliers(PharmacyDatabase.getSuppliers())
-    setPurchaseOrders(PharmacyDatabase.getPurchaseOrders())
-    setCategories(PharmacyDatabase.getCategories())
-    setBatches(PharmacyDatabase.getBatches())
-    setBills(PharmacyDatabase.getBills())
-    setUsers(PharmacyDatabase.getUsers())
-    setNotifications(PharmacyDatabase.getNotifications())
-    setAuditLogs(PharmacyDatabase.getAuditLogs())
-    setStockTransfers(PharmacyDatabase.getTransfers())
-    setStockTransactions(PharmacyDatabase.getStockTransactions())
-    setGrns(PharmacyDatabase.getGRNs())
-    setSupplierReturns(PharmacyDatabase.getSupplierReturns())
-    setAdjustments(PharmacyDatabase.getAdjustments())
-    setReturns(PharmacyDatabase.getReturns())
-    setWriteOffs(PharmacyDatabase.getWriteOffs())
-  }
+  }, [])
 
   useEffect(() => {
     if (
@@ -302,88 +200,217 @@ export function usePharmacyData() {
     }
     refresh()
 
-    const handleUpdate = () => refresh()
+    const handleUpdate = () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      debounceTimer.current = setTimeout(() => {
+        refresh()
+      }, 50)
+    }
 
     window.addEventListener("hospai_pharmacy_updated", handleUpdate)
     window.addEventListener("storage", handleUpdate)
 
     return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
       window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
       window.removeEventListener("storage", handleUpdate)
     }
+  }, [refresh])
+
+  // O(B) fast index map for O(1) batch lookups
+  const batchesByMedId = useMemo(() => {
+    const map = new Map<string, typeof batches>()
+    for (let i = 0; i < batches.length; i++) {
+      const b = batches[i]
+      const list = map.get(b.medicineId)
+      if (list) list.push(b)
+      else map.set(b.medicineId, [b])
+    }
+    return map
+  }, [batches])
+
+  const mappedMedicines = useMemo(() => {
+    return medicines.map((m) => {
+      const mBatches = batchesByMedId.get(m.id) || []
+      const latestBatch =
+        mBatches.length > 0 ? mBatches[mBatches.length - 1] : null
+
+      const mrp = latestBatch?.mrp || (m as any).mrp || 0
+      const batchStock = mBatches.reduce((sum, b) => sum + (b.availableQuantity ?? b.quantity ?? 0), 0)
+      const stock = Math.max(0, mBatches.length > 0 ? batchStock : ((m as any).stock || 0))
+      const purchasePrice = latestBatch?.purchasePrice || (m as any).purchasePrice || (mrp > 0 ? +(mrp * 0.75).toFixed(2) : 0)
+      const gstRate = m.taxPercentage !== undefined ? m.taxPercentage : 5
+
+      return {
+        id: m.id,
+        name: m.brandName || m.medicineName,
+        generic: m.genericName,
+        strength: m.strength || "N/A",
+        form: m.dosageForm || "N/A",
+        packing: (m as any).packing || (m as any).pack || "",
+        manufacturer: m.manufacturer,
+        stock,
+        mrp,
+        price: purchasePrice,
+        purchasePrice,
+        gst: gstRate,
+        batchNumber: latestBatch?.batchNumber || (m as any).batchNumber || "",
+        expiryDate: latestBatch?.expiryDate || (m as any).expiryDate || "",
+        discount: latestBatch?.discount || (m as any).discount || 0,
+        status: m.activeStatus === "Active" ? "active" : "inactive",
+        sku: m.hsnCode || m.id,
+        hsnCode: m.hsnCode || "3004 039",
+        mnfCode: (m as any).mnfCode || (m.manufacturer ? m.manufacturer.substring(0, 4).toUpperCase() : "MANK"),
+        binNo: (latestBatch as any)?.location || (m as any).binNo || "",
+        supplierName: (m as any).supplierName || latestBatch?.supplierName || "",
+        barcode: m.barcode || "89000000000",
+        schedule: m.scheduleType || "H",
+        prescription: m.controlledSubstanceFlag || false,
+        category: (m as any).categoryId || "General",
+        reorderLevel: m.reorderLevel || 10,
+      }
+    })
+  }, [medicines, batchesByMedId])
+
+  const expiringMedicines = useMemo(() => {
+    const medMap = new Map(medicines.map((m) => [m.id, m]))
+    const nowTime = Date.now()
+    const threshold = nowTime + 90 * 24 * 60 * 60 * 1000
+
+    return batches
+      .filter((b) => {
+        if (!medMap.has(b.medicineId)) return false
+        const expTime = new Date(b.expiryDate).getTime()
+        return expTime < threshold
+      })
+      .map((b) => {
+        const m = medMap.get(b.medicineId)
+        const expTime = new Date(b.expiryDate).getTime()
+        const daysLeft = Math.ceil((expTime - nowTime) / (24 * 60 * 60 * 1000))
+        return {
+          id: b.id,
+          medicineId: b.medicineId,
+          name: m ? m.medicineName : "Unknown",
+          medicine: m ? m.medicineName : "Unknown",
+          batch: b.batchNumber,
+          expiry: b.expiryDate,
+          stock: b.availableQuantity,
+          quantity: b.availableQuantity,
+          daysLeft,
+          status: expTime < nowTime ? "expired" : "expiring",
+        }
+      })
+  }, [batches, medicines])
+
+  const last7Days = useMemo(() => {
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      return d.toISOString().split("T")[0]
+    })
   }, [])
 
-  const mappedSupplierReturns = supplierReturns.map((r) => {
-    const s = suppliers.find((sup) => sup.id === r.supplierId)
+  const mappedBills = useMemo(() => {
+    return bills.map((b) => ({
+      ...b,
+      billDate: b.createdAt,
+      finalAmount: b.totalAmount,
+      pharmacistId: b.createdBy,
+      items: b.items ? b.items.map((i) => ({ ...i, price: i.unitPrice })) : [],
+    }))
+  }, [bills])
 
-    const m = medicines.find((med) => med.id === r.medicineId)
+  const salesData = useMemo(() => {
+    return last7Days.map((dateStr) => {
+      const dayBills = mappedBills.filter(
+        (b) =>
+          (b.billDate || "").startsWith(dateStr) &&
+          !b.billNumber?.startsWith("MOD-") &&
+          !(b as any).isModifiedReturnBill,
+      )
+      const dayReturns = returns.filter((r: any) =>
+        (r.createdAt || "").startsWith(dateStr),
+      )
+      const dayGross = dayBills.reduce((acc, b) => acc + (b.totalAmount || 0), 0)
+      const dayRefunds = dayReturns.reduce(
+        (acc: number, r: any) => acc + (r.refundAmount || 0),
+        0,
+      )
+      const dayNetRevenue = Math.max(0, dayGross - dayRefunds)
 
-    const b = batches.find((bat) => bat.id === r.batchId)
+      return {
+        date: new Date(dateStr).toLocaleDateString("en-US", { weekday: "short" }),
+        revenue: dayNetRevenue,
+        gross: dayGross,
+        refunds: dayRefunds,
+        orders: dayBills.length,
+      }
+    })
+  }, [mappedBills, returns, last7Days])
 
-    const unitCost = r.unitCost ?? (b ? b.purchasePrice : 0)
+  const mappedSupplierReturns = useMemo(() => {
+    const supMap = new Map(suppliers.map((s) => [s.id, s]))
+    const medMap = new Map(medicines.map((m) => [m.id, m]))
+    const batMap = new Map(batches.map((b) => [b.id, b]))
 
-    const returnAmount = r.returnAmount ?? r.quantity * unitCost
+    return supplierReturns.map((r) => {
+      const s = supMap.get(r.supplierId)
+      const m = medMap.get(r.medicineId)
+      const b = batMap.get(r.batchId)
 
-    return {
-      ...r,
+      const unitCost = r.unitCost ?? (b ? b.purchasePrice : 0)
+      const returnAmount = r.returnAmount ?? r.quantity * unitCost
 
-      supplierName: r.supplierName || (s ? s.supplierName : "Unknown Supplier"),
+      return {
+        ...r,
+        supplierName: r.supplierName || (s ? s.supplierName : "Unknown Supplier"),
+        medicineName: r.medicineName || (m ? m.medicineName : "Unknown Medicine"),
+        batchNumber: r.batchNumber || (b ? b.batchNumber : "N/A"),
+        unitCost,
+        returnAmount,
+      }
+    })
+  }, [supplierReturns, suppliers, medicines, batches])
 
-      medicineName: r.medicineName || (m ? m.medicineName : "Unknown Medicine"),
+  const mappedDamagedStock = useMemo(() => {
+    const medMap = new Map(medicines.map((m) => [m.id, m]))
+    const batMap = new Map(batches.map((b) => [b.id, b]))
+    const supMap = new Map(suppliers.map((s) => [s.id, s]))
+    const catMap = new Map(categories.map((c) => [c.id, c]))
 
-      batchNumber: r.batchNumber || (b ? b.batchNumber : "N/A"),
+    return adjustments.map((a) => {
+      const m = medMap.get(a.medicineId)
+      const b = batMap.get(a.batchId)
+      const s = supMap.get(a.supplierId || b?.supplierId || "")
+      const cat = catMap.get((m as any)?.categoryId)
 
-      unitCost,
+      const quantity =
+        a.quantity ??
+        (a.difference < 0
+          ? Math.abs(a.difference)
+          : Math.max(0, a.systemQuantity - a.physicalQuantity))
 
-      returnAmount,
-    }
-  })
+      const unitCost = a.unitCost ?? (b ? b.purchasePrice : 0)
+      const lossValue = a.lossValue ?? quantity * unitCost
 
-  const mappedDamagedStock = adjustments.map((a) => {
-    const m = medicines.find((med) => med.id === a.medicineId)
+      return {
+        ...a,
+        medicineName: a.medicineName || (m ? m.medicineName : "Unknown Medicine"),
+        batchNumber: a.batchNumber || (b ? b.batchNumber : "N/A"),
+        supplierName: a.supplierName || (s ? s.supplierName : "Hospital Central Stores"),
+        category: a.category || (cat ? cat.categoryName : "Pharmaceuticals"),
+        quantity,
+        unitCost,
+        lossValue,
+      }
+    })
+  }, [adjustments, medicines, batches, suppliers, categories])
 
-    const b = batches.find((bat) => bat.id === a.batchId)
+  const combinedNotifications = useMemo(() => {
+    const dismissedIds = PharmacyDatabase.getDismissedNotificationIds()
+    const readIds = PharmacyDatabase.getReadNotificationIds()
 
-    const s = suppliers.find(
-      (sup) => sup.id === (a.supplierId || b?.supplierId),
-    )
-
-    const cat = categories.find((c) => c.id === (m as any)?.categoryId)
-
-    const quantity =
-      a.quantity ??
-      (a.difference < 0
-        ? Math.abs(a.difference)
-        : Math.max(0, a.systemQuantity - a.physicalQuantity))
-
-    const unitCost = a.unitCost ?? (b ? b.purchasePrice : 0)
-
-    const lossValue = a.lossValue ?? quantity * unitCost
-
-    return {
-      ...a,
-
-      medicineName: a.medicineName || (m ? m.medicineName : "Unknown Medicine"),
-
-      batchNumber: a.batchNumber || (b ? b.batchNumber : "N/A"),
-
-      supplierName:
-        a.supplierName || (s ? s.supplierName : "Hospital Central Stores"),
-
-      category: a.category || (cat ? cat.categoryName : "Pharmaceuticals"),
-
-      quantity,
-
-      unitCost,
-
-      lossValue,
-    }
-  })
-
-  const dismissedIds = PharmacyDatabase.getDismissedNotificationIds()
-  const readIds = PharmacyDatabase.getReadNotificationIds()
-
-  const dynamicNotifications: Array<{
+    const dynamicNotifications: Array<{
     id: string
     title: string
     message: string
@@ -531,152 +558,122 @@ export function usePharmacyData() {
         | "general",
     }))
 
-  const combinedNotifications = [
-    ...dynamicNotifications,
-    ...persistedNotifications,
-  ]
+    return [...dynamicNotifications, ...persistedNotifications]
+  }, [mappedMedicines, expiringMedicines, prescriptions, notifications])
 
-  return {
-    medicines: mappedMedicines,
-
-    prescriptions: prescriptions.map((p) => ({
+  const mappedPrescriptions = useMemo(() => {
+    return prescriptions.map((p) => ({
       id: p.id,
-
       patient: p.patientName,
-
       age: p.age || 45,
-
       gender: p.gender || "Male",
-
       contact: (p as any).contact || (p as any).phone || p.patientId || "",
-
       doctor: p.doctorName,
-
       department: p.department,
-
       regNo: (p as any).regNo || "",
-
       date: p.date,
-
       diagnosis: p.diagnosis || "N/A",
-
       items: p.items ? p.items.length : 0,
-
       priority: p.priority || "normal",
-
       status: prescriptionStage(p.status),
-
       pharmacist: p.verifiedBy || null,
-
-      time: (p as any).time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""),
-
+      arrivalTime: p.arrivalTime || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""),
+      time: p.arrivalTime || (p as any).time || (p.createdAt ? new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""),
       rawItems: p.items || [],
-    })),
+      verificationNotes: p.verificationNotes || "",
+    }))
+  }, [prescriptions])
 
-    suppliers: suppliers.map((s) => ({
+  const mappedSuppliers = useMemo(() => {
+    return suppliers.map((s) => ({
       ...s,
-
       name: s.supplierName,
-
       contact: s.contactInformation,
-
       gstin: s.gstInformation,
-
       drugLicense: s.licenseDetails,
-
       phone: s.phone,
-
       email: s.email,
-
+      status: s.status || "Active",
       outstanding: 0,
-
       lastPurchase: (s as any).lastPurchase || "",
-
       totalPurchase: 0,
-    })),
-    purchaseOrders: purchaseOrders
-      .filter(
-        (p) => p.supplierId && suppliers.some((s) => s.id === p.supplierId),
-      )
+    }))
+  }, [suppliers])
+  const mappedPurchaseOrders = useMemo(() => {
+    const supMap = new Map(suppliers.map((s) => [s.id, s]))
+    return purchaseOrders
+      .filter((p) => p.supplierId && supMap.has(p.supplierId))
       .map((p) => ({
         ...p,
-        supplier:
-          suppliers.find((s) => s.id === p.supplierId)?.supplierName ||
-          "Supplier",
+        supplier: supMap.get(p.supplierId!)?.supplierName || "Supplier",
         itemsCount: p.items ? p.items.length : 0,
         items: p.items || [],
         total: p.totalOrderValue || 0,
         date: p.poDate,
         expected: p.expectedDeliveryDate,
-      })),
-    salesData,
+      }))
+  }, [purchaseOrders, suppliers])
 
-    users: users.map((u) => ({
+  const mappedUsers = useMemo(() => {
+    return users.map((u) => ({
       ...u,
-
       avatar: initials(u.name),
-
       branch: u.department,
-
       status: u.status === "Active" ? "active" : "inactive",
-    })),
+    }))
+  }, [users])
 
-    notifications: combinedNotifications,
-
-    auditLogs,
-
-    expiringMedicines,
-
-    batches,
-
-    bills: mappedBills,
-
-    cartItems: [],
-
-    stockTransfers: stockTransfers.map((t) => ({
+  const mappedStockTransfers = useMemo(() => {
+    return stockTransfers.map((t) => ({
       ...t,
-
       from: t.fromLocation,
-
       to: t.toLocation,
-
-      // One medicine line per transfer record.
-
       medicines: 1,
-
       date: t.createdAt,
-
       status: TRANSFER_STAGE[t.status],
-    })),
+    }))
+  }, [stockTransfers])
 
-    categories: categories.map((c) => ({
+  const mappedCategories = useMemo(() => {
+    const medCountByCat = new Map<string, number>()
+    for (let i = 0; i < medicines.length; i++) {
+      const catId = (medicines[i] as any).categoryId
+      if (catId) {
+        medCountByCat.set(catId, (medCountByCat.get(catId) || 0) + 1)
+      }
+    }
+    return categories.map((c) => ({
       id: c.id,
-
       name: c.categoryName,
-
       description: c.description,
-
-      medicines: medicines.filter((m) => (m as any).categoryId === c.id).length,
-
+      medicines: medCountByCat.get(c.id) || 0,
       status: c.status === "Active" ? "active" : "inactive",
-
       created: c.createdAt,
-    })),
+    }))
+  }, [categories, medicines])
 
+  return {
+    medicines: mappedMedicines,
+    prescriptions: mappedPrescriptions,
+    suppliers: mappedSuppliers,
+    purchaseOrders: mappedPurchaseOrders,
+    salesData,
+    users: mappedUsers,
+    notifications: combinedNotifications,
+    auditLogs,
+    expiringMedicines,
+    batches,
+    bills: mappedBills,
+    cartItems: [],
+    stockTransfers: mappedStockTransfers,
+    categories: mappedCategories,
     stockTransactions,
-
     grns,
-
     supplierReturns: mappedSupplierReturns,
-
     damagedStock: mappedDamagedStock,
-
     adjustments,
-
     returns,
-
     writeOffs,
-
     refresh,
   }
 }

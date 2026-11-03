@@ -331,16 +331,6 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
   }, [])
 
   useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
-  useEffect(() => {
     const savedRx = localStorage.getItem("_v2_pharmacy_dispense_rx")
     if (savedRx) {
       setRxId(savedRx)
@@ -1451,36 +1441,58 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
         ) : (
           <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 flex flex-col">
             {/* Patient / Rx Info */}
-            <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0] p-5 flex flex-col sm:flex-row gap-4 sm:items-end hover:shadow-md transition-shadow">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-1">
-                    Prescription ID
-                  </label>
-                  <input
-                    value={rxId}
-                    onChange={(e) => setRxId(e.target.value)}
-                    placeholder="e.g. RX-2026-1041"
-                    className="w-full px-3 py-2 rounded border border-[#E2E8F0] text-[13px] text-[#0F1624] focus:border-[#0F766E] focus:outline-none transition-colors bg-[#F5F7FA] focus:bg-white"
-                  />
+            <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0] p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-1">
+                      Prescription ID
+                    </label>
+                    <input
+                      value={rxId}
+                      onChange={(e) => setRxId(e.target.value)}
+                      placeholder="e.g. RX-2026-1041"
+                      className="w-full px-3 py-2 rounded border border-[#E2E8F0] text-[13px] text-[#0F1624] focus:border-[#0F766E] focus:outline-none transition-colors bg-[#F5F7FA] focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-1">
+                      Patient Name
+                    </label>
+                    <input
+                      value={patientName}
+                      onChange={(e) => setPatientName(e.target.value)}
+                      className="w-full px-3 py-2 rounded border border-[#E2E8F0] text-[13px] text-[#0F1624] focus:border-[#0F766E] focus:outline-none transition-colors bg-[#F5F7FA] focus:bg-white"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-1">
-                    Patient Name
-                  </label>
-                  <input
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    className="w-full px-3 py-2 rounded border border-[#E2E8F0] text-[13px] text-[#0F1624] focus:border-[#0F766E] focus:outline-none transition-colors bg-[#F5F7FA] focus:bg-white"
-                  />
-                </div>
+                <button
+                  onClick={loadPrescriptionFEFO}
+                  className="bg-[#0F766E] text-white px-5 py-2 h-[42px] rounded-lg text-[13px] font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
+                >
+                  Load Rx & Auto-Allocate
+                </button>
               </div>
-              <button
-                onClick={loadPrescriptionFEFO}
-                className="bg-[#0F766E] text-white px-5 py-2 h-[42px] rounded-lg text-[13px] font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all whitespace-nowrap"
-              >
-                Load Rx & Auto-Allocate
-              </button>
+
+              {/* Time of Arrival & Prescribing Doctor info pill */}
+              {loadedRxMeta && (
+                <div className="flex items-center gap-4 text-[12px] bg-teal-50 border border-teal-200/80 rounded-lg px-3 py-2 text-[#0F766E] flex-wrap">
+                  <span className="font-semibold">
+                    👤 Dr: <span className="font-bold text-[#0F1624]">{loadedRxMeta.doctorName || "Treating Physician"}</span>
+                  </span>
+                  {loadedRxMeta.department && (
+                    <span>Dept: <span className="font-semibold text-[#0F1624]">{loadedRxMeta.department}</span></span>
+                  )}
+                  {(loadedRxMeta.arrivalTime || loadedRxMeta.time || loadedRxMeta.createdAt) && (
+                    <span className="ml-auto font-semibold flex items-center gap-1.5 bg-white px-2.5 py-0.5 rounded border border-teal-200">
+                      ⏰ Time of Arrival:{" "}
+                      <span className="font-bold text-[#0F766E]">
+                        {loadedRxMeta.arrivalTime || loadedRxMeta.time || new Date(loadedRxMeta.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Medicine Search */}

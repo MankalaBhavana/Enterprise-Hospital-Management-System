@@ -158,7 +158,7 @@ const ED_PATIENTS = [
   },
 ]
 
-export default function Emergency({ onSelect }: { onSelect?: () => void }) {
+export default function Emergency({ onSelect, onRegister }: { onSelect?: () => void; onRegister?: () => void }) {
   const [view, setView] = useState<"board" | "list">("board")
 
   const critical = ED_PATIENTS.filter((p) => p.acuity <= 2).length
@@ -199,7 +199,7 @@ export default function Emergency({ onSelect }: { onSelect?: () => void }) {
               List
             </button>
           </div>
-          <Btn variant="primary" size="sm">
+          <Btn variant="primary" size="sm" onClick={() => onRegister ? onRegister() : window.dispatchEvent(new CustomEvent("app:navigate", { detail: { module: "emergency" } }))}>
             <Icon.Plus /> Register Patient
           </Btn>
         </div>

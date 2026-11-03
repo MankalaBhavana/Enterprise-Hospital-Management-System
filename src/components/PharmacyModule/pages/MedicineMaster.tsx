@@ -54,16 +54,6 @@ export default function MedicineMaster({ onNavigate }: MedicineMasterProps) {
   const [selected, setSelected] = useState<typeof medicines[0] | null>(null)
   const [editingMedicine, setEditingMedicine] = useState<any>(null)
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
   const handleEdit = (m: any) => {
     const totalGst = m.gst ?? 5
     const half = +(totalGst / 2).toFixed(2)
@@ -1034,7 +1024,11 @@ export default function MedicineMaster({ onNavigate }: MedicineMasterProps) {
       <ImportMedicinesModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        onSuccess={() => refresh()}
+        onSuccess={() => {
+          setSearch("")
+          setFormFilter("All")
+          refresh()
+        }}
         existingMedicines={medicines}
       />
     </div>

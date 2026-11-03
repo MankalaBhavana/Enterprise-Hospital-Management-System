@@ -36,4 +36,5 @@ logs/
 # (not portable across clones/machines).
 /hospital-backend
 /scratch/
+tests/reports/
 

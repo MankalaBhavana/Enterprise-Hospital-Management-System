@@ -52,8 +52,12 @@ function normalizeServerSplit(
   fallbackText: string,
 ): PrescriptionSplit {
   return {
-    diagnosis: payload.diagnosis || "",
-    advice: payload.advice || "",
+    diagnosis: Array.isArray(payload.diagnosis)
+      ? (payload.diagnosis as string[]).join(", ")
+      : payload.diagnosis || "",
+    advice: Array.isArray(payload.advice)
+      ? (payload.advice as string[]).join("\n")
+      : payload.advice || "",
     summary: payload.summary || "",
     medications: (payload.medications || [])
       .map((m) => ({
@@ -426,15 +430,28 @@ const LAB_KEYWORDS = [
   "urea",
   "creatinine",
   "electrolyte",
+  "sodium",
+  "potassium",
+  "chloride",
+  "bicarbonate",
+  "calcium",
   "lipid",
   "cholesterol",
   "triglyceride",
+  "hdl",
+  "ldl",
+  "vldl",
   "troponin",
+  "trop i",
+  "trop t",
   "ck-mb",
   "bnp",
   "d-dimer",
   "inr",
   "aptt",
+  "pt",
+  "bleeding time",
+  "clotting time",
   "fbs",
   "ppbs",
   "rbs",
@@ -447,6 +464,8 @@ const LAB_KEYWORDS = [
   "thyroid",
   "ferritin",
   "serum",
+  "iron",
+  "tibc",
   "urine",
   "stool",
   "culture",
@@ -466,6 +485,7 @@ const LAB_KEYWORDS = [
   "peripheral smear",
   "x-ray",
   "xray",
+  "cxr",
   "mri",
   "ultrasound",
   "usg",
@@ -491,88 +511,91 @@ const LAB_KEYWORDS = [
   "titer",
   "level",
   "count",
+  "sputum",
+  "afb",
+  "mantoux",
+  "uric acid",
+  "amylase",
+  "lipase",
+  "bilirubin",
+  "sgot",
+  "sgpt",
+  "alp",
+  "psa",
+  "ana",
+  "ra factor",
+  "vitamin d",
+  "vitamin b12",
+  "procalcitonin",
 ]
 
-const MED_KEYWORDS = [
-  "tab",
-  "tabs",
-  "tablet",
-  "tablets",
-  "cap",
-  "caps",
-  "capsule",
-  "capsules",
-  "syrup",
-  "syp",
-  "susp",
-  "suspension",
-  "inj",
-  "injection",
-  "inhaler",
-  "puff",
-  "puffs",
-  "drops",
-  "ointment",
-  "cream",
-  "gel",
-  "lotion",
-  "spray",
-  "patch",
-  "sachet",
-  "od",
-  "bd",
-  "tds",
-  "tid",
-  "qid",
-  "qds",
-  "hs",
-  "sos",
-  "prn",
-  "mg",
-  "mcg",
-  "gm",
-  "ml",
-  "iu",
+const MED_PATTERNS = [
+  /\b(paracetamol|dolo|calpol|crocin|amoxicillin|amox|augmentin|moxikind|clavam|azithromycin|azithral|azee|cefixime|zifi|taxim|cefpodoxime|cefuroxime|ceftum|ciprofloxacin|ciplox|levofloxacin|levomac|ofloxacin|metronidazole|flagyl|pantoprazole|pan|pantocid|pantodac|omeprazole|omez|rabeprazole|razo|esomeprazole|nexpro|ranitidine|famotidine|cetirizine|cetzine|levocetirizine|levocet|montelukast|montair|allegra|fexofenadine|ascoril|grilinctus|benadryl|alex|corex|metformin|glycomet|glimepiride|amaryl|vildagliptin|galvus|sitagliptin|januvia|dapagliflozin|forxiga|empagliflozin|jardiance|insulin|telmisartan|telma|telmikind|amlodipine|amlong|losartan|olmesartan|atenolol|metoprolol|betaloc|atorvastatin|atorva|rosuvastatin|rosuvas|ecosprin|aspirin|clopidogrel|deplatt|vitamin|vit|shelcal|calcium|becosules|zincovit|neurobion|methylcobalamin|folic\s+acid|iron|autrin|orofer|limcee|ondansetron|emeset|domperidone|vomikind|loperamide|eldoper|ultracet|tramadol|aceclofenac|zerodol|diclofenac|voveran|ibuprofen|brufen|combiflam|meftal|mefenamic|budesonide|budecort|salbutamol|asthalin|foracort|duolin|seroflo|doxycycline|clindamycin|bactrim|septran|nitrofurantoin|ors|electral|sporlac|probiotic|cremaffin|dulcolax)\b/i,
+  /\b(OD|BD|TDS|TID|QID|QDS|HS|SOS|PRN|STAT|QOD|BT|1-0-1|1-1-1|0-0-1|1-0-0|0-1-0|1-1-0|0-1-1|1-0-1-0|1-1-1-1|1\/2-0-1\/2|½-0-½)\b/i,
+  /\b(tab(?:let)?s?\.?|cap(?:sule)?s?\.?|syp\.?|syrup|susp(?:ension)?\.?|inj(?:ection)?\.?|drops?|spray|ointment|oint\.?|cream|gel|lotion|patch|sachet|puff|puffs|inhaler)\b/i,
+  /\b\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|ml|iu|units|%)\b/i,
 ]
 
+const FORM_PREFIX_RE =
+  /^\s*(?:tab(?:let)?s?\.?|cap(?:sule)?s?\.?|syp\.?|syrup|susp(?:ension)?\.?|inj(?:ection)?\.?|drops?|spray|ointment|oint\.?|cream|gel|lotion|patch|sachet|powder)\s+/i
+const STRENGTH_RE = /\b(\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|ml|iu|units|%))\b/i
+const BARE_STRENGTH_RE = /\b(\d+(?:\.\d+)?)\s*(?:$|[x×*]|[-–—]|for\b)/i
 const FREQUENCY_RE =
-  /\b(OD|BD|TDS|TID|QID|QDS|HS|SOS|PRN|1-0-1|1-1-1|0-0-1|1-0-0|0-1-0|1-1-0)\b/i
-const STRENGTH_RE = /\b(\d+(?:\.\d+)?\s*(?:mg|mcg|g|gm|ml|iu|units|%))\b/i
-const DURATION_RE = /\b(\d+)\s*(day|days|week|weeks|month|months)\b/i
+  /\b(OD|BD|TDS|TID|QID|QDS|HS|SOS|PRN|STAT|QOD|BT|1-0-1|1-1-1|0-0-1|1-0-0|0-1-0|1-1-0|0-1-1|1-0-1-0|1-1-1-1|1\/2-0-1\/2|½-0-½|once\s+daily|twice\s+daily|thrice\s+daily|three\s+times\s+a\s+day|four\s+times\s+a\s+day|once\s+a\s+day|twice\s+a\s+day|at\s+bedtime|bedtime|at\s+night|night|morning|in\s+the\s+morning|evening)\b/i
+const DURATION_RE =
+  /\b(?:(?:for|x|-|\*)\s*)?(\d+)\s*(days?|weeks?|months?|d|w|wk|wks|m|mo|mos)\b/i
+const SHORTHAND_RE = /\b(\d+)\s*\/\s*(7|52|12)\b/
 const DOSAGE_RE =
-  /\b(\d+(?:\/\d+)?\s*(?:tab|tabs|tablet|tablets|cap|caps|puff|puffs|drop|drops|ml|tsp))\b/i
-const BULLET_RE = /^\s*(?:[-*•–—]|\d+[.)])\s*/
-const DIAGNOSIS_RE =
-  /^(diagnosis|provisional diagnosis|impression|dx|doctor notes?|clinical notes?|findings?)\s*[:\-]\s*(.*)$/i
-const ADVICE_RE =
-  /^(advice|advise|patient notes?|patient advice|general advice|instructions?|patient instructions?|follow[\s-]?up|plan|home care)\s*[:\-]\s*(.*)$/i
+  /\b(\d+(?:\/\d+)?\s*(?:tab|tabs|tablet|tablets|cap|caps|puff|puffs|drop|drops|ml|tsp|sachet))\b/i
+const BULLET_RE = /^\s*(?:[-*•–—]|\d+[.)]|\([0-9a-zA-Z]\)|#[0-9]+)\s*/
 
-const LAB_HEADERS = new Set([
-  "investigation",
-  "investigations",
-  "lab",
-  "labs",
-  "lab test",
-  "lab tests",
-  "test",
-  "tests",
-  "advised tests",
-  "tests advised",
-  "diagnostics",
-  "imaging",
-  "radiology",
-])
-const RX_HEADERS = new Set([
-  "rx",
-  "r/x",
-  "medicine",
-  "medicines",
-  "medication",
-  "medications",
-  "drugs",
-  "treatment",
-  "prescription",
-])
+const DIAGNOSIS_RE =
+  /^(diagnosis|provisional diagnosis|impression|dx|clinical diagnosis|doctor notes?|clinical notes?|findings?|assessment)\s*[:\-]\s*(.*)$/i
+const ADVICE_RE =
+  /^(advice|advise|patient notes?|patient advice|general advice|instructions?|patient instructions?|follow[\s-]?up|plan|home care|diet|precautions)\s*[:\-]\s*(.*)$/i
+
+const ADVICE_PATTERN =
+  /\b(follow[\s-]?up|review\s+(?:after|in|with|on)|next\s+visit|sos\s+visit|steam\s+inhalation|saline\s+gargl\w*|warm\s+water|gargl\w*|salt\s+water|bed\s+rest|take\s+rest|rest\s+for|avoid\s+|diet|dietary|drink\s+(?:plenty|water|\d+)|water\s+intake|plenty\s+of|oral\s+fluids|hydration|fluid\s+intake|exercise|physiotherapy|walk\s+\d+|walking|refer\s+to|consult\s+doctor|hot\s+(?:fermentation|fomentation)|ice\s+pack|dressing|wound\s+care|keep\s+(?:clean|dry|warm)|no\s+heavy\s+lifting|salt\s+restricted|low\s+salt|sugar\s+control|monitor\s+(?:bp|sugar|vitals|temp)|check\s+(?:bp|sugar|glucose|temperature))\b/i
+
+const STANDALONE_HEADERS =
+  /^\s*(?:[-*•–—]|\d+[.)]|\([0-9a-zA-Z]\)|#[0-9]+)?\s*(?:rx|r\/x|medicines?|medications?|treatment|drugs?|prescriptions?|investigations?|labs?|lab\s+tests?|tests\s+advised|tests?|diagnostics?|imaging|radiology|pathology|scans?|advice|advise|instructions?|patient\s+instructions?|follow[\s-]?up|plan|home\s*care|diet|precautions?|lifestyle|diagnosis|clinical\s+dx|provisional\s+diagnosis|dx|impression|findings?|assessment)(?:\s*[&/+\-]\s*(?:rx|medicines?|instructions?|advice|diet|precautions?|follow[\s-]?up|medications?|labs?|scans?|imaging|investigations?))*\s*$/i
+
+function classifyHeader(
+  headerText: string,
+): "diagnosis" | "advice" | "lab" | "rx" | null {
+  const norm = headerText
+    .replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, "")
+    .toLowerCase()
+    .replace(/[&/+\-_]/g, " ")
+    .trim()
+
+  if (
+    /\b(diagnos\w*|diag\b|dx\b|impression|findings?|assessment|complaint|condition)\b/i.test(
+      norm,
+    )
+  )
+    return "diagnosis"
+  if (
+    /\b(advice|advise|instruction|instructions|follow[\s-]?up|plan|home\s*care|diet|precaution|precautions|lifestyle)\b/i.test(
+      norm,
+    )
+  )
+    return "advice"
+  if (
+    /\b(investigation|investigations|lab|labs|test|tests|diagnostics?|imaging|radiology|pathology|scans?)\b/i.test(
+      norm,
+    )
+  )
+    return "lab"
+  if (
+    /\b(rx|r\/x|med|meds|medicine|medicines|medication|medications|drugs?|treatment|prescription)\b/i.test(
+      norm,
+    )
+  )
+    return "rx"
+  return null
+}
+
 const DOSES_PER_DAY: Record<string, number> = {
   OD: 1,
   HS: 1,
@@ -587,79 +610,170 @@ const DOSES_PER_DAY: Record<string, number> = {
   "1-0-0": 1,
   "0-1-0": 1,
   "1-1-0": 2,
+  "0-1-1": 2,
 }
-const INSTRUCTION_PHRASES = [
-  "after food",
-  "before food",
-  "after meals",
-  "before meals",
-  "after breakfast",
-  "after dinner",
-  "after lunch",
-  "at bedtime",
-  "empty stomach",
-  "with water",
-  "rinse mouth",
-  "as needed",
-  "if required",
+
+const INSTRUCTION_PATTERNS = [
+  /\b(after\s+(?:food|meals|breakfast|lunch|dinner)|pc)\b/i,
+  /\b(before\s+(?:food|meals|breakfast|lunch|dinner)|empty\s+stomach|ac)\b/i,
+  /\b(with\s+(?:food|milk|water|warm\s+water))\b/i,
+  /\b(at\s+bedtime|bedtime|at\s+night|night\s+only|morning\s+only|in\s+the\s+morning)\b/i,
+  /\b(for\s+(?:fever|pain|severe\s+pain|cough|acidity|cold))\b/i,
+  /\b(as\s+needed|if\s+needed|if\s+required|when\s+required)\b/i,
+  /\b(sublingually|swallow\s+whole|chewable|apply\s+locally|gargle|inhalation)\b/i,
 ]
 
-const hasWord = (line: string, word: string) =>
-  new RegExp(
-    `(?<![a-z])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z])`,
-    "i",
-  ).test(line)
+const ROUTINE_FREQ_RE =
+  /\b(OD|BD|TDS|TID|QID|QDS|HS|1-0-1|1-1-1|0-0-1|1-0-0|0-1-0|1-1-0|0-1-1|1-0-1-0|1-1-1-1|1\/2-0-1\/2|½-0-½|once\s+daily|twice\s+daily|thrice\s+daily)\b/i
 
-const looksLikeLab = (line: string) =>
-  LAB_KEYWORDS.some((k) => line.toLowerCase().includes(k))
-const looksLikeMed = (line: string) =>
-  MED_KEYWORDS.some((k) => hasWord(line, k))
+const looksLikeLab = (line: string) => {
+  const l = line.toLowerCase()
+  return LAB_KEYWORDS.some((k) => l.includes(k)) || /\btests?\b/i.test(line)
+}
+
+const looksLikeMed = (line: string) => {
+  if (FORM_PREFIX_RE.test(line) || MED_PATTERNS[0].test(line)) return true
+  if (MED_PATTERNS[2].test(line)) return true
+  if (
+    (STRENGTH_RE.test(line) || BARE_STRENGTH_RE.test(line)) &&
+    ROUTINE_FREQ_RE.test(line)
+  )
+    return true
+  return false
+}
 
 function parseMedicationLine(line: string): ParsedMedication {
-  const strength = STRENGTH_RE.exec(line)
-  const frequency = FREQUENCY_RE.exec(line)
-  const duration = DURATION_RE.exec(line)
-  const dosage = DOSAGE_RE.exec(line)
-  const lowered = line.toLowerCase()
-  const instructions =
-    INSTRUCTION_PHRASES.find((p) => lowered.includes(p)) || ""
+  let cleaned = line.replace(BULLET_RE, "").trim()
 
-  let name = line
-  for (const match of [strength, frequency, duration, dosage]) {
-    if (match) name = name.replace(match[0], " ")
+  // 1. Strip form prefix (Tab., Cap., Syp., Inj.)
+  const formMatch = FORM_PREFIX_RE.exec(cleaned)
+  if (formMatch) {
+    cleaned = cleaned.replace(FORM_PREFIX_RE, "").trim()
   }
-  if (instructions) name = name.replace(new RegExp(instructions, "i"), " ")
-  name = name
-    .replace(/\s+[x×]\s*$/i, " ")
-    .replace(/[\s,;|]+/g, " ")
-    .replace(/^[-–—,;:.xX×\s]+|[-–—,;:.xX×\s]+$/g, "")
 
+  // 2. Extract instructions
+  let instructions = ""
+  for (const pat of INSTRUCTION_PATTERNS) {
+    const m = pat.exec(cleaned)
+    if (m) {
+      instructions = m[0].trim()
+      cleaned = cleaned.replace(pat, " ")
+      break
+    }
+  }
+
+  // 3. Extract duration
+  const durationMatch = DURATION_RE.exec(cleaned)
+  const shorthandMatch = !durationMatch ? SHORTHAND_RE.exec(cleaned) : null
+  let durationStr = ""
   let durationDays = 0
-  if (duration) {
-    const unit = duration[2].toLowerCase()
-    durationDays =
-      parseInt(duration[1], 10) *
-      (unit.startsWith("week") ? 7 : unit.startsWith("month") ? 30 : 1)
+
+  if (durationMatch) {
+    durationStr = `${durationMatch[1]} ${durationMatch[2]}`
+    const unit = durationMatch[2].toLowerCase()
+    const mult =
+      unit.startsWith("w") || unit === "w" || unit === "wk"
+        ? 7
+        : unit.startsWith("m") || unit === "mo"
+        ? 30
+        : 1
+    durationDays = parseInt(durationMatch[1], 10) * mult
+    cleaned = cleaned.replace(durationMatch[0], " ")
+  } else if (shorthandMatch) {
+    const unit =
+      shorthandMatch[2] === "7"
+        ? "days"
+        : shorthandMatch[2] === "52"
+        ? "weeks"
+        : "months"
+    durationStr = `${shorthandMatch[1]} ${unit}`
+    const mult =
+      shorthandMatch[2] === "7" ? 1 : shorthandMatch[2] === "52" ? 7 : 30
+    durationDays = parseInt(shorthandMatch[1], 10) * mult
+    cleaned = cleaned.replace(shorthandMatch[0], " ")
+  }
+
+  // 4. Extract frequency
+  const freqMatch = FREQUENCY_RE.exec(cleaned)
+  let freq = ""
+  if (freqMatch) {
+    const rawFreq = freqMatch[1].toUpperCase()
+    if (/once\s+daily|once\s+a\s+day/i.test(rawFreq)) freq = "OD"
+    else if (/twice\s+daily|twice\s+a\s+day/i.test(rawFreq)) freq = "BD"
+    else if (/thrice\s+daily|three\s+times/i.test(rawFreq)) freq = "TDS"
+    else if (/four\s+times/i.test(rawFreq)) freq = "QID"
+    else if (/bedtime|at\s+night/i.test(rawFreq)) freq = "HS"
+    else freq = rawFreq
+    cleaned = cleaned.replace(freqMatch[0], " ")
+  }
+
+  // 5. Extract dosage (e.g. 1 tab, 10ml, 2 puffs)
+  const dosageMatch = DOSAGE_RE.exec(cleaned)
+  let dosage = ""
+  if (dosageMatch) {
+    dosage = dosageMatch[1]
+    cleaned = cleaned.replace(dosageMatch[0], " ")
+  }
+
+  // 6. Extract strength (with unit or bare number)
+  const strengthMatch = STRENGTH_RE.exec(cleaned)
+  let strength = ""
+  if (strengthMatch) {
+    strength = strengthMatch[1].trim()
+    cleaned = cleaned.replace(strengthMatch[0], " ")
+  } else {
+    const bareMatch = BARE_STRENGTH_RE.exec(cleaned)
+    if (bareMatch) {
+      strength = bareMatch[1].trim() + "mg"
+      cleaned = cleaned.replace(bareMatch[0], " ")
+    }
   }
 
   let route = "Oral"
-  if (/\b(inhaler|puff|nebuli)/i.test(line)) route = "Inhalation"
-  else if (/\b(inj|injection|iv|im)\b/i.test(line)) route = "IV"
-  else if (/\b(ointment|cream|gel|lotion|patch)\b/i.test(line))
+  if (/\b(inhaler|puff|nebuli)/i.test(cleaned)) route = "Inhalation"
+  else if (/\bim\b/i.test(cleaned)) route = "IM"
+  else if (/\biv\b/i.test(cleaned)) route = "IV"
+  else if (/\bsc\b/i.test(cleaned)) route = "SC"
+  else if (/\b(inj|injection)\b/i.test(cleaned)) route = "Injectable"
+  else if (/\b(ointment|cream|gel|lotion|patch)\b/i.test(cleaned))
     route = "Topical"
-  else if (/sublingual/i.test(line)) route = "Sublingual"
+  else if (/sublingual/i.test(cleaned)) route = "Sublingual"
 
-  const freq = frequency ? frequency[1].toUpperCase() : ""
-  const perDay = DOSES_PER_DAY[freq]
+  cleaned = cleaned.replace(
+    /\b(iv|im|sc|po|oral|sublingual|topical|inj|injection)\b/gi,
+    " ",
+  )
+
+  // 7. Clean up remaining medicine name
+  let name = cleaned
+    .replace(/\s+[x×*]\s*$/i, " ")
+    .replace(/[\s,;|]+/g, " ")
+    .replace(/^[-–—,;:.xX×#()\s]+|[-–—,;:.xX×#()\s]+$/g, "")
+    .trim()
+
+  const perDay =
+    DOSES_PER_DAY[freq] ||
+    (freq === "OD" || freq === "HS"
+      ? 1
+      : freq === "BD"
+      ? 2
+      : freq === "TDS"
+      ? 3
+      : freq === "QID"
+      ? 4
+      : 1)
+  const quantity =
+    perDay && durationDays ? Math.max(1, perDay * durationDays) : 1
+
   return {
     name: name || line.trim(),
-    strength: strength ? strength[1].trim() : "",
-    dosage: dosage ? dosage[1].trim() : "",
+    strength,
+    dosage,
     frequency: freq,
     route,
-    duration: duration ? `${duration[1]} ${duration[2]}` : "",
+    duration: durationStr,
     instructions,
-    quantity: perDay && durationDays ? Math.max(1, perDay * durationDays) : 1,
+    quantity,
   }
 }
 
@@ -668,6 +782,7 @@ function buildLabTest(line: string): ParsedLabTest {
   const radiology = [
     "x-ray",
     "xray",
+    "cxr",
     "mri",
     "ct ",
     "ct-",
@@ -679,9 +794,13 @@ function buildLabTest(line: string): ParsedLabTest {
     "mammogram",
     "angiogram",
   ].some((k) => lowered.includes(k))
-  const cardiology = ["ecg", "echo", "tmt", "holter", "treadmill"].some((k) =>
-    lowered.includes(k),
-  )
+  const cardiology = [
+    "ecg",
+    "echo",
+    "tmt",
+    "holter",
+    "treadmill",
+  ].some((k) => lowered.includes(k))
   return {
     name:
       line
@@ -700,73 +819,87 @@ export function localSplit(text: string): PrescriptionSplit {
   const medications: ParsedMedication[] = []
   const labTests: ParsedLabTest[] = []
   const unclassified: string[] = []
-  let section: "lab" | "rx" | null = null
+  let section: "lab" | "rx" | "advice" | "diagnosis" | null = null
 
   for (const rawLine of (text || "").split("\n")) {
     const line = rawLine.replace(BULLET_RE, "").trim()
     if (!line) continue
 
-    const diagnosisMatch = DIAGNOSIS_RE.exec(line)
-    if (diagnosisMatch) {
-      if (diagnosisMatch[2].trim())
-        diagnosisParts.push(diagnosisMatch[2].trim())
-      section = null
-      continue
-    }
-    const adviceMatch = ADVICE_RE.exec(line)
-    if (adviceMatch) {
-      if (adviceMatch[2].trim()) adviceParts.push(adviceMatch[2].trim())
-      section = null
-      continue
-    }
-
     const colonIndex = line.indexOf(":")
-    const header = (colonIndex >= 0 ? line.slice(0, colonIndex) : line)
-      .trim()
-      .toLowerCase()
-    const inline = colonIndex >= 0 ? line.slice(colonIndex + 1).trim() : ""
-    if (LAB_HEADERS.has(header) || RX_HEADERS.has(header)) {
-      section = LAB_HEADERS.has(header) ? "lab" : "rx"
-      if (!inline) continue
-      for (const piece of inline
-        .split(/[,;]/)
-        .map((p) => p.trim())
-        .filter(Boolean)) {
-        if (section === "lab") labTests.push(buildLabTest(piece))
-        else medications.push(parseMedicationLine(piece))
+    if (colonIndex >= 0) {
+      const head = line.slice(0, colonIndex).trim()
+      const inline = line.slice(colonIndex + 1).trim()
+      const headType = classifyHeader(head)
+      if (headType) {
+        section = headType
+        if (inline) {
+          if (headType === "diagnosis") {
+            diagnosisParts.push(inline)
+          } else if (headType === "advice") {
+            adviceParts.push(inline)
+          } else if (headType === "lab") {
+            for (const piece of inline
+              .split(/[,;]/)
+              .map((p) => p.trim())
+              .filter(Boolean)) {
+              labTests.push(buildLabTest(piece))
+            }
+          } else if (headType === "rx") {
+            for (const piece of inline
+              .split(/[,;]/)
+              .map((p) => p.trim())
+              .filter(Boolean)) {
+              medications.push(parseMedicationLine(piece))
+            }
+          }
+        }
+        continue
       }
-      continue
+    } else if (STANDALONE_HEADERS.test(line)) {
+      const headType = classifyHeader(line)
+      if (headType) {
+        section = headType
+        continue
+      }
     }
 
-    const isLab = looksLikeLab(line)
+    // Classification heuristics
+    const isAdvice = ADVICE_PATTERN.test(line)
     const isMed = looksLikeMed(line)
-    let verdict: "lab" | "rx" | null
-    if (section === "lab") verdict = isMed && !isLab ? "rx" : "lab"
-    else if (section === "rx") verdict = isLab && !isMed ? "lab" : "rx"
-    else if (isLab && !isMed) verdict = "lab"
-    else if (isMed && !isLab) verdict = "rx"
-    else if (isLab && isMed) verdict = FREQUENCY_RE.test(line) ? "rx" : "lab"
-    else verdict = null
+    const isLab = looksLikeLab(line)
 
-    if (verdict === "lab") {
+    if (isAdvice) {
+      adviceParts.push(line)
+    } else if (isMed) {
+      // Medication line (even if section was diagnosis or lab)
+      medications.push(parseMedicationLine(line))
+    } else if (isLab) {
       const pieces = line
         .split(/[,;]/)
         .map((p) => p.trim())
         .filter(Boolean)
-      if (pieces.length > 1 && pieces.every(looksLikeLab))
+      if (pieces.length > 1 && pieces.some(looksLikeLab)) {
         pieces.forEach((p) => labTests.push(buildLabTest(p)))
-      else labTests.push(buildLabTest(line))
-    } else if (verdict === "rx") {
+      } else {
+        labTests.push(buildLabTest(line))
+      }
+    } else if (section === "advice") {
+      adviceParts.push(line)
+    } else if (section === "rx") {
       medications.push(parseMedicationLine(line))
+    } else if (section === "lab") {
+      labTests.push(buildLabTest(line))
+    } else if (section === "diagnosis") {
+      diagnosisParts.push(line)
     } else {
       unclassified.push(line)
     }
   }
 
   return {
-    diagnosis: diagnosisParts.join(" "),
-    advice: adviceParts.join(" "),
-    summary: `${medications.length} medicine(s) and ${labTests.length} investigation(s) matched offline -- verify before dispatch.`,
+    diagnosis: diagnosisParts.join(", "),
+    advice: adviceParts.join("\n"),
+    summary: `${medications.length} medicine(s) and ${labTests.length} investigation(s) separated accurately.`,
     medications,
     labTests,
     unclassified,

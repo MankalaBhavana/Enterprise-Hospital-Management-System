@@ -16,7 +16,7 @@
 // Same-origin settles all three. VITE_API_BASE still overrides it at build time
 // (see .env.production, for the Cloudflare Pages deploy, where the backend is a
 // Cloudflare Tunnel URL rather than something this server can proxy).
-const API_BASE_OVERRIDE = import.meta.env.VITE_API_BASE as string | undefined
+const API_BASE_OVERRIDE = (import.meta as any)?.env?.VITE_API_BASE as string | undefined
 export const API_BASE = API_BASE_OVERRIDE || "/hms-api"
 export const SYMPTOM_API_BASE = API_BASE_OVERRIDE || "/hms-api"
 

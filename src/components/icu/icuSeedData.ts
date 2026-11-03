@@ -855,10 +855,10 @@ export function generateSeedRecord(
 /** Seed multi-day ICU flow chart records into localStorage for a patient if not already seeded */
 export function ensureMultiDaySeedData(
   patientId: string = "100301",
-  totalDays: number = 3,
+  totalDays: number = 2,
 ): void {
   try {
-    const stayDays = getPatientStayDays(Math.min(totalDays, 3))
+    const stayDays = getPatientStayDays(Math.min(totalDays, 2))
     for (const { dayNumber, dateStr } of stayDays) {
       const key = storageKey(patientId, dateStr)
       const existing = localStorage.getItem(key)
@@ -874,15 +874,36 @@ export function ensureMultiDaySeedData(
       }
     }
   } catch (err) {
-    // Graceful error silence so other application modules are not disrupted
+    // Graceful error silence
   }
 }
 
-// On startup: Clean up any old duplicate flowsheets to protect localStorage quota
+// Immediate storage cleanup: prune bloated historical ICU flowsheet seeds from localStorage
+// to guarantee permanent free quota headroom for clinical registration and patient records
 if (typeof window !== "undefined") {
   try {
     freeLocalStorageQuota()
   } catch {}
+  try {
+    const todayStr = new Date().toISOString().split("T")[0]
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith("icu.flowsheet.") && !k.endsWith(todayStr)) {
+        keysToRemove.push(k)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        localStorage.removeItem(k)
+      } catch {}
+    })
+
+    // Seed lightweight Day 1 data for Deepak Patel if not already present
+    seedDeepakPatelDay1Data()
+  } catch (e) {
+    console.warn("ICU seed initialization skipped:", e)
+  }
 }
 
 /** Complete Day 1 flowsheet record with 100% of fields filled across all sections */

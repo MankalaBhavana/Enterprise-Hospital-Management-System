@@ -14,9 +14,9 @@ import {
   ChevronRight,
   PlusCircle,
   Trash2,
+  Clock,
 } from "lucide-react"
 import { PharmacyDatabase } from "../../../services/pharmacyDb"
-import { toast } from "react-hot-toast"
 
 import PageHeader from "../components/PageHeader"
 import StatusBadge from "../components/StatusBadge"
@@ -34,32 +34,89 @@ interface PrescriptionQueueProps {
   onNavigate: (page: string) => void
 }
 
+function checkItemStock(item: any, medicinesList: any[], batchesList: any[]) {
+  const med = (medicinesList || []).find(
+    (m: any) =>
+      m.id === item.medicineId ||
+      m.name?.toLowerCase().trim() === item.medicineName?.toLowerCase().trim() ||
+      (m.generic && item.genericName && m.generic.toLowerCase().trim() === item.genericName.toLowerCase().trim()) ||
+      (item.medicineName && m.name && (item.medicineName.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(item.medicineName.toLowerCase())))
+  )
+  if (!med) return false
+  const activeBatches = (batchesList || []).filter(
+    (b: any) => b.medicineId === med.id && (b.availableQuantity ?? b.quantity ?? 0) > 0
+  )
+  return activeBatches.length > 0 || (med.stock && med.stock > 0)
+}
+
+function getPrescriptionStockStatus(rawItems: any[], medicinesList: any[], batchesList: any[]) {
+  if (!rawItems || rawItems.length === 0) {
+    return {
+      type: "empty",
+      label: "No Items",
+      badgeClass: "bg-slate-50 text-slate-600 border-slate-200",
+      dotClass: "bg-slate-400",
+      desc: "Prescription has no items",
+    }
+  }
+
+  let inStockCount = 0
+  rawItems.forEach((item) => {
+    if (checkItemStock(item, medicinesList, batchesList)) {
+      inStockCount++
+    }
+  })
+
+  if (inStockCount === rawItems.length) {
+    return {
+      type: "in_stock",
+      label: "In-Inventory",
+      subLabel: "100% In-Stock",
+      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      dotClass: "bg-emerald-500",
+      desc: "All medicines are in active hospital inventory (FEFO ready)",
+    }
+  } else if (inStockCount === 0) {
+    return {
+      type: "non_inventory",
+      label: "Non-Inventory",
+      subLabel: "Not Stocked",
+      badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
+      dotClass: "bg-rose-500",
+      desc: "Non-inventory medicines (requires external purchase/PO)",
+    }
+  } else {
+    return {
+      type: "mixed",
+      label: "Semi-Inventory",
+      subLabel: `${inStockCount}/${rawItems.length} In-Stock`,
+      badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
+      dotClass: "bg-amber-500",
+      desc: "Semi-inventory: contains both inventory & non-inventory medicines",
+    }
+  }
+}
+
 export default function PrescriptionQueue({
   onNavigate,
 }: PrescriptionQueueProps) {
-  const { prescriptions, refresh } = usePharmacyData()
+  const { prescriptions, medicines, batches = [], refresh } = usePharmacyData()
   const [activeFilter, setActiveFilter] = useState("All")
   const [selected, setSelected] = useState<typeof prescriptions[0] | null>(null)
   const [search, setSearch] = useState("")
 
-  useEffect(() => {
-    const handleUpdate = () => refresh()
-    window.addEventListener("hospai_pharmacy_updated", handleUpdate)
-    window.addEventListener("storage", handleUpdate)
-    return () => {
-      window.removeEventListener("hospai_pharmacy_updated", handleUpdate)
-      window.removeEventListener("storage", handleUpdate)
-    }
-  }, [refresh])
-
-  const filtered = prescriptions.filter((rx) => {
+  const filtered = (prescriptions || []).filter((rx) => {
+    if (!rx) return false
+    const rxStatus = (rx.status || "").toLowerCase()
     const matchStatus =
-      activeFilter === "All" || rx.status === activeFilter.toLowerCase()
+      activeFilter === "All" || rxStatus === activeFilter.toLowerCase()
+    const q = (search || "").toLowerCase().trim()
     const matchSearch =
-      !search ||
-      rx.patient.toLowerCase().includes(search.toLowerCase()) ||
-      rx.id.includes(search) ||
-      rx.doctor.toLowerCase().includes(search.toLowerCase())
+      !q ||
+      (rx.patient || "").toLowerCase().includes(q) ||
+      (rx.id || "").toLowerCase().includes(q) ||
+      (rx.doctor || "").toLowerCase().includes(q) ||
+      (rx.diagnosis || "").toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
 
@@ -84,7 +141,7 @@ export default function PrescriptionQueue({
             onNavigate={onNavigate}
           />
 
-          {/* Filters */}
+          {/* Filters & Actions */}
           <div className="flex items-center gap-3 mt-4 mb-0 flex-wrap">
             <div className="flex rounded border border-[#E2E8F0] overflow-hidden bg-white text-[13px]">
               {filters.map((f) => (
@@ -147,8 +204,8 @@ export default function PrescriptionQueue({
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Prescription ID</th>
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Patient</th>
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Doctor</th>
-                  <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Date</th>
-                  <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Items</th>
+                  <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Date & Time of Arrival</th>
+                  <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider text-center">Items & Inventory Stock</th>
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Priority</th>
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Status</th>
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Pharmacist</th>
@@ -168,75 +225,93 @@ export default function PrescriptionQueue({
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((rx) => (
-                    <tr key={rx.id} onClick={() => setSelected(rx)} className="hover:bg-[#F0FDFA] transition-colors cursor-pointer"
-                    >
-                      <td
-                        className="font-mono text-[12px] font-semibold"
-                        style={{ color: "#0F766E" }}
+                  filtered.map((rx) => {
+                    const stockStatus = getPrescriptionStockStatus(rx.rawItems, medicines, batches)
+                    return (
+                      <tr key={rx.id} onClick={() => setSelected(rx)} className="hover:bg-[#F0FDFA] transition-colors cursor-pointer"
                       >
-                        {rx.id}
-                      </td>
-                      <td>
-                        <p className="font-medium text-[#0F1624] text-[13px]">
-                          {rx.patient}
-                        </p>
-                        <p className="text-[11px] text-[#94A3B8] whitespace-nowrap">
-                          {rx.age}y · {rx.gender} · {rx.contact}
-                        </p>
-                      </td>
-                      <td>
-                        <p className="text-[13px] text-[#334155]">
-                          {rx.doctor}
-                        </p>
-                        <p className="text-[11px] text-[#94A3B8]">
-                          {rx.department}
-                        </p>
-                      </td>
-                      <td className="text-[12px] text-[#64748B]">{rx.date}</td>
-                      <td className="text-[13px] font-semibold text-center">
-                        {rx.items}
-                      </td>
-                      <td>
-                        <StatusBadge status={rx.priority} size="sm" />
-                      </td>
-                      <td>
-                        <StatusBadge status={rx.status} size="sm" />
-                      </td>
-                      <td className="text-[13px] text-[#64748B]">
-                        {rx.pharmacist ?? (
-                          <span className="text-[#94A3B8] text-[12px]">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelected(rx)
-                            }}
-                            className="flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded border border-[#E2E8F0] text-[#334155] hover:bg-[#F0F2F5] transition-colors"
-                          >
-                            View <ChevronRight size={12} />
-                          </button>
-                          {rx.status !== "dispensed" && (
+                        <td
+                          className="font-mono text-[12px] font-semibold"
+                          style={{ color: "#0F766E" }}
+                        >
+                          {rx.id}
+                        </td>
+                        <td>
+                          <p className="font-medium text-[#0F1624] text-[13px]">
+                            {rx.patient}
+                          </p>
+                          <p className="text-[11px] text-[#94A3B8] whitespace-nowrap">
+                            {rx.age}y · {rx.gender} · {rx.contact}
+                          </p>
+                        </td>
+                        <td>
+                          <p className="text-[13px] text-[#334155]">
+                            {rx.doctor}
+                          </p>
+                          <p className="text-[11px] text-[#94A3B8]">
+                            {rx.department}
+                          </p>
+                        </td>
+                        <td className="text-[12px] whitespace-nowrap">
+                          <p className="text-[#0F1624] font-medium">{rx.date}</p>
+                          <p className="text-[11px] font-semibold text-[#0F766E] flex items-center gap-1 mt-0.5">
+                            <Clock size={11} className="text-[#0F766E]" />
+                            {rx.arrivalTime || rx.time || "Just now"}
+                          </p>
+                        </td>
+                        <td className="text-[13px] font-semibold text-center py-2.5">
+                          <div className="flex flex-col items-center gap-1">
+                            <span>{rx.items} {rx.items === 1 ? "item" : "items"}</span>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${stockStatus.badgeClass}`}
+                              title={stockStatus.desc}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${stockStatus.dotClass}`} />
+                              {stockStatus.label}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <StatusBadge status={rx.priority} size="sm" />
+                        </td>
+                        <td>
+                          <StatusBadge status={rx.status} size="sm" />
+                        </td>
+                        <td className="text-[13px] text-[#64748B]">
+                          {rx.pharmacist ?? (
+                            <span className="text-[#94A3B8] text-[12px]">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                localStorage.setItem("_v2_pharmacy_dispense_rx", rx.id)
-                                onNavigate("dispensing")
+                                setSelected(rx)
                               }}
-                              className="flex items-center gap-1 text-[12px] font-bold px-2.5 py-1 rounded bg-[#0F766E] text-white hover:bg-[#0c5e58] transition-colors shadow-sm"
+                              className="flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded border border-[#E2E8F0] text-[#334155] hover:bg-[#F0F2F5] transition-colors"
                             >
-                              <Play size={11} /> Dispense
+                              View <ChevronRight size={12} />
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {rx.status !== "dispensed" && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  localStorage.setItem("_v2_pharmacy_dispense_rx", rx.id)
+                                  onNavigate("dispensing")
+                                }}
+                                className="flex items-center gap-1 text-[12px] font-bold px-2.5 py-1 rounded bg-[#0F766E] text-white hover:bg-[#0c5e58] transition-colors shadow-sm"
+                              >
+                                <Play size={11} /> Dispense
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -244,8 +319,7 @@ export default function PrescriptionQueue({
         </div>
       </div>
 
-      {/* Detail Drawer -- beside the list on desktop; below lg there is no
-        room for both, so it covers the screen as a sheet (X closes it). */}
+      {/* Detail Drawer */}
       {selected && (
         <div className="fixed inset-0 z-50 lg:static lg:inset-auto lg:z-auto w-full lg:w-96 bg-white border-l border-[#E2E8F0] flex flex-col flex-shrink-0 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F2F5]">
@@ -253,8 +327,8 @@ export default function PrescriptionQueue({
               <p className="font-semibold text-[14px] text-[#0F1624]">
                 {selected.id}
               </p>
-              <p className="text-[12px] text-[#64748B]">
-                {selected.date} · {selected.time}
+              <p className="text-[12px] text-[#0F766E] font-medium flex items-center gap-1 mt-0.5">
+                <Clock size={12} /> Arrived: {selected.date} · {selected.arrivalTime || selected.time}
               </p>
             </div>
             <button
@@ -278,34 +352,67 @@ export default function PrescriptionQueue({
               </Row>
             </Section>
 
-            <Section icon={<Stethoscope size={14} />} title="Doctor">
-              <Row label="Name" value={selected.doctor} />
+            <Section icon={<Stethoscope size={14} />} title="Doctor & Clinical">
+              <Row label="Doctor" value={selected.doctor} />
               <Row label="Department" value={selected.department} />
+              <Row label="Diagnosis" value={selected.diagnosis} />
             </Section>
 
             <div>
-              <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-2">
-                Prescribed Medicines
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide">
+                  Prescribed Medicines
+                </p>
+                <span className="text-[11px] font-medium text-[#64748B]">
+                  {selected.rawItems?.length || 0} items
+                </span>
+              </div>
               <div className="space-y-2">
-                {selected.rawItems?.map((m: any, i: number) => (
-                  <div
-                    key={i}
-                    className="p-3 rounded border border-[#F0F2F5] bg-[#F5F7FA]"
-                  >
-                    <p className="text-[13px] font-semibold text-[#0F1624]">
-                      {m.medicineName}
-                    </p>
-                    <p className="text-[11px] text-[#64748B] mt-0.5">
-                      {m.dosage} · {m.frequency} · {m.duration}
-                    </p>
-                    <p className="text-[11px] font-bold mt-1 text-[#0F766E]">
-                      Qty: {m.quantity}
-                    </p>
-                  </div>
-                ))}
+                {selected.rawItems?.map((m: any, i: number) => {
+                  const isStocked = checkItemStock(m, medicines, batches)
+                  return (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg border transition-all ${
+                        isStocked
+                          ? "border-emerald-200 bg-emerald-50/40"
+                          : "border-rose-200 bg-rose-50/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[13px] font-semibold text-[#0F1624]">
+                          {m.medicineName}
+                        </p>
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            isStocked
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {isStocked ? "In Inventory" : "Non-Inventory"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B] mt-0.5">
+                        {m.dosage} · {m.frequency} · {m.duration}
+                      </p>
+                      <p className="text-[11px] font-bold mt-1 text-[#0F766E]">
+                        Qty: {m.quantity}
+                      </p>
+                    </div>
+                  )
+                })}
               </div>
             </div>
+
+            {selected.verificationNotes && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[12px] text-amber-900">
+                <p className="font-bold text-[11px] uppercase tracking-wide text-amber-800 mb-1">
+                  Pharmacy Verification Note
+                </p>
+                <p>{selected.verificationNotes}</p>
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-[12px] text-[#64748B]">Status</span>
@@ -318,7 +425,7 @@ export default function PrescriptionQueue({
               <div className="grid grid-cols-1 gap-2">
                 <button
                   onClick={handleDispense}
-                  className="flex items-center justify-center gap-1.5 py-2.5 rounded text-white text-[12px] font-medium hover:opacity-90"
+                  className="flex items-center justify-center gap-1.5 py-2.5 rounded text-white text-[12px] font-medium hover:opacity-90 transition-colors"
                   style={{ background: "#0F766E" }}
                 >
                   <Play size={13} /> Dispense Items

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
+import toast from "react-hot-toast"
 import { StatusBadge, Btn, Card } from "./shared"
 import { Icon } from "./icons"
 import { db, DBOPEncounter } from "../services/db"
@@ -16,6 +17,7 @@ import {
 } from "../services/doctorMaster"
 import PatientJourneyModal from "./PatientJourneyModal"
 import { whatsAppHandoffUrl, smsHandoffUrl } from "../services/patientMessaging"
+import { normalizeDoctorName } from "../services/doctorPortalDb"
 
 const DEPARTMENTS = [
   "All Departments",
@@ -197,9 +199,10 @@ export function AppointmentBookingModal({
 
   useEffect(() => {
     if (doctorsForSelectedDept.length > 0) {
+      const normInitial = normalizeDoctorName(initialEncounter?.assignedDoctor)
       const match =
         doctorsForSelectedDept.find(
-          (d) => d.name === initialEncounter?.assignedDoctor,
+          (d) => normalizeDoctorName(d.name) === normInitial,
         ) || doctorsForSelectedDept[0]
       setSelectedDoctorName(match.name)
     } else {
@@ -242,8 +245,13 @@ export function AppointmentBookingModal({
             e.status !== "OP Completed" &&
             e.status !== "Consultation Completed",
         )
-      const load = (doctorName: string) =>
-        open.filter((e) => e.assignedDoctor === doctorName).length
+      const load = (doctorName: string) => {
+        const normTarget = normalizeDoctorName(doctorName)
+        return open.filter((e) => {
+          const encDocNorm = normalizeDoctorName(e.assignedDoctor || (e as any).doctorAssigned)
+          return encDocNorm === normTarget || (encDocNorm.length >= 4 && normTarget.length >= 4 && (encDocNorm.includes(normTarget) || normTarget.includes(encDocNorm)))
+        }).length
+      }
 
       const res = detectDepartmentFromSymptoms(combined, load)
       if (!res) {
@@ -260,7 +268,24 @@ export function AppointmentBookingModal({
   }
 
   const handleSchedule = () => {
-    if (!result || !patient) return
+    if (!patient.trim()) {
+      toast.error("Please enter patient full name.")
+      return
+    }
+
+    let scheduleResult = result
+    if (!scheduleResult) {
+      if (selectedSpecialty && selectedDoctorName) {
+        scheduleResult = {
+          dept: selectedSpecialty,
+          doc: selectedDoctorName,
+          urgency: "Routine",
+        }
+      } else {
+        toast.error("Please select a specialty and doctor, or run AI symptom triage.")
+        return
+      }
+    }
 
     const now = new Date()
     const time = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
@@ -268,13 +293,13 @@ export function AppointmentBookingModal({
     onSchedule({
       encounterId: initialEncounter?.id,
       time,
-      patient,
+      patient: patient.trim(),
       age: parseInt(age) || 30,
       sex: gender,
       phone,
       complaint: complaint || symptoms || "OP Evaluation",
-      dept: result.dept,
-      doctor: result.doc,
+      dept: scheduleResult.dept,
+      doctor: scheduleResult.doc,
       registryType,
     })
     onClose()
@@ -612,9 +637,8 @@ export function AppointmentBookingModal({
             </button>
             <button
               type="button"
-              disabled={!result || !patient}
               onClick={handleSchedule}
-              className="px-4 py-2 bg-[#1B4FD8] hover:bg-[#1740B4] text-white text-[12.5px] font-bold shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 bg-[#1B4FD8] hover:bg-[#1740B4] text-white text-[12.5px] font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               <span>⚡</span> Confirm &amp; Send Patient Alert
             </button>
@@ -790,6 +814,9 @@ export default function Appointments({
       token: booked.token,
       time: booked.time,
     })
+    toast.success(
+      `Appointment confirmed for ${booked.name} with ${booked.doctor}! Token: ${booked.token}`,
+    )
   }
 
   return (
