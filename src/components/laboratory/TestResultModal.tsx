@@ -103,7 +103,13 @@ export default function TestResultModal({
     }))
   }
 
+  const isPaid = order.billing?.status === "Paid"
+
   const handleSave = () => {
+    if (!isPaid) {
+      alert("Cannot enter or save results: Patient bill has not been paid at the central billing desk.")
+      return
+    }
     const status = "Completed"
     onSave(
       test.id,
@@ -227,6 +233,20 @@ export default function TestResultModal({
           </span>
         </div>
       </div>
+
+      {!isPaid && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between text-xs text-amber-900">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">⚠ Result Entry Locked:</span>
+            <span>
+              This order has an unpaid bill of ₹{order.billing?.total || 0}. Billing must be settled at the central Billing Section before laboratory results can be recorded or saved.
+            </span>
+          </div>
+          <span className="font-bold px-2 py-0.5 bg-amber-100 border border-amber-300 text-amber-900 text-[11px]">
+            Billing Pending
+          </span>
+        </div>
+      )}
 
         {/* Modal Body - Parameter Form Fields */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
@@ -573,7 +593,13 @@ export default function TestResultModal({
           <button
             type="button"
             onClick={handleSave}
-            className="px-6 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-none transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+            disabled={!isPaid}
+            className={`px-6 py-2 text-xs font-bold rounded-none transition-colors shadow-sm flex items-center gap-1.5 ${
+              !isPaid
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed border border-gray-300"
+                : "text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
+            }`}
+            title={!isPaid ? "Payment must be completed at Billing Section before saving results" : "Save Results"}
           >
             <span>💾</span> Save Results
           </button>

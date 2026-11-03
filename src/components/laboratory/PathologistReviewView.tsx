@@ -55,6 +55,13 @@ export default function PathologistReviewView({ initialOrderId }: PathologistRev
     return orders.find((o) => o.id === selectedOrderId) || null
   }, [orders, selectedOrderId])
 
+  const isSelectedOrderPaid = selectedOrder?.billing?.status === "Paid"
+  const hasSelectedOrderResults = Boolean(
+    selectedOrder?.tests.some(
+      (t) => Boolean(t.result) || (t.results && Object.keys(t.results).length > 0)
+    )
+  )
+
   const showToast = (msg: string) => {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 3500)
@@ -76,7 +83,22 @@ export default function PathologistReviewView({ initialOrderId }: PathologistRev
   const handleAuthorizeReport = () => {
     if (!selectedOrder) return
 
-    LabLisService.verifyAndSignReport(selectedOrder.id, pathologistName, interpretiveComments)
+    if (!isSelectedOrderPaid) {
+      showToast(`Cannot finalize: Billing for Order ${selectedOrder.id} is pending payment (₹${selectedOrder.billing?.total || 0}) at Billing section.`)
+      return
+    }
+
+    if (!hasSelectedOrderResults) {
+      showToast(`Cannot finalize: No test results entered yet for Order ${selectedOrder.id}. Please enter results in Lab Workbench first.`)
+      return
+    }
+
+    const ok = LabLisService.verifyAndSignReport(selectedOrder.id, pathologistName, interpretiveComments)
+    if (!ok) {
+      showToast(`Authorization blocked. Check billing status and test result entries.`)
+      return
+    }
+
     showToast(`Order ${selectedOrder.id} authorized & signed by ${pathologistName}! Opening diagnostic report...`)
     setInterpretiveComments("")
 
@@ -149,7 +171,8 @@ export default function PathologistReviewView({ initialOrderId }: PathologistRev
               const hasCritical = ord.tests.some(
                 (t) => t.flag === "Critical" || Object.values(t.results || {}).some((r) => r.flag === "Critical")
               )
-              const isFinal = ord.status === "Completed"
+              const isOrderPaid = ord.billing?.status === "Paid"
+              const isFinal = ord.status === "Completed" && isOrderPaid
 
               return (
                 <div
@@ -165,14 +188,22 @@ export default function PathologistReviewView({ initialOrderId }: PathologistRev
                     <span className="font-bold text-slate-900">{ord.patientName}</span>
                     <span
                       className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold border ${
-                        isFinal
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                          : hasCritical
-                            ? "bg-rose-50 text-rose-800 border-rose-200 animate-pulse"
-                            : "bg-amber-50 text-amber-800 border-amber-200"
+                        !isOrderPaid
+                          ? "bg-amber-50 text-amber-800 border-amber-300"
+                          : isFinal
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : hasCritical
+                              ? "bg-rose-50 text-rose-800 border-rose-200 animate-pulse"
+                              : "bg-blue-50 text-blue-800 border-blue-200"
                       }`}
                     >
-                      {isFinal ? "Verified" : hasCritical ? "Critical Alert" : ord.status}
+                      {!isOrderPaid
+                        ? "Bill Pending"
+                        : isFinal
+                          ? "Verified"
+                          : hasCritical
+                            ? "Critical Alert"
+                            : ord.status}
                     </span>
                   </div>
 
@@ -216,6 +247,28 @@ export default function PathologistReviewView({ initialOrderId }: PathologistRev
                   </button>
                 </div>
               </div>
+
+              {/* Billing Clearance or Results Alert Banner */}
+              {!isSelectedOrderPaid ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      <strong>Billing Clearance Required:</strong> Order {selectedOrder.id} has an unpaid bill of ₹{selectedOrder.billing?.total?.toLocaleString("en-IN") || 0}. Billing must be cleared in the central Billing Section before this diagnostic report can be verified or finalized.
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg font-bold shrink-0">
+                    Bill Pending
+                  </span>
+                </div>
+              ) : !hasSelectedOrderResults ? (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2 text-xs text-blue-900">
+                  <AlertTriangle className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>
+                    <strong>Awaiting Workbench Results:</strong> No analytical observations or test values have been recorded for this order yet. Results must be entered on the workbench before authorization.
+                  </span>
+                </div>
+              ) : null}
 
               {/* Tests & Parameters Observation Table */}
               <div className="space-y-4">
@@ -333,7 +386,19 @@ export default function PathologistReviewView({ initialOrderId }: PathologistRev
                     <button
                       type="button"
                       onClick={handleAuthorizeReport}
-                      className="px-5 py-2 bg-[#0D9488] hover:bg-[#0f766e] text-white text-xs font-bold rounded-xl transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                      disabled={!isSelectedOrderPaid || !hasSelectedOrderResults}
+                      className={`px-5 py-2 text-white text-xs font-bold rounded-xl transition shadow-2xs flex items-center gap-1.5 ${
+                        !isSelectedOrderPaid || !hasSelectedOrderResults
+                          ? "bg-slate-300 cursor-not-allowed text-slate-500"
+                          : "bg-[#0D9488] hover:bg-[#0f766e] cursor-pointer"
+                      }`}
+                      title={
+                        !isSelectedOrderPaid
+                          ? "Bill must be paid at Billing Section before authorization"
+                          : !hasSelectedOrderResults
+                            ? "Enter test results on Workbench before authorization"
+                            : "Authorize & finalize official diagnostic report"
+                      }
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>Authorize & Finalize Report</span>
