@@ -869,83 +869,9 @@ export default function PatientChart({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {emr && (
-              <SendToPatientMenu
-                options={[
-                  {
-                    label: "EMR report",
-                    hint: "Diagnoses, medicines, tests and notes as a PDF",
-                    kind: "emr_report",
-                    patient: chartRecipient,
-                    documentLabel: "Health record summary",
-                    buildDocument: () => buildEmrReportDocument(emrReportInput(selectedRow, emr)),
-                  },
-                  {
-                    label: "Visit journey",
-                    hint: "Every step of the patient's journey as a PDF",
-                    kind: "patient_journey",
-                    patient: chartRecipient,
-                    vars: {
-                      opNumber: selectedRow.care_stream === "OP" ? selectedRow.appointment_doctor || "OP" : "IP",
-                      token: selectedRow.patient_id,
-                      doctor: selectedRow.appointment_doctor || "Attending Physician",
-                      dept: selectedRow.appointment_dept || "Clinical Care",
-                      status: selectedRow.appointment_status || "Active",
-                      vitals: emr?.vitals?.[0]?.bp
-                        ? `BP ${emr.vitals[0].bp}, Pulse ${emr.vitals[0].pulse || "--"} bpm, Temp ${emr.vitals[0].temperature || "--"}°F`
-                        : "Recorded in chart",
-                      diagnosis: emr?.diagnoses?.[0]?.diagnosis_name || "Under Clinical Care",
-                      advice: emr?.notes?.[0]?.notes || "Follow advised treatment plan",
-                      date: selectedRow.appointment_date
-                        ? selectedRow.appointment_date.split("T")[0]
-                        : (selectedRow.admission_date
-                            ? selectedRow.admission_date.split("T")[0]
-                            : (selectedRow as any).created_at
-                                ? String((selectedRow as any).created_at).split("T")[0]
-                                : new Date().toLocaleDateString("en-IN")),
-                    },
-                    documentLabel: "Visit journey",
-                    buildDocument: () =>
-                      buildJourneyDocument({
-                        name: chartRecipient.name,
-                        id: chartRecipient.id,
-                        phone: chartRecipient.phone,
-                        email: chartRecipient.email,
-                        department: selectedRow.appointment_dept || undefined,
-                        doctor: selectedRow.appointment_doctor || undefined,
-                        status: selectedRow.appointment_status || undefined,
-                        vitals: emr?.vitals?.[0]
-                          ? {
-                              bp: emr.vitals[0].bp,
-                              pulse: emr.vitals[0].pulse,
-                              temp: emr.vitals[0].temperature,
-                            }
-                          : undefined,
-                        diagnosis: emr?.diagnoses?.map((d) => d.diagnosis_name).join(", "),
-                        prescriptions: emr?.prescriptions?.map((p) => ({
-                          medicine: p.medicine_name,
-                          dosage: p.dosage || undefined,
-                        })),
-                        investigations: emr?.labs?.map((l) => l.test_name),
-                        steps: [...emr.timeline]
-                          .sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""))
-                          .map((e) => ({ label: e.label, at: e.timestamp, detail: e.stage })),
-                      }),
-                  },
-                  {
-                    label: "Feedback request",
-                    hint: "Ask the patient to rate their visit on WhatsApp",
-                    kind: "feedback_request",
-                    patient: chartRecipient,
-                  },
-                ]}
-              />
-            )}
-            <Btn variant="primary" size="xs" onClick={() => setAddOpen(true)}>
-              <FiPlus aria-hidden /> Add Evaluation
-            </Btn>
-          </div>
+          <Btn variant="primary" size="xs" onClick={() => setAddOpen(true)}>
+            <FiPlus aria-hidden /> Add Evaluation
+          </Btn>
         </div>
       </div>
 

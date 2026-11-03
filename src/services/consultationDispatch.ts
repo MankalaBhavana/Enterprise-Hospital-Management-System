@@ -15,6 +15,7 @@ import { db, DBOPEncounter } from "./db"
 import { AuditDatabase } from "./auditDb"
 import { LabOrderDatabase, priceForTest } from "./labOrdersDb"
 import { BillingDatabase } from "./billingDb"
+import { OpReportsService } from "./opReportsDb"
 import {
   isRadiologyTest,
   getModalityForTest,

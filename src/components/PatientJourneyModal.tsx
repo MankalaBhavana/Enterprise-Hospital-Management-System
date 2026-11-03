@@ -59,41 +59,6 @@ export default function PatientJourneyModal({
   // Query live radiology studies from BillingDatabase
   const allRadStudies = BillingDatabase.getRadiologyStudies()
 
-  const buildCurrentJourneyDoc = () =>
-    buildJourneyDocument({
-      name: liveEncounter.patientName,
-      id: liveEncounter.umr,
-      phone: liveEncounter.phone,
-      email: (liveEncounter as any).email || (liveEncounter as any).patientEmail,
-      opNumber: liveEncounter.opNumber,
-      token: liveEncounter.queueToken,
-      department: liveEncounter.dept,
-      doctor: activeDoctor,
-      room: liveEncounter.room,
-      status: liveEncounter.status,
-      dateOfVisit: liveEncounter.createdAt || (liveEncounter.date ? `${liveEncounter.date} ${liveEncounter.registrationTime}` : undefined) || liveEncounter.timestamps?.arrival || liveEncounter.registrationTime,
-      chiefComplaint: liveEncounter.chiefComplaint,
-      symptoms: liveEncounter.symptoms,
-      vitals: liveEncounter.vitals,
-      diagnosis: activeDiagnosis,
-      icd10: liveEncounter.icd10,
-      advice: activeAdvice,
-      prescriptions: activePrescription.length > 0 ? activePrescription : undefined,
-      investigations: activeInvestigations.length > 0 ? activeInvestigations : undefined,
-      billing: {
-        total: totalSettlement,
-        status: billStatus,
-      },
-      extra: [
-        ["OP number", liveEncounter.opNumber],
-        ["Token", `#${liveEncounter.queueToken || liveEncounter.opNumber}`],
-        ["Department", liveEncounter.dept],
-        ["Doctor", activeDoctor],
-        ["Status", liveEncounter.status],
-      ],
-      steps: journeySteps(liveEncounter),
-    })
-
   // Match finalized radiology reports for the current live encounter
   const finalizedStudiesForEncounter = allRadStudies.filter((s) => {
     const isFinal = s.status === "Final" || s.reportStatus === "Final"

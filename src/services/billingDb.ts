@@ -23,6 +23,7 @@ import { safeLocalStorageSetItem } from "../utils/storageQuotaManager"
 import { db, DBPatient, DBOPEncounter } from "./db";
 import { getDoctorConsultationFee } from "./doctorMaster";
 import { encounterArrivalIso } from "./encounterTime"
+import { OpReportsService } from "./opReportsDb"
 import {
   applyServerPaymentLocally,
   getServerClaims,
@@ -474,6 +475,14 @@ export interface LabOrderRecord {
   verifiedBy?: string
 
   verifiedAt?: string
+
+  billingClearedAt?: string
+
+  eligibleAt?: string
+
+  orderedAt?: string
+
+  createdAt?: string
 
   comments?: string
 
@@ -7634,7 +7643,7 @@ export class BillingDatabase {
           syncedStudies[existingIdx] = {
             ...current,
 
-            paymentStatus: isPaid ? "Paid" : (claim.status === "Awaiting Billing" || claim.balanceDue > 0 ? "Payment Pending" : current.paymentStatus),
+            paymentStatus: isPaid ? "Paid" : ((claim.status as string) === "Awaiting Billing" || claim.balanceDue > 0 ? "Payment Pending" : current.paymentStatus),
 
             paidReceiptNo: isPaid
               ? current.paidReceiptNo || receiptNo
@@ -8184,7 +8193,7 @@ export class BillingDatabase {
       }
       // If neither exists, do NOT synthesize a placeholder "Diagnostic Imaging Study"
       console.warn(`Radiology study '${id}' not found in active records or seed catalog; skipping phantom record creation.`)
-      return null
+      return null as unknown as RadiologyStudyRecord
     }
 
     const updated = { ...studies[idx], ...updates }

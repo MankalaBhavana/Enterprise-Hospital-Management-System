@@ -35,8 +35,6 @@ export interface DBPatient {
 
 export interface DBOPEncounter {
   id: string // Primary Key: e.g. ENC-101
-  date?: string
-  createdAt?: string
 
   umr: string // Foreign Key to DBPatient
 
@@ -2196,10 +2194,6 @@ class HospitalDatabase {
 
       umr: newUmr,
 
-      date: nowIso.split("T")[0],
-
-      createdAt: nowIso,
-
       opNumber: newOpNumber,
 
       patientName: fullName,
@@ -2365,17 +2359,12 @@ class HospitalDatabase {
       minute: "2-digit",
     })
 
-    const nowIso = new Date().toISOString()
     const newEncounter: DBOPEncounter = {
       id: encounterId,
       date: nowIso.split("T")[0],
       createdAt: nowIso,
 
       umr: patient.umr, // STRICTLY KEPT UNCHANGED
-
-      date: nowIso.split("T")[0],
-
-      createdAt: nowIso,
 
       opNumber: newOpNumber, // GLOBAL CONTINUOUS NEXT OP NUMBER
 
