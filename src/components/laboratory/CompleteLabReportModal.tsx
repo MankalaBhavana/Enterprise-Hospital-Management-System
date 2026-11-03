@@ -524,42 +524,8 @@ export default function CompleteLabReportModal({
                   </div>
                 </div>
 
-                {/* Right Side: Consultant Pathologist Rubber Stamp & Signature */}
-                <div className="flex flex-col items-center justify-end text-center pl-6 pt-1">
-                  {/* Handwritten Blue/Purple Ink Signature */}
-                  <div className="w-36 h-9 mb-[-8px] flex items-center justify-center opacity-90 select-none">
-                    <svg
-                      viewBox="0 0 160 50"
-                      className="w-full h-full text-[#3730a3]"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M 15 35 Q 25 10 40 25 T 65 20 Q 80 5 95 30 T 130 18 Q 145 22 155 35 M 40 38 Q 90 42 140 32" />
-                    </svg>
-                  </div>
-
-                  {/* Stamp Text Imprint */}
-                  <div className="text-[#3730a3] font-serif leading-tight">
-                    <div className="font-extrabold text-[13.5px] tracking-wide">
-                      Dr. SUDHA RAYASAM
-                    </div>
-                    <div className="text-[10.5px] font-medium italic">
-                      M.D. (Pathology)
-                    </div>
-                    <div className="font-bold text-[11.5px] mt-0.5">
-                      Consultant Pathologist
-                    </div>
-                    <div className="font-bold text-[11px] tracking-wide mt-0.5">
-                      IMPERIAL HOSPITALS
-                    </div>
-                    <div className="text-[10px]">
-                      BHIMAVARAM-534 202.
-                    </div>
-                  </div>
-                </div>
+                {/* Right Side: Empty */}
+                <div></div>
               </div>
             </div>
 

@@ -12,6 +12,8 @@ import {
   XCircle,
   MessageSquare,
   ChevronRight,
+  PlusCircle,
+  Trash2,
   Clock,
   RefreshCw,
 } from "lucide-react"
@@ -171,7 +173,6 @@ export default function PrescriptionQueue({
                 </button>
               ))}
             </div>
-
             <div className="flex items-center gap-2 ml-auto">
               <button
                 type="button"

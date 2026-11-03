@@ -121,9 +121,10 @@ export default function LabReportsView() {
   }, [orders, searchQuery, selectedDeptFilter])
 
   // Sub-module 1: Newly Approved Reports (Newest at the very TOP)
+  // STRICT RULE: Only fully Paid and authorized orders can be in Approved Reports
   const newlyApprovedReports = useMemo(() => {
     return filteredBaseOrders
-      .filter((o) => o.status === "Completed")
+      .filter((o) => o.status === "Completed" && o.billing?.status === "Paid")
       .sort((a, b) => {
         const timeA = getApprovalTimestamp(a)
         const timeB = getApprovalTimestamp(b)
@@ -148,7 +149,7 @@ export default function LabReportsView() {
   // Sub-module 3: Preliminary / In-Progress Reports
   const preliminaryReports = useMemo(() => {
     return filteredBaseOrders
-      .filter((o) => o.status !== "Completed" && o.status !== "Cancelled")
+      .filter((o) => (o.status !== "Completed" || o.billing?.status !== "Paid") && o.status !== "Cancelled")
       .sort((a, b) => {
         const timeA = new Date(a.createdAt || 0).getTime()
         const timeB = new Date(b.createdAt || 0).getTime()
@@ -408,7 +409,8 @@ export default function LabReportsView() {
                 </tr>
               ) : (
                 displayedReports.map((order, idx) => {
-                  const isFinal = order.status === "Completed"
+                  const isPaid = order.billing?.status === "Paid"
+                  const isFinal = order.status === "Completed" && isPaid
                   const hasStat = order.tests.some((t) => t.urgency === "STAT")
                   const isFresh = isFinal && (isToday(getApprovalTimestamp(order)) || idx === 0)
 
@@ -467,7 +469,9 @@ export default function LabReportsView() {
                           className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
                             isFinal
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
+                              : !isPaid
+                              ? "bg-amber-50 text-amber-800 border-amber-300"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
                           }`}
                         >
                           {isFinal ? (
@@ -475,9 +479,14 @@ export default function LabReportsView() {
                               <CheckCircle2 className="w-3 h-3 text-emerald-600 inline" />
                               <span>Finalized & Signed</span>
                             </>
-                          ) : (
+                          ) : !isPaid ? (
                             <>
                               <Clock className="w-3 h-3 text-amber-600 inline" />
+                              <span>Billing Pending (₹${order.billing?.total || 0})</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3 text-blue-600 inline" />
                               <span>Preliminary Draft</span>
                             </>
                           )}
@@ -486,10 +495,10 @@ export default function LabReportsView() {
 
                       <td className="py-3 px-4">
                         <div className="font-medium text-slate-800">
-                          {isFinal ? "Dr. Arvind Swaminathan (MD Path)" : "Pending Review"}
+                          {isFinal ? "Dr. Arvind Swaminathan (MD Path)" : !isPaid ? "Reception Billing" : "Pending Review"}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {isFinal ? "Digitally Verified · v1.0" : "Bench Status: Testing"}
+                          {isFinal ? "Digitally Verified · v1.0" : !isPaid ? "Unpaid - Awaiting Cashier" : "Bench Status: Testing"}
                         </div>
                       </td>
 

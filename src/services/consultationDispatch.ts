@@ -263,7 +263,7 @@ export function dispatchConsultation(
             study: t.name,
             modality,
             priority: t.urgency === "STAT" ? "STAT" : "Routine",
-            ordered: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            ordered: `${OpReportsService.getEncounterDate(encounter) || new Date().toISOString().split("T")[0]} · ${encounter.registrationTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
             provider: doctor.name,
             status: "Orders",
             room,

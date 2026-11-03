@@ -247,6 +247,7 @@ export default function Laboratory({
 
   // Helper to determine if an order is completed
   const isOrderCompleted = (order: LabOrder): boolean => {
+    if (order.billing?.status !== "Paid") return false
     if (order.status === "Completed") return true
     if (
       order.tests.length > 0 &&

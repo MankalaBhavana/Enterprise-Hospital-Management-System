@@ -1,4 +1,5 @@
 import type { FlowsheetRecord } from "./IcuFlowsheet"
+import { safeLocalStorageSetItem, freeLocalStorageQuota } from "../../utils/storageQuotaManager"
 
 const storageKey = (patientId: string, date: string) =>
   `icu.flowsheet.${patientId}.${date}`
@@ -866,24 +867,23 @@ export function ensureMultiDaySeedData(
           patientId,
           dayNumber,
           dateStr,
-          totalDays,
+          Math.min(totalDays, 3),
         )
-        try {
-          localStorage.setItem(key, JSON.stringify(record))
-        } catch (quotaErr) {
-          // Break immediately on quota limits to protect storage headroom
-          break
-        }
+        const saved = safeLocalStorageSetItem(key, JSON.stringify(record))
+        if (!saved) break
       }
     }
   } catch (err) {
-    // Graceful fallback
+    // Graceful error silence
   }
 }
 
 // Immediate storage cleanup: prune bloated historical ICU flowsheet seeds from localStorage
 // to guarantee permanent free quota headroom for clinical registration and patient records
 if (typeof window !== "undefined") {
+  try {
+    freeLocalStorageQuota()
+  } catch {}
   try {
     const todayStr = new Date().toISOString().split("T")[0]
     const keysToRemove: string[] = []
@@ -1408,14 +1408,13 @@ export function generateDeepakDay1FullRecord(dateStr: string): FlowsheetRecord {
 /** Seed complete Day 1 flowsheet data for Deepak Patel */
 export function seedDeepakPatelDay1Data(): void {
   try {
-    const today = new Date().toISOString().slice(0, 10)
-    const key = `icu.flowsheet.100239.${today}`
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `icu.flowsheet.100239.${today}`;
     if (!localStorage.getItem(key)) {
-      const rec100239 = generateDeepakDay1FullRecord(today)
-      localStorage.setItem(key, JSON.stringify(rec100239))
+      const rec100239 = generateDeepakDay1FullRecord(today);
+      safeLocalStorageSetItem(key, JSON.stringify(rec100239));
     }
   } catch (err) {
-    console.warn("Failed to seed Deepak Patel Day 1 data:", err)
+    // Graceful
   }
 }
-

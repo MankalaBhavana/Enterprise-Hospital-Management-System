@@ -179,6 +179,9 @@ import { ErDatabase } from "./services/erDb"
 import { BedDatabase } from "./services/bedDb"
 import { db } from "./services/db"
 import { getDischargedIcuPatients } from "./components/icu/IcuDischargeModal"
+import { RadiologyWorkflowDb } from "./services/radiologyWorkflowDb"
+import { UniversalRadiologyDb } from "./services/universalRadiologyDb"
+import { freeLocalStorageQuota } from "./utils/storageQuotaManager"
 
 /** Insurance sub-modules and legacy key mappings */
 const insuranceModule = (m: string): string =>
@@ -191,7 +194,7 @@ const insuranceModule = (m: string): string =>
         : m
 
 
-type Module = "dashboard" | "patients" | "appointments" | "emergency" | "emergency_ui" | "clinical" | "inpatient" | "nursing" | "laboratory" | "lab_dashboard" | "lab_orders_collection" | "lab_workbench" | "lab_review_reports" | "lab_admin_config" | "lab_orders" | "lab_sample_collection" | "lab_sample_reception" | "lab_worklists" | "lab_analyzers" | "lab_result_entry" | "lab_pathologist_review" | "lab_critical_alerts" | "lab_reports" | "lab_test_master" | "lab_quality_analytics" | "lab_settings" | "lab_processing" | "lab_critical" | "lab_catalog" | "lab_inventory" | "lab_analytics" | "lab_tat" | "radiology" | "radiology_reports" | "radiology_templates" | "pharmacy" | "pharmacy_dispensing" | "pharmacy_rx" | "pharmacy_ocr" | "pharmacy_returns" | "pharmacy_supplier_returns" | "pharmacy_medicine" | "pharmacy_category" | "pharmacy_suppliers" | "pharmacy_po" | "pharmacy_grn" | "pharmacy_ledger" | "pharmacy_transfers" | "pharmacy_expiry" | "pharmacy_write_off" | "pharmacy_analytics" | "pharmacy_notifications" | "pharmacy_users" | "pharmacy_audit" | "pharmacy_settings" | "surgery" | "billing" | "billing_op" | "billing_ip" | "billing_er" | "billing_unified" | "billing_revenue" | "icu" | "icu_micu" | "icu_sicu" | "icu_ccu" | "icu_nicu" | "icu_picu" | "icu_ward" | "discharge" | "triage" | "insurance" | "insurance_overview" | "insurance_desk" | "insurance_board" | "insurance_case" | "insurance_discharge" | "insurance_reports" | "insurance_preauth" | "insurance_eligibility" | "insurance_claims" | "insurance_queries" | "insurance_emails" | "insurance_settlement" | "insurance_reconciliation" | "insurance_masters" | "insurance_tpas" | "insurance_packages" | "insurance_pricing" | "insurance_docrules" | "insurance_patient_policies" | "analytics" | "reports" | "reports_overview" | "reports_patients" | "reports_op" | "reports_er" | "reports_inpatient" | "reports_appointments" | "reports_doctors" | "reports_pharmacy" | "reports_laboratory" | "reports_radiology" | "reports_beds" | "reports_admissions" | "reports_discharges" | "reports_staff" | "admin" | "chart" | "register" | "outpatient" | "queue" | "op_management" | "op_registration" | "op_workflow" | "op_nurse" | "opd_procedures" | "doctor_workflow" | "doctor_portal" | "scheduling" | "lab_billing" | "admissions" | "readmission" | "payments" | "revenue_reports" | "reports_pharmacy_damaged" | "reports_supplier_returns" | "hrms" | "my_hr" | "employees" | "hr_dashboard" | "hr_attendance" | "hr_staffing" | "hr_leave" | "hr_approvals" | "hr_payroll" | "hr_recruitment" | "hr_organization" | "hr_training" | "hr_performance" | "hr_compliance" | "hr_grievances" | "hr_reports" | "hr_announcements" | "patient_exp" | "patient_messages" | "intelligence" | "ocr" | "dpi_ocr" | "symptom_ai" | "clinical_rag" | "clinical_summaries" | "bulk_ai" | "nl_filtering" | "beds" | "accounts" | "accounts_dashboard" | "accounts_coa" | "accounts_gl" | "accounts_receipts" | "accounts_payments" | "accounts_ar" | "accounts_ap" | "accounts_cash_bank" | "accounts_pharmacy" | "accounts_insurance" | "accounts_tax" | "accounts_budget" | "accounts_assets" | "accounts_reports" | "accounts_period_close" | "accounts_audit" | "accounts_manager"
+type Module = "dashboard" | "patients" | "appointments" | "emergency" | "emergency_ui" | "clinical" | "inpatient" | "nursing" | "laboratory" | "lab_dashboard" | "lab_orders_collection" | "lab_workbench" | "lab_review_reports" | "lab_admin_config" | "lab_orders" | "lab_sample_collection" | "lab_sample_reception" | "lab_worklists" | "lab_analyzers" | "lab_result_entry" | "lab_pathologist_review" | "lab_critical_alerts" | "lab_reports" | "lab_test_master" | "lab_quality_analytics" | "lab_settings" | "lab_processing" | "lab_critical" | "lab_catalog" | "lab_inventory" | "lab_analytics" | "lab_tat" | "radiology" | "radiology_overview" | "radiology_worklist" | "radiology_scheduling" | "radiology_operations" | "radiology_reporting" | "radiology_finalized" | "radiology_exceptions" | "radiology_analytics" | "radiology_admin" | "radiology_template_upload" | "radiology_templates" | "radiology_xray" | "radiology_ct" | "radiology_usg" | "radiology_mri" | "radiology_reports" | "pharmacy" | "pharmacy_dispensing" | "pharmacy_rx" | "pharmacy_ocr" | "pharmacy_returns" | "pharmacy_supplier_returns" | "pharmacy_medicine" | "pharmacy_category" | "pharmacy_suppliers" | "pharmacy_po" | "pharmacy_grn" | "pharmacy_ledger" | "pharmacy_transfers" | "pharmacy_expiry" | "pharmacy_write_off" | "pharmacy_analytics" | "pharmacy_notifications" | "pharmacy_users" | "pharmacy_audit" | "pharmacy_settings" | "surgery" | "billing" | "billing_op" | "billing_ip" | "billing_er" | "billing_unified" | "billing_revenue" | "icu" | "icu_micu" | "icu_sicu" | "icu_ccu" | "icu_nicu" | "icu_picu" | "icu_ward" | "discharge" | "triage" | "insurance" | "insurance_overview" | "insurance_desk" | "insurance_board" | "insurance_case" | "insurance_discharge" | "insurance_reports" | "insurance_preauth" | "insurance_eligibility" | "insurance_claims" | "insurance_queries" | "insurance_emails" | "insurance_settlement" | "insurance_reconciliation" | "insurance_masters" | "insurance_tpas" | "insurance_packages" | "insurance_pricing" | "insurance_docrules" | "insurance_patient_policies" | "analytics" | "reports" | "reports_overview" | "reports_patients" | "reports_op" | "reports_er" | "reports_inpatient" | "reports_appointments" | "reports_doctors" | "reports_pharmacy" | "reports_laboratory" | "reports_radiology" | "reports_beds" | "reports_admissions" | "reports_discharges" | "reports_staff" | "admin" | "chart" | "register" | "outpatient" | "queue" | "op_management" | "op_registration" | "op_workflow" | "op_nurse" | "opd_procedures" | "doctor_workflow" | "doctor_portal" | "scheduling" | "lab_billing" | "admissions" | "readmission" | "payments" | "revenue_reports" | "reports_pharmacy_damaged" | "reports_supplier_returns" | "hrms" | "my_hr" | "employees" | "hr_dashboard" | "hr_attendance" | "hr_staffing" | "hr_leave" | "hr_approvals" | "hr_payroll" | "hr_recruitment" | "hr_organization" | "hr_training" | "hr_performance" | "hr_compliance" | "hr_grievances" | "hr_reports" | "hr_announcements" | "patient_exp" | "patient_messages" | "intelligence" | "ocr" | "dpi_ocr" | "symptom_ai" | "clinical_rag" | "clinical_summaries" | "bulk_ai" | "nl_filtering" | "beds" | "accounts" | "accounts_dashboard" | "accounts_coa" | "accounts_gl" | "accounts_receipts" | "accounts_payments" | "accounts_ar" | "accounts_ap" | "accounts_cash_bank" | "accounts_pharmacy" | "accounts_insurance" | "accounts_tax" | "accounts_budget" | "accounts_assets" | "accounts_reports" | "accounts_period_close" | "accounts_audit" | "accounts_manager"
 
 const HR_MODULE_SECTION_MAP: Record<string, HrSection> = {
   hrms: "dashboard",
@@ -334,9 +337,13 @@ const NAV: NavItem[] = [
     label: "Radiology",
     Icon: Scan,
     children: [
-      { key: "radiology", label: "Radiology Department" },
-      { key: "radiology_reports", label: "Radiology Reports" },
-      { key: "radiology_templates", label: "Report Templates" },
+      { key: "radiology", label: "Overview Hub" },
+      { key: "radiology_worklist", label: "Examination Worklist" },
+      { key: "radiology_operations", label: "Scanning Operations" },
+      { key: "radiology_reporting", label: "Reporting Workspace" },
+      { key: "radiology_reports", label: "Finalized Reports" },
+      { key: "radiology_template_upload", label: "Template Management" },
+      { key: "radiology_analytics", label: "Department Analytics" },
     ],
   },
 
@@ -1242,6 +1249,13 @@ export default function App() {
     "General Reports",
   ])
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([])
+  const [radiologyStudyId, setRadiologyStudyId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("hospai_active_radiology_study_id")
+    } catch {
+      return null
+    }
+  })
   const [subBadges, setSubBadges] = useState<Record<string, number>>({})
 
   // Bumped whenever the doctor inbox or the lab-order queue changes, so the
@@ -1249,6 +1263,10 @@ export default function App() {
   // sidebar counts move without waiting for the next navigation.
 
   const [badgeTick, setBadgeTick] = useState(0)
+
+  useEffect(() => {
+    freeLocalStorageQuota()
+  }, [])
 
   useEffect(
     () => DoctorPortalDatabase.subscribe(() => setBadgeTick((t) => t + 1)),
@@ -1802,6 +1820,10 @@ export default function App() {
         pharmacy_expiry: expiringSoon,
 
         pharmacy_medicine: lowStock,
+        radiology_worklist: RadiologyWorkflowDb.getStudies().length,
+        radiology_operations: RadiologyWorkflowDb.getStudies().filter((s) => s.normalizedStatus === "IN PROGRESS").length,
+        radiology_reporting: RadiologyWorkflowDb.getStudies().filter((s) => s.normalizedStatus === "DONE" && s.normalizedReportStatus !== "Finalized").length,
+        radiology_reports: RadiologyWorkflowDb.getStudies().filter((s) => s.normalizedReportStatus === "Finalized").length,
       }))
     } catch {
       setSubBadges((prev) => ({
@@ -1820,6 +1842,10 @@ export default function App() {
         pharmacy_dispensing: 0,
         pharmacy_expiry: 0,
         pharmacy_medicine: 0,
+        radiology_worklist: 0,
+        radiology_operations: 0,
+        radiology_reporting: 0,
+        radiology_reports: 0,
       }))
     }
   }, [module, loggedIn, badgeTick, activeDoctor])
@@ -3000,20 +3026,69 @@ export default function App() {
                 />
               )}
               {(module === "radiology" ||
-                module === "radiology_reports" ||
-                module === "radiology_templates") && (
+                module === "radiology_templates" ||
+                module.startsWith("radiology_")) && (
                 <Radiology
                   initialTab={
-                    module === "radiology_reports"
-                      ? "reports"
-                      : module === "radiology_templates"
-                        ? "templates"
-                        : "worklist"
+                    module === "radiology_worklist"
+                      ? "worklist"
+                      : module === "radiology_operations"
+                      ? "operations"
+                      : module === "radiology_reporting"
+                      ? "reporting"
+                      : module === "radiology_reports" || module === "radiology_finalized"
+                      ? "finalized"
+                      : module === "radiology_template_upload" || module === "radiology_templates"
+                      ? "template_upload"
+                      : module === "radiology_analytics"
+                      ? "analytics"
+                      : "overview"
                   }
+                  initialStudyId={
+                    module === "radiology_reporting" || module === "radiology_operations"
+                      ? radiologyStudyId
+                      : null
+                  }
+                  departmentScope={
+                    module === "radiology_ct"
+                      ? "ct"
+                      : module === "radiology_usg"
+                      ? "usg"
+                      : module === "radiology_mri"
+                      ? "mri"
+                      : module === "radiology_xray"
+                      ? "xray"
+                      : "all"
+                  }
+                  onNavigateView={(view, subParam) => {
+                    const mapping: Record<string, Module> = {
+                      overview: "radiology",
+                      worklist: "radiology_worklist",
+                      operations: "radiology_operations",
+                      reporting: "radiology_reporting",
+                      finalized: "radiology_reports",
+                      template_upload: "radiology_template_upload",
+                      analytics: "radiology_analytics",
+                    }
+                    if (subParam) {
+                      setRadiologyStudyId(subParam)
+                      try {
+                        localStorage.setItem("hospai_active_radiology_study_id", subParam)
+                      } catch {}
+                    } else if (view === "worklist" || view === "reporting" || view === "overview") {
+                      setRadiologyStudyId(null)
+                      try {
+                        localStorage.removeItem("hospai_active_radiology_study_id")
+                      } catch {}
+                    }
+                    if (mapping[view]) {
+                      setModule(mapping[view])
+                    }
+                  }}
                   onNavigateTab={(tab: "worklist" | "reports" | "templates") => {
-                    if (tab === "worklist") setModule("radiology")
+                    if (tab === "worklist") setModule("radiology_worklist")
                     else if (tab === "reports") setModule("radiology_reports")
-                    else if (tab === "templates") setModule("radiology_templates")
+                    else if (tab === "templates") setModule("radiology_template_upload")
                   }}
                 />
               )}
@@ -3366,6 +3441,12 @@ export default function App() {
               } else if (key === "register") {
                 setModule("register")
               } else {
+                if (key === "radiology_reporting" || key === "radiology_worklist" || key === "radiology" || key === "radiology_operations" || key === "radiology_reports") {
+                  setRadiologyStudyId(null)
+                  try {
+                    localStorage.removeItem("hospai_active_radiology_study_id")
+                  } catch {}
+                }
                 setModule(key as Module)
               }
             }}

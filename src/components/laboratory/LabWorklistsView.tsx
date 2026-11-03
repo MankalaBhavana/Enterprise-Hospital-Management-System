@@ -268,7 +268,7 @@ export default function LabWorklistsView({ onOpenResultEntry }: LabWorklistsView
 
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {test.status === "Pending" || test.status === "Ordered" ? (
+                          {(test.status === "Pending" || test.status === "Ordered") && order.billing?.status === "Paid" ? (
                             <button
                               onClick={() => handleStartProcessing(order.id, test.id)}
                               className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs transition cursor-pointer flex items-center gap-1"
@@ -278,22 +278,23 @@ export default function LabWorklistsView({ onOpenResultEntry }: LabWorklistsView
                             </button>
                           ) : null}
 
-                          <button
-                            onClick={() => {
-                              if (onOpenResultEntry) onOpenResultEntry(order, test)
-                            }}
-                            className={`px-3 py-1 font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer ${
-                              order.billing?.status === "Paid"
-                                ? "bg-[#7552B8] hover:bg-[#6240a3] text-white"
-                                : "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
-                            }`}
-                          >
-                            {order.billing?.status === "Paid"
-                              ? isCompleted
-                                ? "View Result"
-                                : "Enter Results"
-                              : "⚠ Bill Pending"}
-                          </button>
+                          {order.billing?.status === "Paid" ? (
+                            <button
+                              onClick={() => {
+                                if (onOpenResultEntry) onOpenResultEntry(order, test)
+                              }}
+                              className="px-3 py-1 font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer bg-[#7552B8] hover:bg-[#6240a3] text-white"
+                            >
+                              {isCompleted ? "View Result" : "Enter Results"}
+                            </button>
+                          ) : (
+                            <span
+                              className="px-2.5 py-1 font-semibold rounded-lg text-xs bg-amber-50 text-amber-800 border border-amber-300 cursor-not-allowed select-none"
+                              title="Bill must be settled at Billing section before entering results"
+                            >
+                              Bill Pending
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

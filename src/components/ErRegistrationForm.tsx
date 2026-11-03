@@ -214,6 +214,10 @@ export default function ErRegistrationForm({
           arrival_mode: arrivalMode,
           incident_date: incidentDate || undefined,
           incident_time: incidentTime || undefined,
+          arrival_date: new Date().toISOString().split("T")[0],
+          arrival_time:
+            hospitalArrivalTime ||
+            `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`,
           arrival_at: hospitalArrivalTime || undefined,
         }),
       })

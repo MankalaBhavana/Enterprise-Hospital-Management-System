@@ -1347,6 +1347,7 @@ export function clearAllPharmacyData(): void {
     window.localStorage.setItem("varma_clean_slate_v6_active", "true")
     window.localStorage.setItem("hospai_pharm_fresh_clean_slate_v2026_ready", "true")
     window.localStorage.setItem("hospai_pharm_scratch_clean_slate_v3_applied", "true")
+    window.localStorage.setItem("hospai_pharm_fresh_demo_purged_v10", "true")
     window.localStorage.setItem("hospai_pharm_clean_slate_active", "true")
 
     window.dispatchEvent(new Event("storage"))
@@ -1365,6 +1366,7 @@ if (typeof window !== "undefined") {
       clearAllPharmacyData()
       try {
         window.localStorage.setItem(CLEAN_SLATE_STAMP, "true")
+        window.localStorage.setItem("hospai_pharm_fresh_demo_purged_v10", "true")
       } catch {}
     }
   } catch {}

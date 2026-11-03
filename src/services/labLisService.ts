@@ -870,7 +870,23 @@ export class LabLisService {
     doctorName: string,
     interpretiveComments?: string,
   ): boolean {
-    const success = LabOrderDatabase.completeOrder(orderId, doctorName, interpretiveComments)
+    const order = LabOrderDatabase.getOrder(orderId)
+    if (!order) return false
+
+    if (order.billing?.status !== "Paid") {
+      console.warn(`[LabLisService] Authorization rejected: Order ${orderId} has unpaid billing status (${order.billing?.status}).`)
+      return false
+    }
+
+    const hasAnyResults = order.tests.some(
+      (t) => Boolean(t.result) || (t.results && Object.keys(t.results).length > 0)
+    )
+    if (!hasAnyResults) {
+      console.warn(`[LabLisService] Authorization rejected: Order ${orderId} has no entered test results.`)
+      return false
+    }
+
+    const success = LabOrderDatabase.completeOrder(orderId, doctorName, doctorName)
     if (success) {
       AuditDatabase.logEvent(
         "Laboratory Report Authorized",
