@@ -1644,7 +1644,7 @@ export default function Radiology({
       study: newOrderForm.studyName,
       modality: catItem.modality,
       priority: newOrderForm.priority,
-      ordered: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      ordered: `${new Date().toISOString().split("T")[0]} · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
       provider: newOrderForm.provider,
       department: newOrderForm.department,
       status: "Orders",
@@ -1683,7 +1683,7 @@ export default function Radiology({
       study: catItem.study,
       modality: catItem.modality,
       priority: showAddStudyModal.priority,
-      ordered: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      ordered: `${new Date().toISOString().split("T")[0]} · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
       provider: first.provider,
       department: first.department,
       status: "Orders",
@@ -2290,7 +2290,9 @@ export default function Radiology({
 
                           {/* Date & Time */}
                           <td className="py-3 px-4 text-gray-500 text-[11px] whitespace-nowrap">
-                            {grp.ordered}
+                            {grp.ordered && !grp.ordered.includes("-") && !grp.ordered.includes("/")
+                              ? `${new Date().toISOString().split("T")[0]} · ${grp.ordered}`
+                              : grp.ordered}
                           </td>
 
                           {/* Action Button */}

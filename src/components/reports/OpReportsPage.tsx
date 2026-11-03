@@ -48,6 +48,7 @@ import {
   FileSpreadsheet,
   FileText,
   ChevronDown,
+  ArrowUpDown,
   AlertCircle,
   Activity,
   Stethoscope,
@@ -307,23 +308,39 @@ export default function OpReportsPage({
     return DATE_RANGE_LABELS[filters.dateRangePreset] || "Last 30 Days"
   }, [filters])
 
+  const [dateTimeSortOrder, setDateTimeSortOrder] = useState<"desc" | "asc">("desc")
+
   // ── 4. Table Search & Pagination Filtering ──────────────────────────────────
   const filteredTableVisits = useMemo(() => {
     if (!reportData) return []
+    let list = [...reportData.currentPeriodVisits]
     const q = searchQuery.toLowerCase().trim()
-    if (!q) return reportData.currentPeriodVisits
+    if (q) {
+      list = list.filter((v) => {
+        const nameMatch = v.patientName.toLowerCase().includes(q)
+        const umrMatch = v.umr.toLowerCase().includes(q)
+        const opMatch = v.opNumber.toLowerCase().includes(q)
+        const docMatch = (v.assignedDoctor || v.aiDoctor || "")
+          .toLowerCase()
+          .includes(q)
+        const deptMatch = v.dept.toLowerCase().includes(q)
+        return nameMatch || umrMatch || opMatch || docMatch || deptMatch
+      })
+    }
 
-    return reportData.currentPeriodVisits.filter((v) => {
-      const nameMatch = v.patientName.toLowerCase().includes(q)
-      const umrMatch = v.umr.toLowerCase().includes(q)
-      const opMatch = v.opNumber.toLowerCase().includes(q)
-      const docMatch = (v.assignedDoctor || v.aiDoctor || "")
-        .toLowerCase()
-        .includes(q)
-      const deptMatch = v.dept.toLowerCase().includes(q)
-      return nameMatch || umrMatch || opMatch || docMatch || deptMatch
+    list.sort((a, b) => {
+      const msA = a.visitTimestampMs ?? OpReportsService.getVisitTimestampMs(a)
+      const msB = b.visitTimestampMs ?? OpReportsService.getVisitTimestampMs(b)
+      if (msA !== msB) {
+        return dateTimeSortOrder === "desc" ? msB - msA : msA - msB
+      }
+      return dateTimeSortOrder === "desc"
+        ? (b.opNumber || "").localeCompare(a.opNumber || "", undefined, { numeric: true })
+        : (a.opNumber || "").localeCompare(b.opNumber || "", undefined, { numeric: true })
     })
-  }, [reportData, searchQuery])
+
+    return list
+  }, [reportData, searchQuery, dateTimeSortOrder])
 
   const totalTableRecords = filteredTableVisits.length
   const totalPages = Math.ceil(totalTableRecords / rowsPerPage) || 1
@@ -1307,7 +1324,19 @@ export default function OpReportsPage({
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-[#E2E8F0] text-slate-600 font-bold uppercase tracking-wider text-[10.5px]">
                     <th className="py-3 px-3.5 text-center w-12">#</th>
-                    <th className="py-3 px-3.5">Date &amp; Time</th>
+                    <th
+                      className="py-3 px-3.5 cursor-pointer hover:bg-slate-100 select-none transition-colors"
+                      onClick={() => setDateTimeSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+                      title={`Click to sort by Date & Time (${dateTimeSortOrder === "desc" ? "Newest first" : "Oldest first"})`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Date &amp; Time</span>
+                        <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-[10px] font-normal text-slate-400 lowercase">
+                          ({dateTimeSortOrder === "desc" ? "newest" : "oldest"})
+                        </span>
+                      </div>
+                    </th>
                     <th className="py-3 px-3.5">OP Number</th>
                     <th className="py-3 px-3.5">UMR</th>
                     <th className="py-3 px-3.5">Patient Name</th>

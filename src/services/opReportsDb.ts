@@ -72,6 +72,7 @@ export interface EnrichedOpVisit
   encounterDateTimeFormatted: string
   derivedVisitType: "New Consultation" | "Follow-up Visit" | "Procedure" | "Health Checkup"
   statusCategory: "Waiting" | "In Consultation" | "Completed" | "Cancelled"
+  visitTimestampMs?: number
 }
 
 const STORAGE_SEEDED_HISTORICAL_KEY = "hospai_op_reports_seeded_v3"
@@ -136,6 +137,13 @@ export class OpReportsService {
       return (enc as any).date
     }
     if (
+      (enc as any).createdAt &&
+      /^\d{4}-\d{2}-\d{2}/.test(String((enc as any).createdAt))
+    ) {
+      const match = String((enc as any).createdAt).match(/\d{4}-\d{2}-\d{2}/)
+      if (match) return match[0]
+    }
+    if (
       enc.timestamps?.visitCompleted &&
       enc.timestamps.visitCompleted.includes("-")
     ) {
@@ -149,6 +157,26 @@ export class OpReportsService {
       const match = enc.timestamps.registration.match(/\d{4}-\d{2}-\d{2}/)
       if (match) return match[0]
     }
+    if (
+      enc.timestamps?.arrival &&
+      enc.timestamps.arrival.includes("-")
+    ) {
+      const match = enc.timestamps.arrival.match(/\d{4}-\d{2}-\d{2}/)
+      if (match) return match[0]
+    }
+    // Lookup patient createdAt if UMR is known
+    if (enc.umr) {
+      try {
+        const pat = db.getPatientByUmr(enc.umr)
+        const rawCreatedAt = pat?.createdAt || (pat as any)?.created_at
+        if (rawCreatedAt) {
+          const match = String(rawCreatedAt).match(/\d{4}-\d{2}-\d{2}/)
+          if (match) return match[0]
+        }
+      } catch {
+        // ignore
+      }
+    }
     // If encounter has an ID formatted as ENC-REP-YYYYMMDD-XXX
     const idMatch = enc.id.match(/ENC-REP-(\d{4})(\d{2})(\d{2})/)
     if (idMatch) {
@@ -159,8 +187,45 @@ export class OpReportsService {
   }
 
   /**
-   * Normalizes DB encounter into EnrichedOpVisit
+   * Computes the exact timestamp in milliseconds from date and time strings
    */
+  public static getVisitTimestampMs(v: {
+    encounterDate?: string
+    registrationTime?: string
+    timestamps?: DBOPEncounter["timestamps"]
+    createdAt?: string
+  }): number {
+    if (v.createdAt) {
+      const ms = Date.parse(v.createdAt)
+      if (Number.isFinite(ms)) return ms
+    }
+    const dateStr = v.encounterDate || "1970-01-01"
+    const timeStr =
+      v.registrationTime ||
+      v.timestamps?.registration ||
+      v.timestamps?.arrival ||
+      "00:00"
+
+    const clockMatch = timeStr.match(
+      /(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i,
+    )
+    let hours = 0
+    let minutes = 0
+    if (clockMatch) {
+      hours = parseInt(clockMatch[1], 10)
+      minutes = parseInt(clockMatch[2], 10)
+      const ampm = clockMatch[3]?.toUpperCase()
+      if (ampm === "PM" && hours < 12) hours += 12
+      if (ampm === "AM" && hours === 12) hours = 0
+    }
+
+    const [year, month, day] = dateStr.split("-").map(Number)
+    if (year && month && day) {
+      return new Date(year, month - 1, day, hours, minutes, 0, 0).getTime()
+    }
+    return 0
+  }
+
   public static enrichEncounter(enc: DBOPEncounter): EnrichedOpVisit {
     const encDate = this.getEncounterDate(enc)
     const regTime =
@@ -233,10 +298,18 @@ export class OpReportsService {
       statusCategory = "Waiting"
     }
 
+    const visitTimestampMs = this.getVisitTimestampMs({
+      encounterDate: encDate,
+      registrationTime: regTime,
+      timestamps: enc.timestamps,
+      createdAt: (enc as any).createdAt,
+    })
+
     return {
       ...enc,
       encounterDate: encDate,
       encounterDateTimeFormatted: formattedDateTime,
+      visitTimestampMs,
       derivedVisitType,
       statusCategory,
     }
@@ -461,10 +534,25 @@ export class OpReportsService {
       return inDateRange && matchDimensionFilters(v)
     })
 
-    // Sort current period visits newest first
-    currentPeriodVisits.sort((a, b) =>
-      b.encounterDate.localeCompare(a.encounterDate),
-    )
+    // Sort current period visits newest first (strictly chronological by date & time)
+    currentPeriodVisits.sort((a, b) => {
+      const msA = a.visitTimestampMs ?? this.getVisitTimestampMs(a)
+      const msB = b.visitTimestampMs ?? this.getVisitTimestampMs(b)
+      if (msB !== msA) return msB - msA
+      return (b.opNumber || "").localeCompare(a.opNumber || "", undefined, {
+        numeric: true,
+      })
+    })
+
+    // Also sort previous period visits newest first
+    previousPeriodVisits.sort((a, b) => {
+      const msA = a.visitTimestampMs ?? this.getVisitTimestampMs(a)
+      const msB = b.visitTimestampMs ?? this.getVisitTimestampMs(b)
+      if (msB !== msA) return msB - msA
+      return (b.opNumber || "").localeCompare(a.opNumber || "", undefined, {
+        numeric: true,
+      })
+    })
 
     return {
       currentPeriodVisits,

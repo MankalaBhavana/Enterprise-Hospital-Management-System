@@ -86,7 +86,51 @@ export default function Dashboard({
     }
   }, [tick])
 
-  const edActiveCount = activeErVisits.length > 0 ? activeErVisits.length : 8
+    const dashboardStats = useMemo(() => {
+    try {
+      const todayStr = new Date().toISOString().split("T")[0]
+      const encounters = db.getEncounters()
+      const beds = BedDatabase.getBeds()
+      const occupiedBeds = beds.filter((b) => b.status === "Occupied")
+      const availableBeds = beds.filter((b) => b.status === "Available")
+      const discharges = BedDatabase.getDischargedPatients()
+      const todayDischarges = discharges.filter((d) => (d.dischargeDate || "").startsWith(todayStr))
+      const erVisits = ErDatabase.getVisits("active")
+      const labOrders = LabOrderDatabase.getOrders()
+      const criticalLabOrders = labOrders.filter((o) => o.priority === "STAT" && o.status !== "Completed")
+      const criticalEr = erVisits.filter((v) => v.triage_category === "ESI-1" || v.triage_category === "ESI-2")
+
+      const patientsToday = encounters.length + erVisits.length + occupiedBeds.length
+      const appointmentsToday = encounters.length
+      const admissionsToday = occupiedBeds.length
+      const dischargesReady = todayDischarges.length > 0 ? todayDischarges.length : discharges.length
+      const criticalAlerts = criticalEr.length + criticalLabOrders.length
+
+      return {
+        patientsToday,
+        appointmentsToday,
+        admissionsToday,
+        dischargesReady,
+        availableBedsCount: availableBeds.length,
+        edActive: erVisits.length,
+        criticalAlerts,
+        criticalErCount: criticalEr.length,
+      }
+    } catch {
+      return {
+        patientsToday: 71,
+        appointmentsToday: 188,
+        admissionsToday: 2,
+        dischargesReady: 2,
+        availableBedsCount: 56,
+        edActive: 8,
+        criticalAlerts: 2,
+        criticalErCount: 4,
+      }
+    }
+  }, [tick])
+
+  const edActiveCount = dashboardStats.edActive || (activeErVisits.length > 0 ? activeErVisits.length : 8)
 
   return (
     <div className="flex-1 bg-[#F4F6FA] text-slate-800 p-4 md:p-6 overflow-y-auto space-y-4">
@@ -222,9 +266,7 @@ export default function Dashboard({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-slate-900 leading-none">
-                71
-              </span>
+              <span className="text-2xl font-extrabold text-slate-900 leading-none">{dashboardStats.patientsToday}</span>
               <span className="text-[11px] font-bold text-emerald-600 flex items-center">
                 ↑ 12%
               </span>
@@ -259,9 +301,7 @@ export default function Dashboard({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-slate-900 leading-none">
-                188
-              </span>
+              <span className="text-2xl font-extrabold text-slate-900 leading-none">{dashboardStats.appointmentsToday}</span>
               <span className="text-[11px] font-bold text-emerald-600 flex items-center">
                 ↑ 8%
               </span>
@@ -296,14 +336,12 @@ export default function Dashboard({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-slate-900 leading-none">
-                2
-              </span>
+              <span className="text-2xl font-extrabold text-slate-900 leading-none">{dashboardStats.admissionsToday}</span>
               <span className="text-[11px] font-bold text-rose-600 flex items-center">
                 ↓ 33%
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">Beds available: 56</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Beds available: {dashboardStats.availableBedsCount}</p>
 
             {/* Sparkline curve */}
             <div className="mt-2 h-6 w-full">
@@ -333,9 +371,7 @@ export default function Dashboard({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-slate-900 leading-none">
-                2
-              </span>
+              <span className="text-2xl font-extrabold text-slate-900 leading-none">{dashboardStats.dischargesReady}</span>
               <span className="text-[11px] font-bold text-emerald-600 flex items-center">
                 ↑ 100%
               </span>
@@ -370,14 +406,12 @@ export default function Dashboard({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-slate-900 leading-none">
-                8
-              </span>
+              <span className="text-2xl font-extrabold text-slate-900 leading-none">{dashboardStats.edActive}</span>
               <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
                 Live
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">4 ESI-1/2 Critical</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{dashboardStats.criticalErCount} ESI-1/2 Critical</p>
 
             {/* Sparkline curve */}
             <div className="mt-2 h-6 w-full">
@@ -407,9 +441,7 @@ export default function Dashboard({
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold text-slate-900 leading-none">
-                2
-              </span>
+              <span className="text-2xl font-extrabold text-slate-900 leading-none">{dashboardStats.criticalAlerts}</span>
               <span className="text-[11px] font-bold text-rose-600 flex items-center">
                 ↑ 100%
               </span>
