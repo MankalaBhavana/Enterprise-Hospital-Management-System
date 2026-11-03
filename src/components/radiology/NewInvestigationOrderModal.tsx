@@ -227,7 +227,7 @@ export default function NewInvestigationOrderModal({
                     </div>
                     <div className="text-[11px] text-slate-500 flex items-center justify-between mt-0.5 font-mono">
                       <span>UMR: {p.umr}</span>
-                      <span>{p.sex || (p as any).gender}, {p.age}y</span>
+                      <span>{(p as any).gender || p.sex || "Patient"}, {p.age}y</span>
                     </div>
                   </button>
                 )

@@ -1,5 +1,10 @@
-import React, { useRef, useState } from "react"
+import React, { useState, useRef } from "react"
 import { ExtendedRadiologyRecord, RadiologyWorkflowDb } from "../../services/radiologyWorkflowDb"
+import { RadiologyStudyRecord } from "../../services/billingDb"
+import { printRadiologyDocument } from "../../utils/radiologyPrint"
+import { db } from "../../services/db"
+import { RadiologyTemplateDatabase } from "../../services/radiologyTemplateDb"
+import ReconstructedReportRenderer, { PatientReportContext } from "./ReconstructedReportRenderer"
 import {
   X,
   Printer,
@@ -12,7 +17,7 @@ import {
 } from "lucide-react"
 
 interface RadiologyReportPdfModalProps {
-  study: ExtendedRadiologyRecord
+  study: ExtendedRadiologyRecord | RadiologyStudyRecord
   onClose: () => void
 }
 
@@ -27,9 +32,50 @@ export default function RadiologyReportPdfModal({
   const isPaid = paymentInfo.status === "PAID"
   const isFinalized = study.reportStatus === "Final" || (study as any).reportStatus === "Finalized"
 
+  const matchedPatient = study.umr
+    ? db.getPatients().find((p) => p.umr === study.umr)
+    : db.getPatients().find((p) => p.name.trim().toLowerCase() === (study.patient || "").trim().toLowerCase())
+  const matchedEncounter = study.encounterId
+    ? db.getEncounterById(study.encounterId)
+    : (matchedPatient ? db.getEncountersForPatient(matchedPatient.umr)[0] : undefined)
+
+  // Resolve template with reconstructed layout if available
+  const existingRepRecord = RadiologyTemplateDatabase.getReportByStudyId(study.id)
+  const matchedTemplate = RadiologyTemplateDatabase.getTemplateForStudy(
+    study.study,
+    (study as any).gender || matchedPatient?.gender || "All"
+  )
+  const reconstructedDoc = existingRepRecord?.reconstructedDocumentSnapshot || matchedTemplate?.reconstructedDocument
+
+  const findingsStr = study.findings && study.findings.length > 0
+    ? (Array.isArray(study.findings) ? study.findings.join("\n") : String(study.findings))
+    : ""
+  const impressionStr = study.impression && study.impression.length > 0
+    ? (Array.isArray(study.impression) ? study.impression.join("\n") : String(study.impression))
+    : ""
+
+  const patientContext: PatientReportContext = {
+    patientName: study.patient,
+    mrn: study.mrn,
+    umr: study.umr || `PAT-${study.mrn}`,
+    ageGender: matchedPatient ? `${matchedPatient.age || ""} / ${matchedPatient.gender || ""}` : undefined,
+    study: study.study,
+    modality: study.modality,
+    indication: study.indication,
+    technique: study.technique,
+    comparison: study.comparison,
+    findings: findingsStr,
+    impression: impressionStr,
+    radiologist: study.radiologist || "Consultant Radiologist",
+    referringDoctor: study.provider,
+    date: study.signedAt || study.finalizedAt || study.ordered || new Date().toLocaleDateString("en-IN"),
+    accessionNo: study.accessionNo,
+    billingStatus: isPaid ? "Paid" : "Payment Pending",
+  }
+
   const handlePrint = () => {
     RadiologyWorkflowDb.logPrintOrDownload(study.id, "PRINT", study.radiologist || "Technician")
-    window.print()
+    printRadiologyDocument(study as RadiologyStudyRecord, undefined, reconstructedDoc)
   }
 
   const handleDownloadPdf = async () => {
@@ -112,7 +158,7 @@ export default function RadiologyReportPdfModal({
       doc.text("OP / IP NUMBER:", margin + 3, y)
       doc.setFont("helvetica", "normal")
       doc.setTextColor(15, 23, 42)
-      doc.text(study.opNumber || study.ipNumber || "OP-1002", margin + 28, y)
+      doc.text((study as any).opNumber || (study as any).ipNumber || "OP-1002", margin + 28, y)
 
       doc.setFont("helvetica", "bold")
       doc.setTextColor(51, 65, 85)
@@ -134,7 +180,7 @@ export default function RadiologyReportPdfModal({
       doc.text("DATE OF EXAM:", margin + 95, y)
       doc.setFont("helvetica", "normal")
       doc.setTextColor(15, 23, 42)
-      doc.text(study.orderDate || study.ordered || new Date().toISOString().split("T")[0], margin + 120, y)
+      doc.text((study as any).orderDate || study.ordered || new Date().toISOString().split("T")[0], margin + 120, y)
 
       y += 6
       doc.setFont("helvetica", "bold")
@@ -343,10 +389,31 @@ export default function RadiologyReportPdfModal({
 
         {/* Scrollable Printable Document Paper */}
         <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-slate-100 flex justify-center">
-          <div
-            ref={reportRef}
-            className="w-full max-w-[760px] bg-white rounded-xl shadow-lg border border-slate-200 p-8 sm:p-10 text-slate-900 font-sans print:shadow-none print:border-none print:p-0 print:m-0"
-          >
+          {reconstructedDoc ? (
+            <div className="w-full max-w-[780px] flex flex-col items-center space-y-3">
+              <div className="w-full flex items-center justify-between text-[11.5px] text-blue-900 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg shadow-2xs">
+                <span className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                  Official Reconstructed Report Template Format Active
+                </span>
+                <span className="font-mono text-slate-500">
+                  {matchedTemplate?.testName || study.study} (v{matchedTemplate?.version || 1})
+                </span>
+              </div>
+              <div ref={reportRef} className="w-full flex justify-center">
+                <ReconstructedReportRenderer
+                  document={reconstructedDoc}
+                  patientContext={patientContext}
+                  isEditable={false}
+                  zoom={0.92}
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              ref={reportRef}
+              className="w-full max-w-[760px] bg-white rounded-xl shadow-lg border border-slate-200 p-8 sm:p-10 text-slate-900 font-sans print:shadow-none print:border-none print:p-0 print:m-0"
+            >
             {/* Hospital Letterhead */}
             <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-5">
               <div>
@@ -386,11 +453,15 @@ export default function RadiologyReportPdfModal({
                 </div>
                 <div>
                   <span className="text-slate-500 text-[11px] block">OP / IP Number:</span>
-                  <strong className="font-mono text-slate-900">{study.opNumber || study.ipNumber || "OP-1002"}</strong>
+                  <strong className="font-mono text-slate-900">
+                    {(study as any).opNumber || (study as any).ipNumber || matchedEncounter?.opNumber || study.encounterId || "OP-1002"}
+                  </strong>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[11px] block">Age / Gender:</span>
-                  <strong className="text-slate-900">38 yrs / Male</strong>
+                  <strong className="text-slate-900">
+                    {(study as any).age || matchedEncounter?.age || matchedPatient?.age || 38} yrs / {(study as any).sex || matchedEncounter?.sex || matchedPatient?.sex || "Male"}
+                  </strong>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[11px] block">Ordering Doctor:</span>
@@ -398,7 +469,7 @@ export default function RadiologyReportPdfModal({
                 </div>
                 <div>
                   <span className="text-slate-500 text-[11px] block">Order Date:</span>
-                  <strong className="text-slate-900">{study.orderDate || study.ordered}</strong>
+                  <strong className="text-slate-900">{(study as any).orderDate || study.ordered}</strong>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[11px] block">Modality / Room:</span>
@@ -428,7 +499,7 @@ export default function RadiologyReportPdfModal({
                 </h3>
               </div>
               <span className="text-xs font-bold text-slate-600">
-                Tariff: ₹{study.price.toLocaleString("en-IN")}
+                Tariff: ₹{(study.price ?? 0).toLocaleString("en-IN")}
               </span>
             </div>
 
@@ -528,6 +599,7 @@ export default function RadiologyReportPdfModal({
               </div>
             </div>
           </div>
+        )}
         </div>
       </div>
     </div>
