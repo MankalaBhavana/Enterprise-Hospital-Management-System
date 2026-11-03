@@ -514,8 +514,23 @@ const ADJUSTMENTS_KEY = "hospai_pharm_adjustments_v4"
 const CLARIFICATIONS_KEY = "hospai_pharm_clarifications_v4"
 const WRITE_OFFS_KEY = "hospai_pharm_write_offs_v4"
 
-// In-memory fallback map if browser localStorage quota is completely filled
-const memoryStorageFallback: Record<string, string> = {}
+// In-memory copy of the pharmacy stores, kept for values localStorage could not
+// take (quota full). It is a fallback, never the source of truth: reads go to
+// localStorage first. It used to be read first, so anything that wrote a store
+// without going through *this* module's safeStorageSetItem -- most often a
+// second copy of this module after a dev-server hot reload, which is what the
+// doctor portal's dispatch ends up holding -- left the pharmacy showing its old
+// copy until a page refresh (a prescription sent from the doctor screen did not
+// appear in Pharmacy until F5). The map also lives on `window`, so every copy
+// of this module in a tab shares it.
+type PharmacyMemoryStore = { mem: Record<string, string> ;unpersisted: Record<string, true> }
+const pharmacyMemory: PharmacyMemoryStore =
+  typeof window !== "undefined"
+    ? ((window as any).__hospaiPharmacyMemory ??= { mem: {}, unpersisted: {} })
+    : { mem: {}, unpersisted: {} }
+const memoryStorageFallback: Record<string, string> = pharmacyMemory.mem
+/** Keys whose latest value is only in memory: localStorage refused the write. */
+const unpersistedKeys: Record<string, true> = pharmacyMemory.unpersisted
 
 /**
  * Removes legacy storage keys, massive base64 images, and trims non-critical logs
@@ -657,6 +672,7 @@ export function safeStorageSetItem(key: string, value: string): void {
   // 2. Direct write to primary persistent store (localStorage)
   try {
     window.localStorage.setItem(key, value)
+    delete unpersistedKeys[key]
     return
   } catch (err) {
     // Quota exceeded: If this is an ephemeral notification or audit log, don't stall the system
@@ -667,6 +683,7 @@ export function safeStorageSetItem(key: string, value: string): void {
       key === AUDIT_LOGS_KEY
     ) {
       // Ephemeral keys can stay safely in memory and sessionStorage
+      unpersistedKeys[key] = true
       return
     }
   }
@@ -675,6 +692,7 @@ export function safeStorageSetItem(key: string, value: string): void {
   try {
     cleanupStorageQuota()
     window.localStorage.setItem(key, value)
+    delete unpersistedKeys[key]
     return
   } catch (secondErr) {
     // Aggressive prune: purge audit logs and older bills/txs
@@ -682,8 +700,10 @@ export function safeStorageSetItem(key: string, value: string): void {
       window.localStorage.removeItem(AUDIT_LOGS_KEY)
       window.localStorage.removeItem(STOCK_TXS_KEY)
       window.localStorage.setItem(key, value)
+      delete unpersistedKeys[key]
       return
     } catch (thirdErr) {
+      unpersistedKeys[key] = true
       console.warn(`[PharmacyDb] Persisted "${key}" in memory & sessionStorage fallback.`)
     }
   }
@@ -692,16 +712,14 @@ export function safeStorageSetItem(key: string, value: string): void {
 export function safeStorageGetItem(key: string): string | null {
   if (typeof window === "undefined") return null
 
-  // 1. In-memory cache first (0ms instantaneous lookup, no disk thrashing)
-  if (
-    memoryStorageFallback[key] !== undefined &&
-    memoryStorageFallback[key] !== null &&
-    memoryStorageFallback[key] !== "undefined"
-  ) {
+  // 1. A value localStorage refused (quota full) lives only in memory -- it is
+  //    the newest, so it wins until a later write persists.
+  if (unpersistedKeys[key] && memoryStorageFallback[key] !== undefined) {
     return memoryStorageFallback[key]
   }
 
-  // 2. Primary persistent store (localStorage)
+  // 2. localStorage is the source of truth, shared by every copy of this module
+  //    and every other tab, so a write from anywhere is seen on the next read.
   try {
     const val = window.localStorage.getItem(key)
     if (val !== null && val !== "" && val !== "undefined") {
@@ -719,7 +737,9 @@ export function safeStorageGetItem(key: string): string | null {
     }
   } catch {}
 
-  return null
+  // 4. Last resort: this tab's memory (storage unavailable entirely).
+  const mVal = memoryStorageFallback[key]
+  return mVal !== undefined && mVal !== null && mVal !== "undefined" ? mVal : null
 }
 
 /**

@@ -304,8 +304,8 @@ Invalid Date -- every wait timer read "--" and newest-first sorting was arbitrar
 
 The OP card (Registration → records, and OP Workflow step 1) is **one card for life, valid at every
 department**, so it carries nothing visit-specific: no department, doctor, OP number or visit status --
-only name, age · sex · blood group, phone, UMR, "since" date and a real **Code 128** barcode of the UMR
-([src/lib/code128.ts](src/lib/code128.ts), no library). The screen preview and the printout are the same
+only name, age · sex · blood group, phone, UMR, "since" date and **one large QR code** -- the card's only
+scan point (there is no 1-D barcode). The screen preview and the printout are the same
 HTML (`opCardHtml` in [src/components/opcard/OpCard.tsx](src/components/opcard/OpCard.tsx)); **Print OP
 Card** prints the card alone at ID-card size (CR80, 85.6 × 54 mm) from an isolated iframe, never the page
 around it.
@@ -338,7 +338,12 @@ the card preview iframe can never hold focus. The card sends its patient details
 a patient known only at the desk (registered offline, local demo record) is registered on the server under
 the same UMR (`ensure_card_patient`), and a UMR that belongs to a *different* person on the server is
 refused (409) -- the card then says "UMR clash" instead of carrying someone else's link. Without a link the
-card says why (server unreachable / sign-in needed / clash) in place of the QR.
+card says why (server unreachable / sign-in needed / clash / removed) in place of the QR. Only patients
+registered at this desk send details; patients copied from the server keep its id unchecked. A patient
+soft-deleted on the server gets 410 ("removed"), never a recreated record. The card prints the server's
+own details (returned with the token, `withServerDetails`), never the desk copy -- older queue syncs read
+the wrong field names and stored placeholders (`+91 98765 43210`, age 40, O+, "Main City"); the sync now
+reads `patient_phone` / `patient_age` / `patient_gender` / `patient_blood_group` and repairs those copies.
 
 **Barcodes are unique per patient** because UMRs are. The front desk issues UMRs from a per-browser
 counter, so two desks could hand out the same one; the backend detects that on `/api/op/visits`

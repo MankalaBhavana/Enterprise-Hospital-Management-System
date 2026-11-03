@@ -199,8 +199,8 @@ export function dispatchConsultation(
         doctorName: doctor.name,
         department: encounter.dept || doctor.specialty,
         diagnosis: record.diagnosis || encounter.diagnosis,
-        date: new Date().toISOString().split("T")[0],
-        arrivalTime: new Date().toLocaleTimeString("en-IN", {
+        date: encounter.date || encounter.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
+        arrivalTime: encounter.registrationTime || new Date().toLocaleTimeString("en-IN", {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",

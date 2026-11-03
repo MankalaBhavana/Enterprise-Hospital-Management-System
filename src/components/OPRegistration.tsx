@@ -697,7 +697,7 @@ export default function OPRegistration({
                             className="flex justify-between text-[#475569]"
                           >
                             <span>
-                              • {pv.opNumber} ({pv.registrationTime})
+                              • {pv.opNumber} ({pv.date || pv.createdAt?.split("T")[0] || pv.registrationTime})
                             </span>
                             <span className="text-[#64748B]">{pv.dept}</span>
                           </div>
@@ -808,7 +808,9 @@ export default function OPRegistration({
                         Registration Date
                       </div>
                       <div className="text-[12px] font-mono font-bold text-gray-900">
-                        {selectedEncounter.registrationTime}
+                        {selectedEncounter.date
+                          ? `${selectedEncounter.date} ${selectedEncounter.registrationTime}`
+                          : selectedEncounter.createdAt?.split("T")[0] || selectedEncounter.registrationTime}
                       </div>
                     </div>
                   </div>
@@ -949,8 +951,8 @@ export default function OPRegistration({
                           {e.isNew ? "New Patient" : "Revisit Encounter"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-gray-500">
-                        {e.registrationTime}
+                      <td className="px-4 py-3 font-mono text-gray-500 whitespace-nowrap">
+                        {e.date ? `${e.date} ${e.registrationTime}` : e.registrationTime}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">

@@ -38,6 +38,10 @@ export interface DBOPEncounter {
 
   umr: string // Foreign Key to DBPatient
 
+  date?: string // Immutable calendar date of visit: YYYY-MM-DD
+
+  createdAt?: string // Immutable ISO timestamp of encounter creation
+
   opNumber: string // e.g. OP001, OP025
 
   patientName: string
@@ -338,6 +342,10 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 
     umr: "UMR10067",
 
+    date: "2026-10-12",
+
+    createdAt: "2026-10-12T10:15:00.000Z",
+
     opNumber: "OP123",
 
     patientName: "Rana Dhaggubati",
@@ -427,13 +435,17 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 
     status: "Under Consultation",
 
-    timestamps: { arrival: "10:10 AM", registration: "10:15 AM" },
+    timestamps: { arrival: "2026-10-12T10:10:00.000Z", registration: "2026-10-12T10:15:00.000Z" },
   },
 
   {
     id: "ENC-10001-2",
 
     umr: "UMR10001",
+
+    date: "2026-08-31",
+
+    createdAt: "2026-08-31T10:25:00.000Z",
 
     opNumber: "OP025",
 
@@ -536,6 +548,10 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 
     umr: "UMR10002",
 
+    date: "2026-08-31",
+
+    createdAt: "2026-08-31T10:32:00.000Z",
+
     opNumber: "OP003",
 
     patientName: "Sunita Patel",
@@ -628,6 +644,10 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 
     umr: "UMR10048",
 
+    date: "2026-08-31",
+
+    createdAt: "2026-08-31T10:35:00.000Z",
+
     opNumber: "OP001",
 
     patientName: "Alex Turner",
@@ -716,6 +736,10 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 
     umr: "UMR10042",
 
+    date: "2026-08-25",
+
+    createdAt: "2026-08-25T10:40:00.000Z",
+
     opNumber: "OP094",
 
     patientName: "Rahul Roy",
@@ -803,6 +827,10 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
     id: "ENC-10055-1",
 
     umr: "UMR10055",
+
+    date: "2026-02-05",
+
+    createdAt: "2026-02-05T10:45:00.000Z",
 
     opNumber: "OP055",
 
@@ -1380,6 +1408,8 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
   {
     id: "ENC-10088-1",
     umr: "UMR10088",
+    date: "2026-10-04",
+    createdAt: "2026-10-04T02:30:00.000Z",
     opNumber: "OP10088",
     patientName: "Appanna Chinnapati",
     age: 54,
@@ -1467,6 +1497,29 @@ const INITIAL_SEED_ENCOUNTERS: DBOPEncounter[] = [
 ]
 
 const CROSS_TAB_CHANNEL = "hospai_db_v1"
+
+/** The fake phone earlier queue syncs stored when the real one was missed. */
+export const PLACEHOLDER_PHONE = "+91 98765 43210"
+
+/** A queue row's patient details, from the fields /api/queue actually sends. */
+function queueDemographics(item: any): {
+  patientName: string
+  phone: string
+  age: number | null
+  sex: "Male" | "Female" | "Other" | ""
+  bloodGroup: string
+} {
+  const g = String(item.patient_gender ?? item.gender ?? "").toLowerCase()
+  const ageRaw = item.patient_age ?? item.age
+  const age = ageRaw === null || ageRaw === undefined || ageRaw === "" ? null : Number(ageRaw)
+  return {
+    patientName: String(item.patient_name || item.patient_first_name || "").trim(),
+    phone: String(item.patient_phone ?? item.phone ?? "").trim(),
+    age: age != null && Number.isFinite(age) ? age : null,
+    sex: g.startsWith("f") ? "Female" : g.startsWith("m") ? "Male" : g ? "Other" : "",
+    bloodGroup: String(item.patient_blood_group ?? item.blood_group ?? "").trim(),
+  }
+}
 
 const STORAGE_KEYS = {
   PATIENTS: "hospai_db_patients_v1",
@@ -1901,6 +1954,40 @@ class HospitalDatabase {
           merged = true
         }
       }
+      // Data hygiene / healing: Ensure every encounter has an immutable calendar date & createdAt
+      for (const e of list) {
+        if (!e.date || !e.createdAt) {
+          // 1. Try timestamps arrival or registration if they contain a date
+          const ts = e.timestamps?.arrival || e.timestamps?.registration
+          if (ts && /\d{4}-\d{2}-\d{2}/.test(ts)) {
+            const m = ts.match(/\d{4}-\d{2}-\d{2}/)
+            if (m) {
+              if (!e.date) { e.date = m[0]; merged = true }
+              if (!e.createdAt) { e.createdAt = ts.includes("T") ? ts : `${m[0]}T00:00:00.000Z`; merged = true }
+            }
+          }
+          // 2. Try anchor to patient's immutable registration createdAt
+          if ((!e.date || !e.createdAt) && e.umr) {
+            const pt = this.getPatientByUmr(e.umr)
+            if (pt?.createdAt) {
+              const ptDate = pt.createdAt.includes("T") ? pt.createdAt.split("T")[0] : pt.createdAt.split(" ")[0]
+              if (/^\d{4}-\d{2}-\d{2}$/.test(ptDate)) {
+                if (!e.date) { e.date = ptDate; merged = true }
+                if (!e.createdAt) { e.createdAt = pt.createdAt; merged = true }
+              }
+            }
+          }
+          // 3. Fallback: if e.id has date e.g. ENC-REP-YYYYMMDD
+          if (!e.date && e.id) {
+            const m = e.id.match(/ENC-REP-(\d{4})(\d{2})(\d{2})/)
+            if (m) {
+              e.date = `${m[1]}-${m[2]}-${m[3]}`
+              e.createdAt = `${e.date}T00:00:00.000Z`
+              merged = true
+            }
+          }
+        }
+      }
       if (merged) {
         safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(list))
       }
@@ -2089,6 +2176,10 @@ class HospitalDatabase {
 
       umr: newUmr,
 
+      date: nowIso.split("T")[0],
+
+      createdAt: nowIso,
+
       opNumber: newOpNumber,
 
       patientName: fullName,
@@ -2170,7 +2261,7 @@ class HospitalDatabase {
 
       status: "Registered",
 
-      timestamps: { arrival: timeStr, registration: timeStr },
+      timestamps: { arrival: nowIso, registration: nowIso },
     }
 
     // Commit to database
@@ -2246,6 +2337,8 @@ class HospitalDatabase {
 
     const encounterId = `ENC-${umr}-${nextOpCounter}`
 
+    const nowIso = new Date().toISOString()
+
     const timeStr = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
@@ -2255,6 +2348,10 @@ class HospitalDatabase {
       id: encounterId,
 
       umr: patient.umr, // STRICTLY KEPT UNCHANGED
+
+      date: nowIso.split("T")[0],
+
+      createdAt: nowIso,
 
       opNumber: newOpNumber, // GLOBAL CONTINUOUS NEXT OP NUMBER
 
@@ -2344,7 +2441,7 @@ class HospitalDatabase {
 
       status: "Registered",
 
-      timestamps: { arrival: timeStr, registration: timeStr },
+      timestamps: { arrival: nowIso, registration: nowIso },
     }
 
     // Update patient timestamp & save encounter
@@ -2706,14 +2803,30 @@ class HospitalDatabase {
             (e) => e.id === encId || e.umr === item.patient_id || (e as any).dbAppointmentId === item.id || (e as any).dbAppointmentId === item.appointment_id
           )
 
+          const demo = queueDemographics(item)
           if (existingIndex >= 0) {
             const existing = encounters[existingIndex]
             const newStatus = item.status === "in_consultation" ? "Under Consultation" : item.status === "checked_in" ? "In Queue" : existing.status
             const newDoc = item.doctor_name || (existing as any).assignedDoctor || (existing as any).doctorAssigned
+            // Encounters this sync created are the server's patients: keep their
+            // details in step with it. This also repairs the placeholders
+            // ("+91 98765 43210", age 40, O+, "Main City") earlier versions
+            // wrote when they read the wrong field names.
+            const fromServer = existing.id === encId
+            const fix: Partial<DBOPEncounter> = {}
+            if (fromServer) {
+              if (demo.patientName && demo.patientName !== existing.patientName) fix.patientName = demo.patientName
+              if (demo.phone !== existing.phone && (demo.phone || existing.phone === PLACEHOLDER_PHONE)) fix.phone = demo.phone
+              if (demo.age != null && demo.age !== existing.age) fix.age = demo.age
+              if (demo.sex && demo.sex !== existing.sex) fix.sex = demo.sex
+              if (demo.bloodGroup !== (existing.bloodGroup || "")) fix.bloodGroup = demo.bloodGroup
+              if (existing.address === "Main City") fix.address = ""
+            }
 
-            if ((existing as any).assignedDoctor !== newDoc || existing.status !== newStatus) {
+            if ((existing as any).assignedDoctor !== newDoc || existing.status !== newStatus || Object.keys(fix).length) {
               encounters[existingIndex] = {
                 ...existing,
+                ...fix,
                 assignedDoctor: newDoc,
                 doctorAssigned: newDoc,
                 status: newStatus as any,
@@ -2722,20 +2835,30 @@ class HospitalDatabase {
               hasChanges = true
             }
           } else {
+            const rawItemDate = item.appointment_date || item.created_at || new Date().toISOString()
+            const itemDateIso = typeof rawItemDate === "string" && rawItemDate.includes("T")
+              ? rawItemDate
+              : new Date(rawItemDate).toISOString()
+            const itemDateStr = itemDateIso.split("T")[0]
+            const itemTimeStr = item.time_slot || new Date(itemDateIso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+
             const newEnc: DBOPEncounter = {
               id: encId,
               opNumber: `OP-${item.patient_id || "101"}`,
               tokenNo: `T-${item.id || 101}`,
               umr: item.patient_id || "UMR-UNKNOWN",
-              patientName: item.patient_name || item.patient_first_name || "Patient",
-              age: item.age || 40,
-              sex: (item.gender === "Female" ? "Female" : item.gender === "Male" ? "Male" : "Other") as any,
-              phone: item.phone || "+91 98765 43210",
-              address: item.address || "Main City",
-              bloodGroup: item.blood_group || "O+",
+              // Only what the server sent; nothing is made up for a missing field.
+              patientName: demo.patientName || "Patient",
+              age: (demo.age ?? null) as any,
+              sex: (demo.sex || "Other") as any,
+              phone: demo.phone,
+              address: item.patient_address || item.address || "",
+              bloodGroup: demo.bloodGroup,
               dept: item.department || "General Medicine",
               isNew: false,
-              registrationTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              date: itemDateStr,
+              createdAt: itemDateIso,
+              registrationTime: itemTimeStr,
               chiefComplaint: item.chief_complaint || "OP Visit",
               symptoms: item.chief_complaint ? [item.chief_complaint] : ["General Consultation"],
               aiSpecialty: item.department || "General Medicine",
@@ -2753,7 +2876,8 @@ class HospitalDatabase {
               furtherAction: "None",
               status: item.status === "in_consultation" ? "Under Consultation" : "In Queue",
               timestamps: {
-                arrival: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                arrival: itemDateIso,
+                registration: itemDateIso,
               },
               vitals: item.vitals ? {
                 bp: item.vitals.bp || "120/80",
@@ -2763,6 +2887,22 @@ class HospitalDatabase {
               } : undefined,
             } as any
             encounters.unshift(newEnc)
+            if (item.patient_id && !this.getPatientByUmr(item.patient_id)) {
+              const allPatients = this.getPatients()
+              const newPt: DBPatient = {
+                umr: item.patient_id,
+                name: demo.patientName || "Patient",
+                dob: "1985-01-01",
+                age: (demo.age ?? 40) as any,
+                sex: (demo.sex || "Male") as any,
+                phone: demo.phone || "(617) 555-0199",
+                address: item.patient_address || item.address || "Main City",
+                bloodGroup: demo.bloodGroup || "O+",
+                createdAt: itemDateIso,
+                updatedAt: itemDateIso,
+              }
+              safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify([newPt, ...allPatients]))
+            }
             hasChanges = true
           }
         }

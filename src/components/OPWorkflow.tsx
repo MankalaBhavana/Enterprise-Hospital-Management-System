@@ -13,6 +13,8 @@ export interface OPPatient {
   id?: string
   umr: string
   opNumber: string
+  date?: string
+  createdAt?: string
   name: string
   age: number
   sex: "Male" | "Female" | "Other"
@@ -884,6 +886,8 @@ export default function OPWorkflow({
       id: enc.id,
       umr: enc.umr,
       opNumber: enc.opNumber,
+      date: enc.date,
+      createdAt: enc.createdAt,
       name: enc.patientName,
       age: enc.age,
       sex: enc.sex as any,
@@ -894,7 +898,7 @@ export default function OPWorkflow({
         .filter((e) => e.id !== enc.id)
         .map((e) => ({
           opNumber: e.opNumber,
-          date: e.registrationTime,
+          date: (e as any).date || e.createdAt?.split("T")[0] || e.registrationTime,
           doctor: e.assignedDoctor,
           diagnosis: e.diagnosis || e.chiefComplaint,
         })),
@@ -934,8 +938,8 @@ export default function OPWorkflow({
       furtherAction: enc.furtherAction || "None",
       status: enc.status as any || "Registered",
       timestamps: enc.timestamps || {
-        arrival: enc.registrationTime,
-        registration: enc.registrationTime,
+        arrival: enc.createdAt || enc.registrationTime,
+        registration: enc.createdAt || enc.registrationTime,
       },
     })
   }
@@ -3415,7 +3419,7 @@ export default function OPWorkflow({
                             ✓ PAID &amp; SETTLED
                           </div>
                           <div className="text-[11px] text-gray-500 mt-1 font-mono">
-                            Date: {new Date().toLocaleDateString()} ·{" "}
+                            Date: {patient.date || patient.createdAt?.split("T")[0] || new Date().toLocaleDateString()} ·{" "}
                             {patient.timestamps?.billingCompleted || "Now"}
                           </div>
                         </div>

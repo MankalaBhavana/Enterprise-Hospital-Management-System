@@ -1023,7 +1023,7 @@ export default function Registration({
                                 className="flex justify-between text-[#475569]"
                               >
                                 <span>
-                                  • {pv.opNumber} ({pv.registrationTime})
+                                  • {pv.opNumber} ({pv.date || pv.createdAt?.split("T")[0] || pv.registrationTime})
                                 </span>
                                 <span className="text-[#64748B]">
                                   {pv.dept}
@@ -1263,8 +1263,8 @@ export default function Registration({
                       <span>🪪</span> OP Card
                     </h3>
                     <p className="text-[11.5px] text-[#64748B]">
-                      One card for life, valid at every department. Scan the
-                      barcode for the patient&apos;s OP / IP journey.
+                      One card for life, valid at every department. Scanning its
+                      QR opens the patient&apos;s complete record &mdash; no login needed.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1333,7 +1333,7 @@ export default function Registration({
                   <button
                     type="button"
                     onClick={() => openJourneyForCode(cardBarcodeValue(selectedEncounter.umr))}
-                    title="Opens what scanning the barcode opens: the OP journey, or the IP journey if the patient has been admitted"
+                    title="Opens the patient's complete record in a new tab"
                     className="text-[12px] font-semibold text-[#1B4FD8] hover:underline cursor-pointer"
                   >
                     Open patient record (same as scanning the card) →
@@ -1355,7 +1355,7 @@ export default function Registration({
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-bold text-gray-900">Scan OP card</div>
                 <div className="text-[11.5px] text-[#64748B]">
-                  Scan the card barcode anywhere in the app, or type the UMR / OP number here. Opens the
+                  Scan the card&apos;s QR with a phone or a 2-D desk scanner, or type the UMR / OP number here. Opens the
                   patient&apos;s complete record in a new tab, with the full history download and card print.
                 </div>
               </div>
@@ -1448,8 +1448,8 @@ export default function Registration({
                           {e.isNew ? "New Patient" : "Revisit Encounter"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-gray-500">
-                        {e.registrationTime}
+                      <td className="px-4 py-3 font-mono text-gray-500 whitespace-nowrap">
+                        {e.date ? `${e.date} ${e.registrationTime}` : e.registrationTime}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">

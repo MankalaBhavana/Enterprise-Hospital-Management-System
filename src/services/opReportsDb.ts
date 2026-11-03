@@ -132,8 +132,11 @@ export class OpReportsService {
   }
 
   public static getEncounterDate(enc: DBOPEncounter): string {
-    if ((enc as any).date && /^\d{4}-\d{2}-\d{2}$/.test((enc as any).date)) {
-      return (enc as any).date
+    if (enc.date && /^\d{4}-\d{2}-\d{2}$/.test(enc.date)) {
+      return enc.date
+    }
+    if (enc.createdAt && enc.createdAt.includes("T")) {
+      return enc.createdAt.split("T")[0]
     }
     if (
       enc.timestamps?.visitCompleted &&
@@ -149,10 +152,27 @@ export class OpReportsService {
       const match = enc.timestamps.registration.match(/\d{4}-\d{2}-\d{2}/)
       if (match) return match[0]
     }
+    if (
+      enc.timestamps?.arrival &&
+      enc.timestamps.arrival.includes("-")
+    ) {
+      const match = enc.timestamps.arrival.match(/\d{4}-\d{2}-\d{2}/)
+      if (match) return match[0]
+    }
     // If encounter has an ID formatted as ENC-REP-YYYYMMDD-XXX
     const idMatch = enc.id.match(/ENC-REP-(\d{4})(\d{2})(\d{2})/)
     if (idMatch) {
       return `${idMatch[1]}-${idMatch[2]}-${idMatch[3]}`
+    }
+    // Anchor to patient's immutable registration createdAt
+    if (enc.umr) {
+      try {
+        const pt = db.getPatientByUmr(enc.umr)
+        if (pt?.createdAt) {
+          const ptDate = pt.createdAt.includes("T") ? pt.createdAt.split("T")[0] : pt.createdAt.split(" ")[0]
+          if (/^\d{4}-\d{2}-\d{2}$/.test(ptDate)) return ptDate
+        }
+      } catch {}
     }
     // Default to today if no date found
     return new Date().toISOString().split("T")[0]

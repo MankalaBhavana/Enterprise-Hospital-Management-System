@@ -650,10 +650,21 @@ export function AppointmentBookingModal({
 }
 
 function getEncounterDateStr(enc: DBOPEncounter): string {
+  if (enc.date && /^\d{4}-\d{2}-\d{2}$/.test(enc.date)) return enc.date
+  if (enc.createdAt && enc.createdAt.includes("T")) return enc.createdAt.split("T")[0]
   const ts = enc.timestamps?.arrival || enc.timestamps?.registration || enc.registrationTime
-  if (!ts) return new Date().toISOString().split("T")[0]
-  if (ts.includes("T")) return ts.split("T")[0]
-  if (/^\d{4}-\d{2}-\d{2}/.test(ts)) return ts.substring(0, 10)
+  if (ts) {
+    if (ts.includes("T")) return ts.split("T")[0]
+    if (/^\d{4}-\d{2}-\d{2}/.test(ts)) return ts.substring(0, 10)
+  }
+  if (enc.umr) {
+    try {
+      const pt = db.getPatientByUmr(enc.umr)
+      if (pt?.createdAt && pt.createdAt.includes("T")) {
+        return pt.createdAt.split("T")[0]
+      }
+    } catch {}
+  }
   return new Date().toISOString().split("T")[0]
 }
 
@@ -1208,7 +1219,7 @@ export default function Appointments({
                             <span>
                               Reg:{" "}
                               <strong className="font-mono text-gray-800">
-                                {enc.registrationTime}
+                                {enc.date ? `${enc.date} ${enc.registrationTime}` : enc.registrationTime}
                               </strong>
                             </span>
                           </div>
