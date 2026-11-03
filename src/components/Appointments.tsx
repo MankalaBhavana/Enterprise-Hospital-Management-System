@@ -128,7 +128,7 @@ const detectDepartmentFromSymptoms = (
   onRequest: boolean
   note?: string
 } | null => {
-  if (!text || text.trim().length < 2) return null
+  if (!text || !text.trim()) return null
 
   const matched = SYMPTOM_RULES.find((r) => r.pattern.test(text))
   const specialty = matched?.specialty || "General Medicine"

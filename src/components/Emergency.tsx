@@ -39,6 +39,7 @@ import {
 import { BedDatabase, type BedRecord } from "../services/bedDb"
 import { DOCTOR_MASTER, type MasterDoctor } from "../services/doctorMaster"
 import ErRegistrationForm from "./ErRegistrationForm"
+import InstantPatientSearchDropdown, { highlightMatch } from "./InstantPatientSearchDropdown"
 import type { Notice, TriageCategory } from "../types"
 
 interface EmergencyProps {
@@ -263,10 +264,32 @@ export default function Emergency({
     }).length
   }, [activeVisits])
 
-  // Filtered Visits
+  // Filtered Visits (searches instantly on single alphabet across all records)
   const filteredVisits = useMemo(() => {
     return visits.filter((v) => {
-      // 1. Status Filter
+      // 1. If user typed even 1 alphabet, search across all visits immediately
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const name = (v.patient_name || v.patient?.name || v.unknown_patient_label || "").toLowerCase()
+        const visitNo = (v.visit_no || "").toLowerCase()
+        const uhid = (v.patient_id || "").toLowerCase()
+        const phone = (v.patient_phone || v.patient?.phone || "").toLowerCase()
+        const chief = (v.complaints?.[0]?.complaint || v.condition_at_arrival || "").toLowerCase()
+        const room = (v.triage_bed_label || "").toLowerCase()
+        const doctor = (v.assigned_doctor_name || "").toLowerCase()
+
+        return (
+          name.includes(q) ||
+          visitNo.includes(q) ||
+          uhid.includes(q) ||
+          phone.includes(q) ||
+          chief.includes(q) ||
+          room.includes(q) ||
+          doctor.includes(q)
+        )
+      }
+
+      // 2. Status Filter
       if (statusFilter === "active" && (v.status === "closed" || !!v.closed_at)) return false
       if (statusFilter === "waiting") {
         const s = (v.status || "").toLowerCase()
@@ -279,32 +302,12 @@ export default function Emergency({
       }
       if (statusFilter === "closed" && v.status !== "closed" && !v.closed_at) return false
 
-      // 2. Acuity Filter
+      // 3. Acuity Filter
       const acuity = parseAcuity(v.triage_category)
       if (acuityFilter === "critical" && acuity !== 1 && acuity !== 2) return false
       if (acuityFilter === "urgent" && acuity !== 3) return false
       if (acuityFilter === "non_urgent" && acuity !== 4 && acuity !== 5) return false
       if (acuityFilter === "untriaged" && acuity !== 0) return false
-
-      // 3. Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim()
-        const name = (v.patient_name || v.patient?.name || "").toLowerCase()
-        const visitNo = (v.visit_no || "").toLowerCase()
-        const uhid = (v.patient_id || "").toLowerCase()
-        const chief = (v.complaints?.[0]?.complaint || v.condition_at_arrival || "").toLowerCase()
-        const room = (v.triage_bed_label || "").toLowerCase()
-        const doctor = (v.assigned_doctor_name || "").toLowerCase()
-
-        return (
-          name.includes(q) ||
-          visitNo.includes(q) ||
-          uhid.includes(q) ||
-          chief.includes(q) ||
-          room.includes(q) ||
-          doctor.includes(q)
-        )
-      }
 
       return true
     })
@@ -583,24 +586,15 @@ export default function Emergency({
       {/* Filter and Search Bar */}
       <div className="px-6 py-3 bg-[#FAFBFD] border-b border-[#DDE2EC] flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative w-full">
-            <FiSearch className="absolute left-2.5 top-2.5 text-gray-400 w-3.5 h-3.5" />
-            <input
-              type="text"
-              placeholder="Search by patient name, UHID, visit #, complaint, room..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-[12px] bg-white border border-[#DDE2EC] rounded focus:outline-none focus:border-[#1B4FD8] text-gray-800"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600"
-              >
-                <FiX className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          <InstantPatientSearchDropdown
+            value={searchQuery}
+            onChange={setSearchQuery}
+            activeVisits={visits}
+            onSelectVisit={(visitId) => setSelectedVisitId(visitId)}
+            placeholder="Search patient by typing any letter (e.g. 'a', 'r')..."
+            className="w-full"
+            onClear={() => setSearchQuery("")}
+          />
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
@@ -755,7 +749,7 @@ export default function Emergency({
                   <div className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[12.5px] font-semibold text-gray-900 truncate">
-                        {patientName}
+                        {highlightMatch(patientName, searchQuery)}
                       </span>
                       {p.is_unknown_patient && (
                         <span className="text-[9.5px] font-bold px-1 py-0.2 bg-amber-100 text-amber-800 rounded">
@@ -768,7 +762,7 @@ export default function Emergency({
                       <span>·</span>
                       <span className="font-mono">{p.patient_gender || "—"}</span>
                       <span>·</span>
-                      <span className="font-mono text-[#94A3B8]">{p.visit_no}</span>
+                      <span className="font-mono text-[#94A3B8]">{highlightMatch(p.visit_no, searchQuery)}</span>
                     </div>
                   </div>
 

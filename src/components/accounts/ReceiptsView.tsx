@@ -28,7 +28,7 @@ export default function ReceiptsView() {
   const allPatients = useMemo(() => db.getPatients(), [])
   const matchedPatients = useMemo(() => {
     const q = (form.patient_id || form.patient_name).trim().toLowerCase()
-    if (!q || q.length < 2) return []
+    if (!q) return []
     return allPatients
       .filter((p) => (p.umr && p.umr.toLowerCase().includes(q)) || p.name.toLowerCase().includes(q))
       .slice(0, 5)

@@ -23,6 +23,7 @@ import {
 } from "../pages/ErPage"
 import PrescriptionUploadModal from "./PrescriptionUploadModal"
 import { AcuityBadge, StatusBadge } from "./shared"
+import InstantPatientSearchDropdown, { highlightMatch } from "./InstantPatientSearchDropdown"
 
 function parseAcuity(cat?: string | null): number {
   if (!cat) return 0
@@ -140,9 +141,20 @@ export default function Triage({
     })
   }, [visits])
 
-  // Filtered queue
+  // Filtered queue (instantly matches on single alphabet across all active records)
   const filteredVisits = useMemo(() => {
     return visits.filter((v) => {
+      // If user typed even a single alphabet, prioritize and search across all visits immediately
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const name = (v.patient_name || v.patient?.name || v.unknown_patient_label || "").toLowerCase()
+        const visitNo = (v.visit_no || "").toLowerCase()
+        const uhid = (v.patient_id || "").toLowerCase()
+        const chief = (v.condition_at_arrival || "").toLowerCase()
+        const phone = (v.patient_phone || v.patient?.phone || "").toLowerCase()
+        return name.includes(q) || visitNo.includes(q) || uhid.includes(q) || chief.includes(q) || phone.includes(q)
+      }
+
       if (triageFilter === "untriaged") {
         const s = (v.status || "").toLowerCase()
         if (v.triage_category && s !== "registered") return false
@@ -152,15 +164,6 @@ export default function Triage({
         if (a !== 1 && a !== 2 && v.condition_at_arrival !== "Critical" && v.condition_at_arrival !== "Unconscious") {
           return false
         }
-      }
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim()
-        const name = (v.patient_name || v.patient?.name || v.unknown_patient_label || "").toLowerCase()
-        const visitNo = (v.visit_no || "").toLowerCase()
-        const uhid = (v.patient_id || "").toLowerCase()
-        const chief = (v.condition_at_arrival || "").toLowerCase()
-        return name.includes(q) || visitNo.includes(q) || uhid.includes(q) || chief.includes(q)
       }
       return true
     })
@@ -251,16 +254,15 @@ export default function Triage({
 
         {/* Filter and Search Bar */}
         <div className="bg-white border border-[#DDE2EC] rounded p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <FiSearch className="absolute left-2.5 top-2.5 text-gray-400 w-3.5 h-3.5" />
-            <input
-              type="text"
-              placeholder="Search by patient name, UHID, or visit #..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-[#DDE2EC] rounded focus:bg-white focus:outline-none focus:border-[#1B4FD8] text-gray-800"
-            />
-          </div>
+          <InstantPatientSearchDropdown
+            value={searchQuery}
+            onChange={setSearchQuery}
+            activeVisits={visits}
+            onSelectVisit={(visitId) => setSelectedVisitId(visitId)}
+            placeholder="Type any alphabet to search patient (e.g. 'a', 'r')..."
+            className="max-w-md"
+            onClear={() => setSearchQuery("")}
+          />
 
           <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded border border-[#DDE2EC]">
             <button
@@ -376,14 +378,14 @@ export default function Triage({
                     {/* Patient Details */}
                     <div>
                       <h3 className="text-sm font-bold text-gray-900 leading-snug">
-                        {patientName}
+                        {highlightMatch(patientName, searchQuery)}
                       </h3>
                       <div className="text-[11px] text-[#64748B] flex items-center gap-2 mt-0.5 font-mono">
                         <span>{v.patient_age ?? "—"} yrs</span>
                         <span>·</span>
                         <span>{v.patient_gender || "—"}</span>
                         <span>·</span>
-                        <span>{v.visit_no}</span>
+                        <span>{highlightMatch(v.visit_no, searchQuery)}</span>
                       </div>
                     </div>
 
