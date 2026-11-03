@@ -322,14 +322,23 @@ timeline -- compiled by `compilePatientRecord` from every desk's store and the b
 raw `fetch`, never `apiFetch`'s mock). It refreshes itself, downloads the whole history as one branded
 PDF (`historyPdf.ts`), and prints the card alone. Scanning another card on the page switches patient.
 
-**The card also has a QR code** (`qrcode` package, `src/lib/qr.ts`) holding a link to that page, so a
-phone camera opens it. The link must be reachable from a phone: `publicAppOrigin()` uses
-`VITE_PUBLIC_APP_URL` if set, else the page's own origin, unless that is localhost -- then the machine's
-LAN address, which `vite.config.ts` publishes as `VITE_LAN_ORIGIN` (Docker/virtual interfaces skipped).
-A device that is not signed in sees a sign-in prompt; after login `App.tsx` returns it to that patient
-(`hospai_pending_patient_page`). Desk scanners: `useBarcodeScanner` accepts Enter, Tab or no
-terminator, USB or slower Bluetooth timing, and a scanned QR link; the card preview iframe is
-`tabIndex=-1` and click-through so it can never hold the focus a scanner types into.
+**The card's QR opens the record with no login** -- by a per-card secret, never the UMR. UMRs are
+sequential, so `#/patient/<UMR>` stays staff-only (signed in); the QR holds `#/card/<token>` instead.
+The token comes from patients-service (`POST /api/patients/<id>/card-token`, one active token per patient,
+`rotate: true` cancels a lost card's link -- "Reissue card link" on the page) and is resolved by the
+**unauthenticated, rate-limited, read-only** `GET /api/public/patient-card/<token>` (`public_patient_card` in
+`backend/modules/patients/routes.py`; table `patient_card_tokens`, created lazily; gateway `location
+/api/public`). It returns whitelisted patient fields only (no Aadhaar / audit columns), the journey, OP
+history, current bed and ICU chart days, with `Cache-Control: no-store`. Signed out, the page shows that;
+on a signed-in HMS computer it also merges the desk's own stores (prescriptions, labs, consultations,
+bills). The QR link uses `publicAppOrigin()`: `VITE_PUBLIC_APP_URL`, else the page origin, unless that is
+localhost -- then the LAN address `vite.config.ts` publishes as `VITE_LAN_ORIGIN`. Desk scanners:
+`useBarcodeScanner` accepts Enter, Tab or no terminator, USB or Bluetooth timing, and scanned QR links;
+the card preview iframe can never hold focus. The card sends its patient details with the token request:
+a patient known only at the desk (registered offline, local demo record) is registered on the server under
+the same UMR (`ensure_card_patient`), and a UMR that belongs to a *different* person on the server is
+refused (409) -- the card then says "UMR clash" instead of carrying someone else's link. Without a link the
+card says why (server unreachable / sign-in needed / clash) in place of the QR.
 
 **Barcodes are unique per patient** because UMRs are. The front desk issues UMRs from a per-browser
 counter, so two desks could hand out the same one; the backend detects that on `/api/op/visits`

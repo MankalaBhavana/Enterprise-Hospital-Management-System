@@ -2987,6 +2987,7 @@ export default function App() {
               {module === "billing" && (
                 <BillingDashboard onNavigate={(m) => setModule(m as Module)} />
               )}
+              {module === "payments" && <PaymentCollection />}
               {(module === "accounts" || module.startsWith("accounts_")) && (
                 <AccountsModule
                   initialTab={
