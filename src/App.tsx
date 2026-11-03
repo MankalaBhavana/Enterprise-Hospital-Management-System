@@ -344,75 +344,22 @@ const NAV: NavItem[] = [
     key: "pharmacy",
     label: "Pharmacy",
     Icon: Pill,
-    badge: 3,
 
     children: [
       { key: "pharmacy", label: "Dashboard" },
-      {
-        key: "pharmacy_dispensing",
-        label: "Dispensing & Billing",
-        group: "Sales & Dispensing",
-      },
-      {
-        key: "pharmacy_rx",
-        label: "Doctor Prescriptions",
-        group: "Sales & Dispensing",
-      },
-      {
-        key: "pharmacy_returns",
-        label: "Patient Returns & Refunds",
-        group: "Sales & Dispensing",
-      },
-      {
-        key: "pharmacy_medicine",
-        label: "Medicine Catalog & Batches",
-        group: "Medicine Master",
-      },
-      {
-        key: "pharmacy_suppliers",
-        label: "Suppliers Directory",
-        group: "Suppliers & Purchases",
-      },
-      {
-        key: "pharmacy_ocr",
-        label: "Inward Stock Entry (GRN)",
-        group: "Suppliers & Purchases",
-      },
-      {
-        key: "pharmacy_supplier_returns",
-        label: "Supplier Returns (Debit Notes)",
-        group: "Suppliers & Purchases",
-      },
-      {
-        key: "pharmacy_ledger",
-        label: "Stock Movement Ledger",
-        group: "Stock & Inventory",
-      },
-      {
-        key: "pharmacy_expiry",
-        label: "Expiry & Low Stock Alerts",
-        group: "Stock & Inventory",
-      },
-      {
-        key: "pharmacy_write_off",
-        label: "Medicine Disposal & Write-Off",
-        group: "Stock & Inventory",
-      },
-      {
-        key: "pharmacy_analytics",
-        label: "Pharmacy Analytics & Reports",
-        group: "Reports & Administration",
-      },
-      {
-        key: "pharmacy_notifications",
-        label: "Alerts & Notifications",
-        group: "Reports & Administration",
-      },
-      {
-        key: "pharmacy_audit",
-        label: "Pharmacy Audit Log",
-        group: "Reports & Administration",
-      },
+      { key: "pharmacy_dispensing", label: "Dispensing & Billing" },
+      { key: "pharmacy_rx", label: "Doctor Prescriptions" },
+      { key: "pharmacy_returns", label: "Patient Returns & Refunds" },
+      { key: "pharmacy_medicine", label: "Medicine Catalog & Batches" },
+      { key: "pharmacy_suppliers", label: "Suppliers Directory" },
+      { key: "pharmacy_ocr", label: "Inward Stock Entry (GRN)" },
+      { key: "pharmacy_supplier_returns", label: "Supplier Returns (Debit Notes)" },
+      { key: "pharmacy_ledger", label: "Stock Movement Ledger" },
+      { key: "pharmacy_expiry", label: "Expiry & Low Stock Alerts" },
+      { key: "pharmacy_write_off", label: "Medicine Disposal & Write-Off" },
+      { key: "pharmacy_analytics", label: "Pharmacy Analytics & Reports" },
+      { key: "pharmacy_notifications", label: "Alerts & Notifications" },
+      { key: "pharmacy_audit", label: "Pharmacy Audit Log" },
     ],
   },
 
@@ -2585,8 +2532,10 @@ export default function App() {
                             <span className="flex-1 truncate">
                               {item.label}
                             </span>
-                            {navBadge && !isActive && (
-                              <span className="badge bg-[#DC2626] text-white ml-1">
+                            {Boolean(navBadge) && (
+                              <span
+                                className={`badge ${isActive ? "bg-white/20 text-white" : "bg-[#DC2626] text-white"} ml-1`}
+                              >
                                 {navBadge}
                               </span>
                             )}
@@ -2607,25 +2556,36 @@ export default function App() {
                         filteredChildren.length > 0 &&
                         isExpanded && (
                           <div className="space-y-0.5 my-1 sidebar-fade-in">
-                            {/* Ungrouped children (a module's own Dashboard) sit directly under the parent. */}
+                            {/* Ungrouped children sit directly under the parent. */}
                             {filteredChildren
                               .filter((c) => !c.group)
-                              .map((child) => (
-                                <div
-                                  key={`${child.key}_${child.label}`}
-                                  className={`nav-item sub ${(module === child.key || (child.key === "laboratory" && module === "lab_catalog")) && isActive
-                                    ? "active"
-                                    : ""
-                                    }`}
-                                  onClick={() => {
-                                    setInsuranceCaseId(undefined)
-                                    setModule(child.key)
-                                    closeMobileNav()
-                                  }}
-                                >
-                                  {child.label}
-                                </div>
-                              ))}
+                              .map((child) => {
+                                const isChildActive =
+                                  (module === child.key || (child.key === "laboratory" && module === "lab_catalog")) &&
+                                  isActive
+                                const childBadge = subBadges[child.key] || 0
+
+                                return (
+                                  <div
+                                    key={`${child.key}_${child.label}`}
+                                    className={`nav-item sub justify-between ${isChildActive ? "active" : ""}`}
+                                    onClick={() => {
+                                      setInsuranceCaseId(undefined)
+                                      setModule(child.key)
+                                      closeMobileNav()
+                                    }}
+                                  >
+                                    <span className="flex-1 truncate">{child.label}</span>
+                                    {childBadge > 0 && (
+                                      <span
+                                        className={`badge ${isChildActive ? "bg-white/25 text-white" : "bg-[#334155] text-[#CBD5E1]"}`}
+                                      >
+                                        {childBadge}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })}
 
                             {/* Grouped children are laid out under a plain section
                               caption rather than a second accordion: the group was

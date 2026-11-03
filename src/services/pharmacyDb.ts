@@ -212,15 +212,28 @@ export type PrescriptionStatus = "Draft" | "Sent To Pharmacy" | "Received" | "OC
  * prescription sat in the verification queue while the pharmacist's landing
  * screen told them there was nothing to do.
  */
-export const AWAITING_VERIFICATION_STATUSES: PrescriptionStatus[] = [
+export const AWAITING_VERIFICATION_STATUSES: string[] = [
   "Sent To Pharmacy",
   "Received",
   "OCR Processing",
   "Verification Pending",
+  "Pending",
+  "Waiting",
+  "New",
 ]
 
-export function isAwaitingVerification(status: PrescriptionStatus): boolean {
-  return AWAITING_VERIFICATION_STATUSES.includes(status)
+export function isAwaitingVerification(status?: string | null): boolean {
+  if (!status) return true
+  const s = status.toLowerCase().trim()
+  return (
+    s === "sent to pharmacy" ||
+    s === "received" ||
+    s === "ocr processing" ||
+    s === "verification pending" ||
+    s === "pending" ||
+    s === "waiting" ||
+    s === "new"
+  )
 }
 export type DispensingStatus = "Waiting" | "Preparing" | "Ready" | "Dispensed" | "Cancelled"
 export type PrescriptionPriority = "Normal" | "Urgent" | "Emergency"

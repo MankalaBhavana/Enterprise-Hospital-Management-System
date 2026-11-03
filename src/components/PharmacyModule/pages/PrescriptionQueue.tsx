@@ -198,7 +198,7 @@ export default function PrescriptionQueue({
         {/* Table */}
         <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
           <div className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] overflow-hidden">
-            <table>
+            <table className="w-full text-left border-collapse">
               <thead className="bg-[#ECFDF5] border-y border-[#A7F3D0]">
                 <tr>
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Prescription ID</th>
@@ -212,7 +212,7 @@ export default function PrescriptionQueue({
                   <th className="py-3 px-4 text-[11px] font-bold text-[#065F46] uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-[#E2E8F0]">
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-16 text-center">
@@ -230,13 +230,10 @@ export default function PrescriptionQueue({
                     return (
                       <tr key={rx.id} onClick={() => setSelected(rx)} className="hover:bg-[#F0FDFA] transition-colors cursor-pointer"
                       >
-                        <td
-                          className="font-mono text-[12px] font-semibold"
-                          style={{ color: "#0F766E" }}
-                        >
+                        <td className="py-3.5 px-4 font-mono text-[12px] font-semibold text-[#0F766E]">
                           {rx.id}
                         </td>
-                        <td>
+                        <td className="py-3.5 px-4">
                           <p className="font-medium text-[#0F1624] text-[13px]">
                             {rx.patient}
                           </p>
@@ -244,7 +241,7 @@ export default function PrescriptionQueue({
                             {rx.age}y · {rx.gender} · {rx.contact}
                           </p>
                         </td>
-                        <td>
+                        <td className="py-3.5 px-4">
                           <p className="text-[13px] text-[#334155]">
                             {rx.doctor}
                           </p>
@@ -252,14 +249,14 @@ export default function PrescriptionQueue({
                             {rx.department}
                           </p>
                         </td>
-                        <td className="text-[12px] whitespace-nowrap">
+                        <td className="py-3.5 px-4 text-[12px] whitespace-nowrap">
                           <p className="text-[#0F1624] font-medium">{rx.date}</p>
                           <p className="text-[11px] font-semibold text-[#0F766E] flex items-center gap-1 mt-0.5">
                             <Clock size={11} className="text-[#0F766E]" />
                             {rx.arrivalTime || rx.time || "Just now"}
                           </p>
                         </td>
-                        <td className="text-[13px] font-semibold text-center py-2.5">
+                        <td className="py-3.5 px-4 text-[13px] font-semibold text-center">
                           <div className="flex flex-col items-center gap-1">
                             <span>{rx.items} {rx.items === 1 ? "item" : "items"}</span>
                             <span
@@ -271,18 +268,18 @@ export default function PrescriptionQueue({
                             </span>
                           </div>
                         </td>
-                        <td>
+                        <td className="py-3.5 px-4">
                           <StatusBadge status={rx.priority} size="sm" />
                         </td>
-                        <td>
+                        <td className="py-3.5 px-4">
                           <StatusBadge status={rx.status} size="sm" />
                         </td>
-                        <td className="text-[13px] text-[#64748B]">
+                        <td className="py-3.5 px-4 text-[13px] text-[#64748B]">
                           {rx.pharmacist ?? (
                             <span className="text-[#94A3B8] text-[12px]">—</span>
                           )}
                         </td>
-                        <td>
+                        <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
