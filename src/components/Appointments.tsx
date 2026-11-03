@@ -786,6 +786,10 @@ export default function Appointments({
         if (!encDateStr.startsWith(selectedMonthStr)) return false
       }
       return true
+    }).sort((a, b) => {
+      const timeB = new Date(b.createdAt || b.date || 0).getTime()
+      const timeA = new Date(a.createdAt || a.date || 0).getTime()
+      return timeB - timeA || (b.opNumber || "").localeCompare(a.opNumber || "")
     })
   }, [
     encounters,

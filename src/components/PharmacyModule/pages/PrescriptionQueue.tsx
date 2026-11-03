@@ -120,20 +120,26 @@ export default function PrescriptionQueue({
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
-  const filtered = (prescriptions || []).filter((rx) => {
-    if (!rx) return false
-    const rxStatus = (rx.status || "").toLowerCase()
-    const matchStatus =
-      activeFilter === "All" || rxStatus === activeFilter.toLowerCase()
-    const q = (search || "").toLowerCase().trim()
-    const matchSearch =
-      !q ||
-      (rx.patient || "").toLowerCase().includes(q) ||
-      (rx.id || "").toLowerCase().includes(q) ||
-      (rx.doctor || "").toLowerCase().includes(q) ||
-      (rx.diagnosis || "").toLowerCase().includes(q)
-    return matchStatus && matchSearch
-  })
+  const filtered = (prescriptions || [])
+    .filter((rx) => {
+      if (!rx) return false
+      const rxStatus = (rx.status || "").toLowerCase()
+      const matchStatus =
+        activeFilter === "All" || rxStatus === activeFilter.toLowerCase()
+      const q = (search || "").toLowerCase().trim()
+      const matchSearch =
+        !q ||
+        (rx.patient || "").toLowerCase().includes(q) ||
+        (rx.id || "").toLowerCase().includes(q) ||
+        (rx.doctor || "").toLowerCase().includes(q) ||
+        (rx.diagnosis || "").toLowerCase().includes(q)
+      return matchStatus && matchSearch
+    })
+    .sort((a, b) => {
+      const timeB = new Date((b as any).arrivalTime || (b as any).createdAt || b.date || 0).getTime()
+      const timeA = new Date((a as any).arrivalTime || (a as any).createdAt || a.date || 0).getTime()
+      return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+    })
 
   const handleDispense = () => {
     if (selected) {

@@ -1286,12 +1286,15 @@ export class BedDatabase {
       const parsed: DischargedPatientRecord[] = JSON.parse(stored)
       const currentIds = new Set(parsed.map((p) => p.id))
       const missing = INITIAL_DISCHARGED.filter((p) => !currentIds.has(p.id))
+      const merged = missing.length > 0 ? [...parsed, ...missing] : parsed
       if (missing.length > 0) {
-        const merged = [...parsed, ...missing]
         this.saveDischarged(merged)
-        return merged
       }
-      return parsed
+      return merged.sort((a, b) => {
+        const timeB = new Date(b.dischargeDate || 0).getTime()
+        const timeA = new Date(a.dischargeDate || 0).getTime()
+        return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+      })
     } catch {
       return INITIAL_DISCHARGED
     }

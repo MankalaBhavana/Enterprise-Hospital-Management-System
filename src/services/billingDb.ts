@@ -5297,10 +5297,11 @@ export class BillingDatabase {
       }
     }
 
-    return claims.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
+    return claims.sort((a, b) => {
+      const timeB = new Date(b.createdAt || b.dateOfService || 0).getTime()
+      const timeA = new Date(a.createdAt || a.dateOfService || 0).getTime()
+      return timeB - timeA
+    })
   }
 
   static getClaimById(id: string): ClaimRecord | undefined {
@@ -7955,7 +7956,11 @@ export class BillingDatabase {
         })
       }
     }
-    return deduplicatedStudies
+    return deduplicatedStudies.sort((a, b) => {
+      const timeB = new Date((b as any).createdAt || (b as any).orderedAt || (b as any).date || 0).getTime()
+      const timeA = new Date((a as any).createdAt || (a as any).orderedAt || (a as any).date || 0).getTime()
+      return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+    })
   }
 
   static ensureRadiologyClaim(study: RadiologyStudyRecord): void {

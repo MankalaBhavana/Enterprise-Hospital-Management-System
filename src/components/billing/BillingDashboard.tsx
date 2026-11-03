@@ -141,7 +141,11 @@ export default function BillingDashboard({
     () =>
       claims
         .filter((c) => (c.balanceDue || 0) > 0)
-        .sort((a, b) => ageDays(b.dateOfService) - ageDays(a.dateOfService) || b.balanceDue - a.balanceDue),
+        .sort((a, b) => {
+          const timeB = new Date(b.createdAt || b.dateOfService || 0).getTime()
+          const timeA = new Date(a.createdAt || a.dateOfService || 0).getTime()
+          return timeB - timeA || b.balanceDue - a.balanceDue
+        }),
     [claims],
   )
 
@@ -195,7 +199,10 @@ export default function BillingDashboard({
   )
 
   const recent = useMemo(
-    () => [...payments].sort((a, b) => (b.paymentDate || "").localeCompare(a.paymentDate || "")).slice(0, 5),
+    () =>
+      [...payments]
+        .sort((a, b) => new Date(b.paymentDate || 0).getTime() - new Date(a.paymentDate || 0).getTime())
+        .slice(0, 5),
     [payments],
   )
 
@@ -279,7 +286,7 @@ export default function BillingDashboard({
                     {c.label.replace(" Billing", "")} · {c.waiting}
                   </button>
                 ))}
-                <span className="ml-auto text-[11.5px] text-slate-500">Oldest first</span>
+                <span className="ml-auto text-[11.5px] text-slate-500">Recent first</span>
               </div>
 
               {worklist.length === 0 ? (

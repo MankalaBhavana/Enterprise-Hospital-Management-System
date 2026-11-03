@@ -1919,6 +1919,11 @@ class HospitalDatabase {
       if (uniqueList.length !== list.length || merged) {
         safeDbSetItem(STORAGE_KEYS.PATIENTS, JSON.stringify(uniqueList))
       }
+      uniqueList.sort((a, b) => {
+        const timeB = new Date(b.createdAt || 0).getTime()
+        const timeA = new Date(a.createdAt || 0).getTime()
+        return timeB - timeA
+      })
       return uniqueList
     } catch {
       return INITIAL_SEED_PATIENTS
@@ -2007,6 +2012,11 @@ class HospitalDatabase {
       if (merged) {
         safeDbSetItem(STORAGE_KEYS.ENCOUNTERS, JSON.stringify(list))
       }
+      list.sort((a, b) => {
+        const timeB = new Date(b.createdAt || b.date || 0).getTime()
+        const timeA = new Date(a.createdAt || a.date || 0).getTime()
+        return timeB - timeA
+      })
       return list
     } catch {
       return INITIAL_SEED_ENCOUNTERS

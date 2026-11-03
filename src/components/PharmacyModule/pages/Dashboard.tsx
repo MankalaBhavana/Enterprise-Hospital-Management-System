@@ -186,6 +186,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       })
     }
 
+    list.sort((a, b) => {
+      const timeB = new Date((b as any).arrivalTime || (b as any).createdAt || b.date || 0).getTime()
+      const timeA = new Date((a as any).arrivalTime || (a as any).createdAt || a.date || 0).getTime()
+      return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+    })
+
     return list.slice(0, 5)
   }, [prescriptions, pendingPrescriptions, selectedDatePrescriptions])
 

@@ -4747,7 +4747,12 @@ export class ErDatabase {
   // Patients
 
   static getPatients(): ErPatient[] {
-    return this.load<ErPatient[]>(ER_STORAGE_KEY_PATIENTS, INITIAL_PATIENTS)
+    const list = this.load<ErPatient[]>(ER_STORAGE_KEY_PATIENTS, INITIAL_PATIENTS)
+    return [...list].sort((a, b) => {
+      const timeB = new Date(b.created_at || 0).getTime()
+      const timeA = new Date(a.created_at || 0).getTime()
+      return timeB - timeA
+    })
   }
 
   static searchPatients(query: string): ErPatient[] {
@@ -5021,11 +5026,17 @@ export class ErDatabase {
 
     this.ensureDynamicActiveVisits(visits)
 
-    if (filter === "active") return visits.filter((v) => v.status !== "closed")
+    const sorted = [...visits].sort((a, b) => {
+      const timeB = new Date(b.arrival_at || (b as any).created_at || (b as any).arrivalDate || 0).getTime()
+      const timeA = new Date(a.arrival_at || (a as any).created_at || (a as any).arrivalDate || 0).getTime()
+      return timeB - timeA || b.id - a.id
+    })
 
-    if (filter === "closed") return visits.filter((v) => v.status === "closed")
+    if (filter === "active") return sorted.filter((v) => v.status !== "closed")
 
-    return visits
+    if (filter === "closed") return sorted.filter((v) => v.status === "closed")
+
+    return sorted
   }
 
   static getVisitsByPatient(

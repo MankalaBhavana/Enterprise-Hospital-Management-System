@@ -2244,6 +2244,11 @@ export class PharmacyDatabase {
       const stored = safeStorageGetItem(PRESCRIPTIONS_KEY)
       let prescriptions: AppPrescription[] = stored ? JSON.parse(stored) : []
       if (!Array.isArray(prescriptions)) prescriptions = []
+      prescriptions.sort((a, b) => {
+        const timeB = new Date(b.arrivalTime || (b as any).createdAt || b.date || 0).getTime()
+        const timeA = new Date(a.arrivalTime || (a as any).createdAt || a.date || 0).getTime()
+        return timeB - timeA
+      })
       return prescriptions
     } catch {
       return []
@@ -2295,6 +2300,11 @@ export class PharmacyDatabase {
       if (changed) {
         safeStorageSetItem(BILLS_KEY, JSON.stringify(bills))
       }
+      bills.sort((a, b) => {
+        const timeB = new Date(b.createdAt || 0).getTime()
+        const timeA = new Date(a.createdAt || 0).getTime()
+        return timeB - timeA
+      })
       return bills
     } catch {
       return []

@@ -40,12 +40,24 @@ export default function LabBillingQueue({
 
   useEffect(() => LabOrderDatabase.subscribe(() => setTick((t) => t + 1)), [])
 
-  const pending = useMemo(() => LabOrderDatabase.getBillingQueue(), [tick])
+  const pending = useMemo(
+    () =>
+      [...LabOrderDatabase.getBillingQueue()].sort((a, b) => {
+        const timeB = new Date(b.createdAt || (b as any).orderedDate || 0).getTime()
+        const timeA = new Date(a.createdAt || (a as any).orderedDate || 0).getTime()
+        return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+      }),
+    [tick],
+  )
   const settled = useMemo(
     () =>
-      LabOrderDatabase.getOrders().filter(
-        (order) => order.billing.status === "Paid",
-      ),
+      LabOrderDatabase.getOrders()
+        .filter((order) => order.billing.status === "Paid")
+        .sort((a, b) => {
+          const timeB = new Date(b.billing.paidAt || b.createdAt || 0).getTime()
+          const timeA = new Date(a.billing.paidAt || a.createdAt || 0).getTime()
+          return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+        }),
     [tick],
   )
   const list = view === "pending" ? pending : settled

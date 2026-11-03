@@ -101,7 +101,7 @@ export default function PatientSearch({
     if (selectedType === "Senior" && (p.age || 0) < 60) return false
 
     return true
-  })
+  }).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(" ").filter(Boolean)

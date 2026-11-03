@@ -101,6 +101,15 @@ export default function Dashboard({
     }
   }, [])
 
+  // Dynamic top-to-bottom recent appointments and diagnostic orders
+  const recentAppointments = useMemo(() => {
+    return db.getEncounters().slice(0, 5)
+  }, [tick])
+
+  const recentLabs = useMemo(() => {
+    return LabOrderDatabase.getOrders().slice(0, 4)
+  }, [tick])
+
   // Real-time synchronization across microservice stores
   useEffect(() => {
     const bump = () => setTick((t) => t + 1)
@@ -814,145 +823,87 @@ export default function Dashboard({
 
             {/* Appointment List Items */}
             <div className="space-y-3">
-              {/* Item 1 */}
-              <div className="flex items-center justify-between gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
-                    GD
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-slate-400">09:00 AM</span>
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        gnanesh demarasingu
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-500 truncate">
-                      Dr. R. K. Verma • Cardiology
-                    </p>
-                  </div>
+              {recentAppointments.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No appointments registered today.
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="bg-slate-100 text-slate-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    Awaiting Billing
-                  </span>
-                  <button className="text-slate-400 hover:text-slate-600 p-0.5">
-                    <MoreVertical size={13} />
-                  </button>
-                </div>
-              </div>
+              ) : (
+                recentAppointments.map((enc, idx) => {
+                  const initials = (enc.patientName || "PT")
+                    .split(" ")
+                    .map((w) => w[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase() || "PT"
+                  const timeStr =
+                    enc.registrationTime ||
+                    enc.timestamps?.arrival ||
+                    (enc.createdAt
+                      ? new Date(enc.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Today")
+                  const docStr = enc.assignedDoctor
+                    ? `Dr. ${enc.assignedDoctor.replace(/^Dr\.\s*/i, "")}`
+                    : "Attending Physician"
+                  const deptStr = enc.dept || "General OPD"
+                  const status = enc.status || "Registered"
+                  const isConsulted =
+                    status === "Consultation Completed" || status === "OP Completed"
+                  const isCalling =
+                    status === "Under Consultation" || status === "Doctor Assigned"
 
-              {/* Item 2 */}
-              <div className="flex items-center justify-between gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center shrink-0">
-                    PS
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-slate-400">09:30 AM</span>
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        Priya Sharma
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-500 truncate">
-                      Dr. • General Medicine
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    Consultation Completed
-                  </span>
-                  <button className="text-slate-400 hover:text-slate-600 p-0.5">
-                    <MoreVertical size={13} />
-                  </button>
-                </div>
-              </div>
+                  const avatarColors = [
+                    "bg-blue-100 text-blue-700",
+                    "bg-purple-100 text-purple-700",
+                    "bg-cyan-100 text-cyan-700",
+                    "bg-indigo-100 text-indigo-700",
+                    "bg-emerald-100 text-emerald-700",
+                  ]
 
-              {/* Item 3 */}
-              <div className="flex items-center justify-between gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 font-bold text-xs flex items-center justify-center shrink-0">
-                    RK
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-slate-400">10:00 AM</span>
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        Rahul Kumar
-                      </span>
+                  return (
+                    <div
+                      key={enc.id}
+                      onClick={() => navigate("appointments")}
+                      className="flex items-center justify-between gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-full ${avatarColors[idx % avatarColors.length]} font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs`}
+                        >
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-slate-400">{timeStr}</span>
+                            <span className="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                              {enc.patientName}
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-slate-500 truncate">
+                            {docStr} • {deptStr}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isConsulted
+                              ? "bg-slate-100 text-slate-600"
+                              : isCalling
+                              ? "bg-emerald-50 text-emerald-700 font-bold"
+                              : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-[10.5px] text-slate-500 truncate">
-                      Dr. M. Srinivas • Neurology
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    In Queue
-                  </span>
-                  <button className="text-slate-400 hover:text-slate-600 p-0.5">
-                    <MoreVertical size={13} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Item 4 */}
-              <div className="flex items-center justify-between gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
-                    AV
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-slate-400">10:30 AM</span>
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        Anand Verma
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-500 truncate">
-                      Dr. K. Patel • Orthopedics
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    In Queue
-                  </span>
-                  <button className="text-slate-400 hover:text-slate-600 p-0.5">
-                    <MoreVertical size={13} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Item 5 */}
-              <div className="flex items-center justify-between gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
-                    DM
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-slate-400">11:00 AM</span>
-                      <span className="text-xs font-bold text-slate-900 truncate">
-                        David Miller
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-500 truncate">
-                      Dr. P. Thomas • Cardiology
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                    Registered
-                  </span>
-                  <button className="text-slate-400 hover:text-slate-600 p-0.5">
-                    <MoreVertical size={13} />
-                  </button>
-                </div>
-              </div>
+                  )
+                })
+              )}
             </div>
           </div>
         </div>
@@ -1001,123 +952,82 @@ export default function Dashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {/* Row 1 */}
-                  <tr className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 font-bold text-slate-900">gnanesh damarasingu</td>
-                    <td className="py-3">
-                      <span className="font-mono text-[10.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                        #PAT-00124
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-700 truncate max-w-[160px]">
-                      Urine Test, Blood Test, Thy Test...
-                    </td>
-                    <td className="py-3 text-slate-600">Pathology</td>
-                    <td className="py-3 text-slate-500 font-mono text-[11px]">06:22 PM</td>
-                    <td className="py-3">
-                      <span className="bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
-                        <span>⚠ Critical</span>
-                      </span>
-                    </td>
-                    <td className="py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => navigate("laboratory")}
-                        className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-0.5 ml-auto cursor-pointer"
-                      >
-                        <span>View</span>
-                        <ExternalLink size={10} />
-                      </button>
-                    </td>
-                  </tr>
+                  {recentLabs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
+                        No pending diagnostic lab orders.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentLabs.map((lab) => {
+                      const testSummary =
+                        lab.tests?.map((t) => t.name).join(", ") ||
+                        "Diagnostic Test Panel"
+                      const orderedTime = lab.createdAt
+                        ? new Date(lab.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Today"
+                      const isCritical = (lab.status as string) === "Critical"
+                      const isPendingBilling = lab.billing?.status === "Pending"
 
-                  {/* Row 2 */}
-                  <tr className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 font-bold text-slate-900">Priya Sharma</td>
-                    <td className="py-3">
-                      <span className="font-mono text-[10.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                        #PAT-00126
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-700 truncate max-w-[160px]">
-                      CBC, LFT, Lipid Profile
-                    </td>
-                    <td className="py-3 text-slate-600">Pathology</td>
-                    <td className="py-3 text-slate-500 font-mono text-[11px]">07:11 AM</td>
-                    <td className="py-3">
-                      <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
-                        <span>⚠ Awaiting Billing</span>
-                      </span>
-                    </td>
-                    <td className="py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => navigate("billing")}
-                        className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-0.5 ml-auto cursor-pointer"
-                      >
-                        <span>View</span>
-                        <ExternalLink size={10} />
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Row 3 */}
-                  <tr className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 font-bold text-slate-900">Rahul Kumar</td>
-                    <td className="py-3">
-                      <span className="font-mono text-[10.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                        #PAT-00125
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-700 truncate max-w-[160px]">
-                      CBC, Liver Function, Lipid Profile
-                    </td>
-                    <td className="py-3 text-slate-600">Hematology</td>
-                    <td className="py-3 text-slate-500 font-mono text-[11px]">08:36 AM</td>
-                    <td className="py-3">
-                      <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                        <span>In Progress</span>
-                      </span>
-                    </td>
-                    <td className="py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => navigate("laboratory")}
-                        className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-0.5 ml-auto cursor-pointer"
-                      >
-                        <span>View</span>
-                        <ExternalLink size={10} />
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Row 4 */}
-                  <tr className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 font-bold text-slate-900">Anand Verma</td>
-                    <td className="py-3">
-                      <span className="font-mono text-[10.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                        #PAT-00127
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-700 truncate max-w-[160px]">
-                      HbA1c, RFT, TSH, T4
-                    </td>
-                    <td className="py-3 text-slate-600">Biochemistry</td>
-                    <td className="py-3 text-slate-500 font-mono text-[11px]">07:26 AM</td>
-                    <td className="py-3">
-                      <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                        <span>In Progress</span>
-                      </span>
-                    </td>
-                    <td className="py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => navigate("laboratory")}
-                        className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-0.5 ml-auto cursor-pointer"
-                      >
-                        <span>View</span>
-                        <ExternalLink size={10} />
-                      </button>
-                    </td>
-                  </tr>
+                      return (
+                        <tr
+                          key={lab.id}
+                          className="hover:bg-slate-50/70 transition-colors"
+                        >
+                          <td className="py-3 font-bold text-slate-900">
+                            {lab.patientName}
+                          </td>
+                          <td className="py-3">
+                            <span className="font-mono text-[10.5px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                              #{lab.umr || lab.opNumber || "PAT-001"}
+                            </span>
+                          </td>
+                          <td
+                            className="py-3 text-slate-700 truncate max-w-[160px]"
+                            title={testSummary}
+                          >
+                            {testSummary}
+                          </td>
+                          <td className="py-3 text-slate-600">
+                            {lab.tests?.[0]?.category || "Pathology"}
+                          </td>
+                          <td className="py-3 text-slate-500 font-mono text-[11px]">
+                            {orderedTime}
+                          </td>
+                          <td className="py-3">
+                            {isCritical ? (
+                              <span className="bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
+                                <span>⚠ Critical</span>
+                              </span>
+                            ) : isPendingBilling ? (
+                              <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
+                                <span>⚠ Awaiting Billing</span>
+                              </span>
+                            ) : (
+                              <span className="bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full text-[10.5px] flex items-center gap-1 w-fit">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                                <span>{lab.status || "In Progress"}</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() =>
+                                navigate(isPendingBilling ? "billing" : "laboratory")
+                              }
+                              className="text-blue-600 hover:text-blue-700 font-semibold text-xs flex items-center gap-0.5 ml-auto cursor-pointer"
+                            >
+                              <span>View</span>
+                              <ExternalLink size={10} />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

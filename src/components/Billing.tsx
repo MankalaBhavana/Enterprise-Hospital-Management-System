@@ -476,7 +476,9 @@ export default function Billing({
         if (a.id === selectedClaimId) return -1
         if (b.id === selectedClaimId) return 1
       }
-      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      const timeB = new Date(b.createdAt || b.dateOfService || 0).getTime()
+      const timeA = new Date(a.createdAt || a.dateOfService || 0).getTime()
+      return timeB - timeA
     })
   }, [scopedClaims, deptFilter, statusFilter, searchQuery, selectedClaimId])
 

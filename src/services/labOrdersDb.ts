@@ -879,10 +879,11 @@ export class LabOrderDatabase {
   static getOrders(): LabOrder[] {
     return readOrders()
       .filter((o) => o.tests && o.tests.length > 0)
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
+      .sort((a, b) => {
+        const timeB = new Date(b.createdAt || (b as any).orderedDate || 0).getTime()
+        const timeA = new Date(a.createdAt || (a as any).orderedDate || 0).getTime()
+        return timeB - timeA || (b.id || "").localeCompare(a.id || "")
+      })
   }
 
   static resetToCleanDemoData(): void {
