@@ -21,6 +21,7 @@ import {
   Stethoscope,
   Siren,
   Sparkles,
+  Plus,
 } from "lucide-react"
 import { db } from "../services/db"
 import { LabOrderDatabase } from "../services/labOrdersDb"
@@ -28,6 +29,14 @@ import { ErDatabase } from "../services/erDb"
 import { BedDatabase } from "../services/bedDb"
 import { SurgeryDatabase } from "../services/surgeryDb"
 import { getHospitalCode } from "../lib/api"
+import {
+  ALL_QUICK_ACTIONS,
+  ICON_MAP,
+  loadQuickActionIds,
+  saveQuickActionIds,
+  QUICK_ACTION_STORAGE_KEY,
+} from "./dashboard/quickActionsConfig"
+import QuickActionsCustomizeModal from "./dashboard/QuickActionsCustomizeModal"
 
 export default function Dashboard({
   navigate,
@@ -47,6 +56,50 @@ export default function Dashboard({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [banner1Dismissed, setBanner1Dismissed] = useState(false)
   const [banner2Dismissed, setBanner2Dismissed] = useState(false)
+  const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
+  const [quickActionIds, setQuickActionIds] = useState<string[]>(() => loadQuickActionIds())
+
+  // Dynamic quick actions derived from configured IDs
+  const activeQuickActions = useMemo(() => {
+    return quickActionIds
+      .map((id) => ALL_QUICK_ACTIONS.find((a) => a.id === id))
+      .filter((a): a is typeof ALL_QUICK_ACTIONS[0] => Boolean(a))
+  }, [quickActionIds])
+
+  const handleSaveQuickActions = (newIds: string[]) => {
+    setQuickActionIds(newIds)
+    saveQuickActionIds(newIds)
+  }
+
+  // Multi-tab sync for customized dashboard quick actions
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === QUICK_ACTION_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setQuickActionIds(parsed)
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+
+    let bc: BroadcastChannel | null = null
+    try {
+      bc = new BroadcastChannel("hospai_dashboard_channel")
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === "quick_actions_updated" && Array.isArray(ev.data.ids)) {
+          setQuickActionIds(ev.data.ids)
+        }
+      }
+    } catch {}
+
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      if (bc) bc.close()
+    }
+  }, [])
 
   // Real-time synchronization across microservice stores
   useEffect(() => {
@@ -1071,7 +1124,7 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* Right (1 Col): Hospital Quick Actions (8 Tiles) */}
+        {/* Right (1 Col): Hospital Quick Actions (Dynamic Grid) */}
         <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
@@ -1084,118 +1137,57 @@ export default function Dashboard({
                 </h3>
               </div>
               <button
-                className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                type="button"
+                onClick={() => setIsCustomizeOpen(true)}
+                className="text-xs font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Customize quick action shortcuts"
               >
                 <SlidersHorizontal size={11} />
                 <span>Customize</span>
               </button>
             </div>
 
-            {/* 8 Tiles Grid (4 x 2) */}
+            {/* Dynamic Quick Actions Grid (4 x 2) */}
             <div className="grid grid-cols-4 gap-2.5">
-              {/* Tile 1: Patient Registration */}
-              <button
-                onClick={() => navigate("register")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#EFF6FF] hover:bg-blue-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <Users size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-blue-900 leading-tight">
-                  Patient Registration
-                </span>
-              </button>
+              {activeQuickActions.map((action) => {
+                const IconComponent = ICON_MAP[action.iconName] || SlidersHorizontal
+                return (
+                  <button
+                    key={action.id}
+                    onClick={() => navigate(action.module, action.subModule)}
+                    className={`flex flex-col items-center justify-center p-2.5 ${action.hoverBg} rounded-xl transition-all group cursor-pointer text-center relative`}
+                    style={{ backgroundColor: action.bg }}
+                    title={action.desc}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-lg ${action.iconBg} text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform`}
+                    >
+                      <IconComponent size={16} />
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold ${action.textColor} leading-tight line-clamp-2`}
+                    >
+                      {action.label}
+                    </span>
+                  </button>
+                )
+              })}
 
-              {/* Tile 2: Schedule Appointment */}
-              <button
-                onClick={() => navigate("appointments")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#F5F3FF] hover:bg-purple-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <Calendar size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-purple-900 leading-tight">
-                  Schedule Appointment
-                </span>
-              </button>
-
-              {/* Tile 3: ED Track Board */}
-              <button
-                onClick={() => navigate("emergency")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#FFF1F2] hover:bg-rose-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <Siren size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-rose-900 leading-tight">
-                  ED Track Board
-                </span>
-              </button>
-
-              {/* Tile 4: Bed Allocation Board */}
-              <button
-                onClick={() => navigate("inpatient")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#F5F3FF] hover:bg-indigo-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <BedDouble size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-indigo-900 leading-tight">
-                  Bed Allocation Board
-                </span>
-              </button>
-
-              {/* Tile 5: Lab Orders & Diagnostics */}
-              <button
-                onClick={() => navigate("laboratory")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#FEF3C7] hover:bg-amber-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <FlaskConical size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-amber-900 leading-tight">
-                  Lab Orders &amp; Diagnostics
-                </span>
-              </button>
-
-              {/* Tile 6: Pharmacy Dispensing */}
-              <button
-                onClick={() => navigate("pharmacy_dispensing")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#ECFDF5] hover:bg-emerald-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <Pill size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-emerald-900 leading-tight">
-                  Pharmacy Dispensing
-                </span>
-              </button>
-
-              {/* Tile 7: Surgery OR Board */}
-              <button
-                onClick={() => navigate("surgery")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#CCFBF1] hover:bg-teal-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-teal-500 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <Heart size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-teal-900 leading-tight">
-                  Surgery OR Board
-                </span>
-              </button>
-
-              {/* Tile 8: Billing & Claims */}
-              <button
-                onClick={() => navigate("billing")}
-                className="flex flex-col items-center justify-center p-2.5 bg-[#EEF2FF] hover:bg-blue-100 rounded-xl transition-all group cursor-pointer text-center"
-              >
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center mb-1.5 shadow-2xs group-hover:scale-105 transition-transform">
-                  <CreditCard size={16} />
-                </div>
-                <span className="text-[10px] font-bold text-blue-900 leading-tight">
-                  Billing &amp; Claims
-                </span>
-              </button>
+              {activeQuickActions.length < 8 && (
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizeOpen(true)}
+                  className="flex flex-col items-center justify-center p-2.5 bg-slate-50 hover:bg-blue-50/50 border border-dashed border-slate-300 hover:border-blue-400 rounded-xl transition-all group cursor-pointer text-center"
+                  title="Add more quick actions"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-slate-200/80 group-hover:bg-blue-500 text-slate-500 group-hover:text-white flex items-center justify-center mb-1.5 transition-colors shadow-2xs">
+                    <Plus size={16} />
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-600 group-hover:text-blue-700 leading-tight">
+                    Add Action
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1331,6 +1323,14 @@ export default function Dashboard({
           </div>
         </div>
       </div>
+
+      {/* Quick Actions Customization Modal */}
+      <QuickActionsCustomizeModal
+        isOpen={isCustomizeOpen}
+        onClose={() => setIsCustomizeOpen(false)}
+        currentActionIds={quickActionIds}
+        onSave={handleSaveQuickActions}
+      />
     </div>
   )
 }
