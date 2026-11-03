@@ -920,19 +920,26 @@ export default function DoctorWorkflow({
           (m) => m && typeof m.medicine === "string" && m.medicine.trim().length > 0,
         )
         if (validMeds.length > 0) {
-          rxItems = validMeds.map((m, idx) => ({
-            id: `RX-ITEM-${idx + 1}`,
-            medicineName: m.medicine.trim(),
-            strength: m.strength || "",
-            dosage: m.dosage || "1 dose",
-            frequency: m.frequency || "OD",
-            duration: m.duration || "5 days",
-            route: m.route || "Oral",
-            instructions: m.instructions || "",
-            remarks: m.remarks || "",
-            quantity: Number(m.quantity) > 0 ? Number(m.quantity) : 1,
-            substitutionAllowed: true,
-          }))
+          rxItems = validMeds.map((m, idx) => {
+            const medName = m.medicine.trim()
+            const fullTitle =
+              m.strength && !medName.toLowerCase().includes(m.strength.toLowerCase().trim())
+                ? `${medName} ${m.strength.trim()}`
+                : medName
+            return {
+              id: `RX-ITEM-${idx + 1}`,
+              medicineName: fullTitle,
+              strength: m.strength || "",
+              dosage: m.dosage || "1 dose",
+              frequency: m.frequency || "OD",
+              duration: m.duration || "5 days",
+              route: m.route || "Oral",
+              instructions: m.instructions || "",
+              remarks: m.remarks || "",
+              quantity: Number(m.quantity) > 0 ? Number(m.quantity) : 1,
+              substitutionAllowed: true,
+            }
+          })
         } else {
           rxItems = [
             {

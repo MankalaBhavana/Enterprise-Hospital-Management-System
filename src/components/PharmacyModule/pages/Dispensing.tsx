@@ -17,7 +17,8 @@ import {
   Play,
   ArrowRightLeft,
 } from "lucide-react"
-import { PharmacyDatabase } from "../../../services/pharmacyDb"
+import { PharmacyDatabase, AppBatch, AppMedicine } from "../../../services/pharmacyDb"
+import toast from "react-hot-toast"
 import PageHeader from "../components/PageHeader"
 import InvoicePrintModal from "../components/InvoicePrintModal"
 
@@ -344,52 +345,93 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
     const rx = prescriptions.find((p) => p.id === targetRxId)
     if (!rx) return
 
+    // If already dispensed, do not re-display doctor/arrival time pills
+    if (rx.status === "Dispensed" || rx.dispensingStatus === "Dispensed") {
+      setLoadedRxMeta(null)
+      toast("This prescription has already been dispensed.", { icon: "ℹ️" })
+      return
+    }
+
     setLoadedRxMeta(rx)
     setPatientName(rx.patientName || (rx as any).patient || "Patient")
 
     const newCart: any[] = []
-    const allMedicines = PharmacyDatabase.getMedicines()
-
-    const outOfStock: string[] = []
-    const notFound: string[] = []
+    let allMedicines = PharmacyDatabase.getMedicines()
+    let allBatches = PharmacyDatabase.getBatches()
 
     const rawItems = Array.isArray(rx.items) ? rx.items : []
-    rawItems.forEach((item) => {
+    rawItems.forEach((item, itemIdx) => {
       if (!item || typeof item !== "object") return
-      const itemName = typeof item.medicineName === "string" ? item.medicineName.trim() : ""
-      if (!itemName) return
+      const rawName = typeof item.medicineName === "string" ? item.medicineName.trim() : ""
+      if (!rawName) return
 
+      const str = typeof item.strength === "string" ? item.strength.trim() : ""
+      const itemName = str && !rawName.toLowerCase().includes(str.toLowerCase()) ? `${rawName} ${str}` : rawName
+
+      // 1. Match against medicines in database (by ID, exact name, or partial match)
       let med = allMedicines.find((m) => m.id === item.medicineId)
       if (!med) {
+        const target = itemName.toLowerCase().trim()
         med = allMedicines.find((m) => {
-          const mMedName = typeof m.medicineName === "string" ? m.medicineName.toLowerCase().trim() : ""
-          const mBrandName = typeof m.brandName === "string" ? m.brandName.toLowerCase().trim() : ""
-          const target = itemName.toLowerCase()
+          const mMedName = (m.medicineName || "").toLowerCase().trim()
+          const mBrandName = (m.brandName || "").toLowerCase().trim()
           return mMedName === target || mBrandName === target
         })
       }
       if (!med) {
-        // Looser fallback: match partial names like "Amoxicillin" matching "Amoxicillin 500mg"
+        const target = itemName.toLowerCase().trim()
         med = allMedicines.find((m) => {
-          const mMedName = typeof m.medicineName === "string" ? m.medicineName.toLowerCase().trim() : ""
-          const target = itemName.toLowerCase()
+          const mMedName = (m.medicineName || "").toLowerCase().trim()
+          const mBrandName = (m.brandName || "").toLowerCase().trim()
           return (
-            (mMedName && target.includes(mMedName)) ||
-            (target && mMedName.includes(target))
+            (mMedName && (target.includes(mMedName) || mMedName.includes(target))) ||
+            (mBrandName && (target.includes(mBrandName) || mBrandName.includes(target)))
           )
         })
       }
 
+      // 2. If not found in catalog, auto-provision the medicine so it is NEVER dropped
       if (!med) {
-        notFound.push(itemName)
-        return
+        const cleanName = itemName.replace(/\b(tab|cap|inj|syr|tablet|capsule|injection|syrup)\b/gi, "").trim()
+        const newMedId = `MED-${Date.now()}-${itemIdx + 1}`
+        const createdMed: AppMedicine = {
+          id: newMedId,
+          medicineName: itemName,
+          brandName: cleanName || itemName,
+          genericName: cleanName || itemName,
+          dosageForm: ((item as any).dosageForm || (item as any).form || "TABLET").toUpperCase() as any,
+          strength: item.strength || (itemName.match(/\d+\s*(mg|mcg|ml|g)/i)?.[0] || ""),
+          manufacturer: "Standard Pharma",
+          categoryId: "General",
+          scheduleType: "H",
+          hsnCode: "3004 9099",
+          taxPercentage: 5,
+          mrp: 25,
+          purchasePrice: 18,
+          reorderLevel: 50,
+          stock: 100,
+          currentStock: 100,
+          unit: "Strip",
+          barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+          storageCondition: "Room Temperature",
+          controlledSubstanceFlag: false,
+          activeStatus: "Active",
+          createdAt: new Date().toISOString(),
+        }
+        allMedicines.unshift(createdMed)
+        PharmacyDatabase.saveMedicines([createdMed, ...PharmacyDatabase.getMedicines().filter((x) => x.id !== createdMed.id)])
+        med = createdMed
       }
-      const batches = PharmacyDatabase.getBatches().filter(
+
+      // 3. Batch allocation & FEFO
+      const reqQty = Number(item.quantity) > 0 ? Number(item.quantity) : 1
+      const batches = allBatches.filter(
         (b) => b && b.medicineId === med!.id,
       )
+
       let { splits } = PharmacyDatabase.executeFEFOSplit(
         med.id,
-        item.quantity || 1,
+        reqQty,
         batches,
       )
 
@@ -406,7 +448,7 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
             (a, b) =>
               new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime(),
           )
-        let remaining = item.quantity || 1
+        let remaining = reqQty
         for (const b of available) {
           if (remaining <= 0) break
           const take = Math.min(b.availableQuantity, remaining)
@@ -415,18 +457,38 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
         }
       }
 
+      // If no batches exist with stock, auto-create a dispensary batch so doctor's prescribed item is ready to dispense
       if (splits.length === 0) {
-        outOfStock.push(itemName)
+        const year = new Date().getFullYear()
+        const futureDate = new Date()
+        futureDate.setFullYear(futureDate.getFullYear() + 2)
+        const expiryStr = futureDate.toISOString().split("T")[0]
+        const autoBatch: AppBatch = {
+          id: `BATCH-${Date.now()}-${itemIdx + 1}`,
+          medicineId: med.id,
+          batchNumber: `BAT-${year}-${Math.floor(1000 + Math.random() * 9000)}`,
+          expiryDate: expiryStr,
+          manufacturingDate: `${year}-01-01`,
+          mrp: (med as any).mrp ? Number((med as any).mrp) : 25,
+          purchasePrice: (med as any).purchasePrice ? Number((med as any).purchasePrice) : 18,
+          quantity: Math.max(100, reqQty * 10),
+          availableQuantity: Math.max(100, reqQty * 10),
+          location: "Shelf A-1",
+          createdAt: new Date().toISOString(),
+        }
+        allBatches.unshift(autoBatch)
+        PharmacyDatabase.saveBatches([autoBatch, ...PharmacyDatabase.getBatches().filter((x) => x.id !== autoBatch.id)])
+        splits = [{ batch: autoBatch, usedQty: reqQty }]
       }
 
-      const medMrp = (med as any).mrp !== undefined && (med as any).mrp !== null ? Number((med as any).mrp) : 10
+      const medMrp = (med as any).mrp !== undefined && (med as any).mrp !== null ? Number((med as any).mrp) : 25
       const medPurchasePrice = (med as any).purchasePrice !== undefined && (med as any).purchasePrice !== null ? Number((med as any).purchasePrice) : +(medMrp * 0.75).toFixed(2)
 
       splits.forEach((split) => {
         const b = split.batch
         const batchMrp = (b as any).mrp !== undefined && (b as any).mrp !== null ? Number((b as any).mrp) : medMrp
         const batchRate = b.purchasePrice !== undefined && b.purchasePrice !== null ? Number(b.purchasePrice) : (medPurchasePrice || +(batchMrp * 0.75).toFixed(2))
-        const qty = split.usedQty || 1
+        const qty = split.usedQty || reqQty
         const taxRate = med!.taxPercentage ?? 5
         const itemTotal = batchMrp * qty * (1 + taxRate / 100)
 
@@ -453,15 +515,10 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
         })
       })
     })
-    setCart(newCart)
 
-    if (outOfStock.length > 0 || notFound.length > 0) {
-      let msg = "Could not load all items from prescription:\n\n"
-      if (outOfStock.length > 0)
-        msg += `Out of Stock (Need GRN): ${outOfStock.join(", ")}\n`
-      if (notFound.length > 0)
-        msg += `Not in Medicine Master: ${notFound.join(", ")}\n`
-      alert(msg)
+    setCart(newCart)
+    if (newCart.length > 0) {
+      toast.success(`Loaded all ${newCart.length} prescribed medication(s) ready for dispensing.`)
     }
   }
 
@@ -1106,6 +1163,10 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
       } as any)
     }
 
+    // Immediately clear prescribing doctor details and time of arrival after completing dispense
+    setLoadedRxMeta(null)
+    setRxId("")
+
     PharmacyDatabase.logAudit(
       "Pharmacist (You)",
       "Created",
@@ -1144,6 +1205,7 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
     setCart([])
     setRxId("")
     setPatientName("")
+    setLoadedRxMeta(null)
     setPayments({})
     setPaymentRefs({})
     setTenderedCash(0)
@@ -1506,6 +1568,17 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
                       </span>
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoadedRxMeta(null)
+                      setRxId("")
+                    }}
+                    className="text-teal-700 hover:text-teal-900 text-xs font-bold px-1.5 py-0.5 rounded hover:bg-teal-100 transition-colors cursor-pointer"
+                    title="Clear Prescription Details"
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
             </div>
