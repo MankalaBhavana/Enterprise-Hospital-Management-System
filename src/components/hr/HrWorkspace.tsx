@@ -1,6 +1,6 @@
 // Dedicated Enterprise HR & Workforce Management Workspace.
 // Controlled via the main application sidebar navigation.
-// Optimized for instantaneous response time and zero loading waterfalls.
+// Standardized on the enterprise hospital design system.
 import { useEffect, useState, type ReactNode } from "react"
 import { hr } from "../../services/hr/client"
 import HrDashboard, { type DashboardNav } from "./HrDashboard"
@@ -60,6 +60,73 @@ const FALLBACK_ADMIN_SESSION: Session = {
 
 let cachedSession: Session | null = null
 
+const SECTION_TITLES: Record<HrSection, { title: string; subtitle: string }> = {
+  dashboard: {
+    title: "Executive HR & Workforce Dashboard",
+    subtitle: "Real-time workforce KPIs, staffing metrics, presence overview and action items.",
+  },
+  employees: {
+    title: "Employees Master Directory",
+    subtitle: "Complete hospital employee profiles, contracts, credentials, and departmental allocations.",
+  },
+  organization: {
+    title: "Organization Structure",
+    subtitle: "Hospital units, clinical departments, designations, and administrative reporting hierarchy.",
+  },
+  attendance: {
+    title: "Attendance & Biometric Operations",
+    subtitle: "Live eSSL/ZKTeco biometric punches, daily logs, overtime, and shift reconciliation.",
+  },
+  shifts: {
+    title: "Shifts & Duty Rosters",
+    subtitle: "Shift definitions, roster scheduling, rotation policies, and shift swaps.",
+  },
+  staffing: {
+    title: "Staffing Requirements & Coverage",
+    subtitle: "Nurse-to-patient ratios, minimum department coverage, and clinical allocations.",
+  },
+  leave: {
+    title: "Leave & Absence Management",
+    subtitle: "Leave policies, paid balances, accrual runs, and leave applications.",
+  },
+  approvals: {
+    title: "Approvals Inbox",
+    subtitle: "Centralized supervisor approvals for leaves, overtime, duty swaps, and claims.",
+  },
+  payroll: {
+    title: "Payroll & Compensation",
+    subtitle: "Monthly payroll runs, salary structures, statutory EPF/ESI, and payslips.",
+  },
+  recruitment: {
+    title: "Recruitment & Talent Acquisition",
+    subtitle: "Department vacancies, candidate pipeline, interviews, and onboarding.",
+  },
+  training: {
+    title: "Training & Development",
+    subtitle: "Clinical competencies, mandatory NABH certifications, and CME programs.",
+  },
+  performance: {
+    title: "Performance & Appraisals",
+    subtitle: "Evaluation cycles, clinical KPIs, peer reviews, and performance scores.",
+  },
+  compliance: {
+    title: "Compliance & Medical Licenses",
+    subtitle: "Medical Council registrations, nursing licenses, BLS/ACLS certificates, and expiry audits.",
+  },
+  grievances: {
+    title: "Grievances & Discipline",
+    subtitle: "Internal complaints committee, workplace grievance tickets, and resolution tracking.",
+  },
+  reports: {
+    title: "HR Reports & Workforce Analytics",
+    subtitle: "Attrition trends, headcounts, payroll summaries, and statutory compliance returns.",
+  },
+  announcements: {
+    title: "Hospital Announcements & HR Feed",
+    subtitle: "Official circulars, duty notices, and policy broadcast messages.",
+  },
+}
+
 export default function HrWorkspace({
   section = "dashboard",
   initialSection = "dashboard",
@@ -118,14 +185,25 @@ export default function HrWorkspace({
     onNavigateSection?.(target)
   }
 
+  const handleTabChange = (sec: HrSection) => {
+    setInternalSection(sec)
+    setNav(null)
+    onNavigateSection?.(sec)
+  }
+
+  const currentMeta = SECTION_TITLES[activeSection] || {
+    title: "HR & Staff Management",
+    subtitle: "Enterprise human resources, staffing, and biometric operations.",
+  }
+
   if (showLegacy && legacy) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-[#F0F2F5]">
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between text-xs text-amber-800">
           <span>Viewing classic HRMS view</span>
           <button
             onClick={() => setShowLegacy(false)}
-            className="font-bold underline text-blue-700 hover:text-blue-900 cursor-pointer"
+            className="font-bold underline text-[#1B4FD8] hover:text-[#1E40AF] cursor-pointer"
           >
             ← Back to Enterprise HR Workspace
           </button>
@@ -136,9 +214,73 @@ export default function HrWorkspace({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-[#F4F6FA] text-slate-800 font-sans">
-      {/* ── Main Workspace Body (Renders immediately without blocking waterfalls) ── */}
-      <div className="flex-1 bg-[#F4F6FA] overflow-y-auto p-4 md:p-6 space-y-4">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F0F2F5] text-gray-900 font-sans">
+      {/* ── Enterprise Standard Header Top Bar ── */}
+      <div className="bg-white border-b border-[#DDE2EC] px-6 py-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs shrink-0">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-semibold text-gray-900">
+              {currentMeta.title}
+            </h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-blue-100 text-[#1B4FD8]">
+              ● HR & Staff
+            </span>
+          </div>
+          <p className="text-[11.5px] text-[#64748B]">
+            {currentMeta.subtitle}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {legacy && (
+            <button
+              onClick={() => setShowLegacy(true)}
+              className="px-2.5 py-1 text-[11px] font-medium text-gray-600 border border-[#DDE2EC] rounded bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              Classic View
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Quick Sub-Module Navigation Pills ── */}
+      <div className="bg-white border-b border-[#DDE2EC] px-6 py-1.5 flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none text-[12px]">
+        {(
+          [
+            { id: "dashboard", label: "Dashboard" },
+            { id: "employees", label: "Employees" },
+            { id: "attendance", label: "Attendance & eSSL" },
+            { id: "shifts", label: "Shifts & Rosters" },
+            { id: "staffing", label: "Staffing" },
+            { id: "leave", label: "Leaves" },
+            { id: "approvals", label: "Approvals" },
+            { id: "payroll", label: "Payroll" },
+            { id: "recruitment", label: "Recruitment" },
+            { id: "organization", label: "Organization" },
+            { id: "training", label: "Training" },
+            { id: "performance", label: "Performance" },
+            { id: "compliance", label: "Compliance" },
+            { id: "grievances", label: "Grievances" },
+            { id: "reports", label: "Reports" },
+            { id: "announcements", label: "Announcements" },
+          ] as { id: HrSection; label: string }[]
+        ).map((item) => (
+          <button
+            key={item.id}
+            onClick={() => handleTabChange(item.id)}
+            className={`px-3 py-1 rounded text-[11.5px] font-medium transition-colors whitespace-nowrap cursor-pointer ${
+              activeSection === item.id
+                ? "bg-[#1B4FD8] text-white font-semibold"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Main Workspace Body ── */}
+      <div className="flex-1 bg-[#F0F2F5] overflow-y-auto p-5 space-y-4">
         {authError ? (
           <ErrorState error={authError} />
         ) : (
