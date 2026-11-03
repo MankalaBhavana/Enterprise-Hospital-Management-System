@@ -1,6 +1,6 @@
 import { useState } from "react"
 import toast from "react-hot-toast"
-import { ArrowLeft, BadgeCheck, Fingerprint, Pencil, Plus, Repeat, ShieldAlert, XCircle } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Fingerprint, Mail, Pencil, Phone, Plus, Repeat, ShieldAlert, XCircle } from "lucide-react"
 import { hr, HrApiError } from "../../services/hr/client"
 import {
   EMPLOYEE_CATEGORIES,
@@ -15,10 +15,11 @@ import {
   type Page,
   type Punch,
 } from "../../services/hr/types"
-import { Btn, Drawer, Empty, ErrorState, Field, fmtDate, fmtDateTime, humanize, inputCls, Loading, Pager, Panel, StatusBadge, Table, Tabs, errorText, useHr } from "./ui"
+import { Avatar, Btn, Drawer, Empty, ErrorState, Field, fmtDate, fmtDateTime, humanize, inputCls, Loading, Pager, Panel, StatusBadge, Table, Tabs, errorText, useHr } from "./ui"
 import type { OrgRefs } from "./useOrgRefs"
+import { CompensationTab, DocumentsTab, LeaveTab, PerformanceTab, ShiftTab, TrainingTab } from "./ProfileTabs"
 
-type Tab = "overview" | "personal" | "employment" | "credentials" | "departments" | "attendance" | "history" | "audit"
+type Tab = "overview" | "personal" | "employment" | "credentials" | "departments" | "attendance" | "shifts" | "leave" | "compensation" | "documents" | "training" | "performance" | "history" | "audit"
 
 const ACTIONS: Record<string, { action: string; label: string; danger?: boolean }[]> = {
   draft: [{ action: "activate", label: "Activate" }, { action: "terminate", label: "Cancel hire", danger: true }],
@@ -28,7 +29,7 @@ const ACTIONS: Record<string, { action: string; label: string; danger?: boolean 
   archived: [],
 }
 
-export default function EmployeeProfile({ employeeId, canEdit, refs, onBack }: { employeeId: string; canEdit: boolean; refs: OrgRefs | null; onBack: () => void }) {
+export default function EmployeeProfile({ employeeId, canEdit, refs, onBack, can = () => false }: { employeeId: string; canEdit: boolean; refs: OrgRefs | null; onBack: () => void; can?: (p: string) => boolean }) {
   const [tab, setTab] = useState<Tab>("overview")
   const emp = useHr(() => hr.get<EmployeeDetail>(`/api/v1/hr/employees/${employeeId}`), [employeeId])
   const [drawer, setDrawer] = useState<null | "edit" | "transfer" | "credential" | "biometric" | { action: string; label: string }>(null)
@@ -41,24 +42,26 @@ export default function EmployeeProfile({ employeeId, canEdit, refs, onBack }: {
 
   return (
     <div>
-      <button onClick={onBack} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 mb-3">
-        <ArrowLeft className="w-3.5 h-3.5" /> Employees
+      <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 mb-3 cursor-pointer">
+        <ArrowLeft className="w-3.5 h-3.5" /> Back to Employees Directory
       </button>
-      <div className="bg-white border border-slate-200 rounded-[8px] p-4 mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-[#582C5F]/10 text-[#582C5F] flex items-center justify-center font-semibold">
-            {e.first_name[0]}
-            {e.last_name?.[0] ?? ""}
-          </div>
+      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-4 shadow-2xs flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3.5">
+          <Avatar name={e.full_name} size="lg" />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-slate-900">{e.full_name}</h2>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">{e.full_name}</h2>
               <StatusBadge value={e.status} />
             </div>
-            <p className="text-xs text-slate-500">
-              <span className="font-mono">{e.employee_code}</span> · {e.designation ?? categoryLabel(e.employee_category)} ·{" "}
+            <p className="text-xs text-slate-500 mt-0.5">
+              <span className="font-mono font-medium text-slate-600">{e.employee_code}</span> · {e.designation ?? categoryLabel(e.employee_category)} ·{" "}
               {e.departments.find((d) => d.is_primary && !d.effective_to)?.department_name ?? "No department"}
               {e.branch && ` · ${e.branch}`}
+            </p>
+            <p className="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
+              {e.phone && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3 text-slate-400" />{e.phone}</span>}
+              {e.email && <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" />{e.email}</span>}
+              {e.reporting_manager && <span>Reports to <strong className="text-slate-700">{e.reporting_manager}</strong></span>}
             </p>
           </div>
         </div>
@@ -81,6 +84,8 @@ export default function EmployeeProfile({ employeeId, canEdit, refs, onBack }: {
         )}
       </div>
 
+      <SummaryStrip employeeId={e.id} version={e.updated_at} />
+
       <Tabs
         value={tab}
         onChange={setTab}
@@ -91,6 +96,12 @@ export default function EmployeeProfile({ employeeId, canEdit, refs, onBack }: {
           { id: "credentials", label: "Credentials", count: e.credentials.length },
           { id: "departments", label: "Departments" },
           { id: "attendance", label: "Attendance" },
+          { id: "shifts", label: "Shift & duty" },
+          { id: "leave", label: "Leave" },
+          ...(can("hr.payroll.write") ? [{ id: "compensation" as Tab, label: "Compensation" }] : []),
+          { id: "documents", label: "Documents" },
+          { id: "training", label: "Training" },
+          { id: "performance", label: "Performance" },
           { id: "history", label: "History" },
           ...(canEdit ? [{ id: "audit" as Tab, label: "Audit" }] : []),
         ]}
@@ -104,6 +115,12 @@ export default function EmployeeProfile({ employeeId, canEdit, refs, onBack }: {
       )}
       {tab === "departments" && <Departments e={e} />}
       {tab === "attendance" && <Attendance e={e} canEdit={!readOnly} onMap={() => setDrawer("biometric")} />}
+      {tab === "shifts" && <ShiftTab employeeId={e.id} />}
+      {tab === "leave" && <LeaveTab employeeId={e.id} />}
+      {tab === "compensation" && <CompensationTab employeeId={e.id} />}
+      {tab === "documents" && <DocumentsTab employeeId={e.id} canManage={can("hr.documents.write")} />}
+      {tab === "training" && <TrainingTab employeeId={e.id} />}
+      {tab === "performance" && <PerformanceTab employeeId={e.id} />}
       {tab === "history" && <History id={e.id} />}
       {tab === "audit" && canEdit && <Audit id={e.id} />}
 
@@ -837,3 +854,29 @@ function BiometricDrawer({ e, onClose, onSaved }: { e: EmployeeDetail; onClose: 
   )
 }
 
+
+function SummaryStrip({ employeeId, version }: { employeeId: string; version: string }) {
+  const s = useHr(
+    () => hr.get<{ tenure: string; attendance_rate: number | null; days_worked: number; absences: number; late_days: number; leave_available: number; next_shift: { date: string; name: string; start: string } | null; open_exceptions: number }>(`/api/v1/hr/employees/${employeeId}/summary`),
+    [employeeId, version],
+  )
+  if (!s.data) return null
+  const d = s.data
+  const cell = (label: string, value: React.ReactNode, sub?: string, tone = "text-slate-900") => (
+    <div className="px-4 py-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`text-base font-semibold tabular-nums ${tone}`}>{value}</div>
+      {sub && <div className="text-[11px] text-slate-400">{sub}</div>}
+    </div>
+  )
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-6 divide-x divide-slate-100 bg-white border border-slate-200 rounded-[8px] mb-4">
+      {cell("Tenure", d.tenure)}
+      {cell("Attendance this month", d.attendance_rate !== null ? `${d.attendance_rate}%` : "—", `${d.days_worked} days worked`, d.attendance_rate !== null && d.attendance_rate < 90 ? "text-amber-700" : "text-[#007078]")}
+      {cell("Absences", d.absences, "this month", d.absences ? "text-rose-700" : undefined)}
+      {cell("Late days", d.late_days, "this month", d.late_days > 2 ? "text-amber-700" : undefined)}
+      {cell("Leave available", d.leave_available, "paid days")}
+      {cell("Next shift", d.next_shift ? fmtDate(d.next_shift.date) : "—", d.next_shift ? `${d.next_shift.name} ${d.next_shift.start.slice(0, 5)}` : "not rostered")}
+    </div>
+  )
+}

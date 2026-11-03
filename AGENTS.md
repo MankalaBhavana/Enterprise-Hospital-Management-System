@@ -392,23 +392,25 @@ Reception gets view + capture; doctors get the clinical side.
 
 The backend has no insurance service yet; the engine is localStorage-backed like the rest of the frontend.
 
-## HR & Staff (rebuild in progress)
+## HR & Staff
 
-**HR & Staff** now opens [src/components/hr/HrWorkspace.tsx](src/components/hr/HrWorkspace.tsx), backed
-by a new FastAPI service, `keppler-backend/hr-api/` (own `hr-postgres` DB with tenant RLS, Celery
-`hr-worker`, gateway routes `/api/v1/hr` and `/api/v1/attendance`). Its README is the reference:
-API inventory, eSSL setup, env vars, tests, rollback. Phase 1 of 6 is done: organization, employee
-master, eSSL integration, biometric mapping, raw punch ledger, live attendance (SSE), dashboard.
+**HR & Staff** (`hrms`, also `employees` / `scheduling`) opens
+[src/components/hr/HrWorkspace.tsx](src/components/hr/HrWorkspace.tsx); **My HR** (`my_hr`, every
+non-admin role) opens [MyHR.tsx](src/components/hr/MyHR.tsx). Both talk to the FastAPI service
+`keppler-backend/hr-api/` (own `hr-postgres` with tenant RLS, Celery `hr-worker`). Its README is the
+reference — features, API inventory (`docs/API.md`), schema, eSSL setup, env, tests, security,
+deployment, limitations. All 15 areas are built; the old `HRMS.tsx` / Node `server/` are no longer
+mounted but still run and are not yet retired (see README §11–12).
 
-- Areas not yet rebuilt (shifts, leave, payroll, compliance) still run on the old
-  [HRMS.tsx](src/components/HRMS.tsx) and Node server (`server/`, port 8011), reachable as
-  "Previous HR screens" inside the workspace; `scheduling` still opens HRMS directly. Their records
-  are not synchronised with the new service. Remove each as its phase replaces it.
-- The client is [src/services/hr/client.ts](src/services/hr/client.ts), **not** `apiFetch`: the
-  offline mock would show invented headcount/attendance.
-- The eSSL `GetTransactionsLog` contract comes from community sources and has not run against a
-  real server; the adapter only calls operations the server's WSDL declares.
-- The old Node HR endpoints (`/hms-api/api/hr/*`) return 401 on every app load (pre-existing).
+- Client: [src/services/hr/client.ts](src/services/hr/client.ts), **not** `apiFetch` (its offline mock
+  would show invented HR data).
+- Clinical integration is read-only: `OnDutyStrip` above ER/ICU/OT/OP, `WorkforcePanel` on the main
+  Dashboard, HR items in the notification bell. Nothing appears until HR maps departments to HMS modules.
+- The eSSL `GetTransactionsLog` contract comes from community sources and has not run against a real
+  server; the adapter only calls operations the server's WSDL declares.
+- Statutory payroll rates are not built in; payroll refuses PF/ESI without configured settings.
+- hr-api tests: `keppler-backend/hr-api/run_tests.sh` (throwaway Postgres — never run them against
+  `hr-postgres`; the bootstrap resets the cluster-wide `hr_app` password).
 
 ## Project Structure
 

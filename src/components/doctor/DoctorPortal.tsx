@@ -26,6 +26,7 @@ import {
   checkPrescriptionAiStatus,
   splitPrescriptionFile,
   splitPrescriptionText,
+  localSplit,
   PrescriptionSplit,
 } from "../../lib/prescriptionAI"
 import {
@@ -225,6 +226,59 @@ export default function DoctorPortal({
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current)
     }
   }, [])
+
+  // Real-time live separation whenever the doctor types or updates the prescription sheet
+  useEffect(() => {
+    if (sheetMode !== "type") return
+    const trimmed = sheetText.trim()
+    if (!trimmed) {
+      if (split) {
+        setSplit(null)
+        setMedications([])
+        setLabTests([])
+      }
+      return
+    }
+
+    // 1. Instant local split (0ms synchronous preview)
+    const instant = localSplit(sheetText)
+    setSplit(instant)
+    setMedications(instant.medications)
+    setLabTests(instant.labTests)
+    if (instant.diagnosis) setDiagnosis(instant.diagnosis)
+    if (instant.advice) setAdvice(instant.advice)
+
+    if (consultation) {
+      DoctorPortalDatabase.updateConsultation(consultation.id, {
+        rawText: sheetText,
+        aiEngine: instant.engine,
+        summary: instant.summary,
+        diagnosis: instant.diagnosis || diagnosis,
+        advice: instant.advice || advice,
+        medications: instant.medications,
+        labTests: instant.labTests,
+        unclassified: instant.unclassified,
+      })
+    }
+
+    // 2. Debounced backend AI refinement if reachable (500ms)
+    const timer = setTimeout(async () => {
+      try {
+        const refined = await splitPrescriptionText(sheetText)
+        if (refined && (refined.medications.length > 0 || refined.labTests.length > 0)) {
+          setSplit(refined)
+          setMedications(refined.medications)
+          setLabTests(refined.labTests)
+          if (refined.diagnosis) setDiagnosis(refined.diagnosis)
+          if (refined.advice) setAdvice(refined.advice)
+        }
+      } catch {
+        // Keeps the instant local split
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [sheetText, sheetMode])
 
   const notifications = useMemo(
     () => DoctorPortalDatabase.getNotifications(doctor.id),
@@ -3621,9 +3675,16 @@ function PrescriptionSheetStep({
         <section className="xl:col-span-5 space-y-4 sticky top-4">
           <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
             <header className="px-4 py-3 border-b border-[#F1F5F9] flex items-center justify-between gap-2">
-              <h3 className="text-[13px] font-bold text-[#0F172A]">
-                Read off the sheet
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[13px] font-bold text-[#0F172A]">
+                  Read off the sheet
+                </h3>
+                {(medications.length > 0 || labTests.length > 0) && (
+                  <span className="text-[10px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ✓ Live Separated
+                  </span>
+                )}
+              </div>
               {split && (
                 <span
                   title="Which engine produced this split"
@@ -3713,6 +3774,28 @@ function PrescriptionSheetStep({
                   </li>
                 ))}
               </OrderGroup>
+
+              {split?.diagnosis && (
+                <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-lg p-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] mb-0.5">
+                    Provisional Diagnosis
+                  </div>
+                  <div className="text-[11.5px] font-semibold text-[#0F172A]">
+                    {split.diagnosis}
+                  </div>
+                </div>
+              )}
+
+              {split?.advice && (
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#475569] mb-0.5">
+                    Patient Advice &amp; Follow-up
+                  </div>
+                  <div className="text-[11.5px] text-[#334155] leading-relaxed whitespace-pre-line">
+                    {split.advice}
+                  </div>
+                </div>
+              )}
 
               {split?.unclassified.length ? (
                 <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5">
@@ -4084,12 +4167,13 @@ function ReviewAndDispatch({
           <label className="block text-[11px] font-bold uppercase tracking-wide text-[#94A3B8] mb-1">
             Advice
           </label>
-          <input
+          <textarea
             value={advice}
             onChange={(event) => onAdvice(event.target.value)}
             disabled={alreadyDispatched}
-            placeholder="General advice / follow-up"
-            className="w-full border border-[#DDE2EC] rounded px-3 py-2 text-[13px] focus:outline-none focus:border-[#1B4FD8] disabled:bg-[#F8FAFC]"
+            rows={2}
+            placeholder="General advice / follow-up instructions"
+            className="w-full border border-[#DDE2EC] rounded px-3 py-2 text-[13px] focus:outline-none focus:border-[#1B4FD8] disabled:bg-[#F8FAFC] resize-y"
           />
           {!alreadyDispatched &&
             voiceSummary &&

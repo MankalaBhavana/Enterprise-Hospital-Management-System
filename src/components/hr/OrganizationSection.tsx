@@ -100,8 +100,8 @@ function TreeItem({ node, depth }: { node: TreeNode; depth: number }) {
 
 // ── departments ─────────────────────────────────────────────────────────────
 
-type DeptForm = { code: string; name: string; branch_id: string; parent_id: string; kind: string; cost_center: string; annual_budget: string }
-const emptyDept: DeptForm = { code: "", name: "", branch_id: "", parent_id: "", kind: "clinical", cost_center: "", annual_budget: "" }
+type DeptForm = { code: string; name: string; branch_id: string; parent_id: string; kind: string; cost_center: string; annual_budget: string; hms_module: string; census_wards: string }
+const emptyDept: DeptForm = { code: "", name: "", branch_id: "", parent_id: "", kind: "clinical", cost_center: "", annual_budget: "", hms_module: "", census_wards: "" }
 
 function Departments({ refs, canEdit, onChange }: { refs: NonNullable<ReturnType<typeof useOrgRefs>["data"]>; canEdit: boolean; onChange: () => void }) {
   const [editing, setEditing] = useState<Department | null>(null)
@@ -119,7 +119,7 @@ function Departments({ refs, canEdit, onChange }: { refs: NonNullable<ReturnType
     setCreating(!d)
     setForm(
       d
-        ? { code: d.code, name: d.name, branch_id: d.branch_id ?? "", parent_id: d.parent_id ?? "", kind: d.kind, cost_center: d.cost_center ?? "", annual_budget: d.annual_budget ?? "" }
+        ? { code: d.code, name: d.name, branch_id: d.branch_id ?? "", parent_id: d.parent_id ?? "", kind: d.kind, cost_center: d.cost_center ?? "", annual_budget: d.annual_budget ?? "", hms_module: d.hms_module ?? "", census_wards: (d.census_wards ?? []).join(", ") }
         : emptyDept,
     )
   }
@@ -136,6 +136,8 @@ function Departments({ refs, canEdit, onChange }: { refs: NonNullable<ReturnType
       parent_id: form.parent_id || null,
       kind: form.kind,
       cost_center: form.cost_center || null,
+      hms_module: form.hms_module || null,
+      census_wards: form.census_wards.split(",").map((w) => w.trim()).filter(Boolean),
     }
     if (form.annual_budget) body.annual_budget = form.annual_budget
     try {
@@ -261,6 +263,19 @@ function Departments({ refs, canEdit, onChange }: { refs: NonNullable<ReturnType
           </Field>
           <Field label="Cost centre">
             <input className={inputCls} value={form.cost_center} onChange={(e) => setForm({ ...form, cost_center: e.target.value })} />
+          </Field>
+          <Field label="HMS module" hint="Shows this department's on-duty staff in that module">
+            <select className={inputCls} value={form.hms_module} onChange={(e) => setForm({ ...form, hms_module: e.target.value })}>
+              <option value="">None</option>
+              {[["op", "Outpatient"], ["ip", "Inpatient"], ["icu", "ICU"], ["er", "Emergency"], ["ot", "Operation theatre"], ["radiology", "Radiology"], ["laboratory", "Laboratory"], ["pharmacy", "Pharmacy"], ["ward", "Ward"], ["admin", "Administration"]].map(([k, l]) => (
+                <option key={k} value={k}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Census wards" hint="Bed-board ward names, comma separated; occupied beds drive nurse-to-patient coverage">
+            <input className={inputCls} value={form.census_wards} onChange={(e) => setForm({ ...form, census_wards: e.target.value })} />
           </Field>
           <Field label="Annual budget (₹)" hint="Saved only if you hold payroll rights" error={errors.annual_budget}>
             <input className={inputCls} inputMode="decimal" value={form.annual_budget} onChange={(e) => setForm({ ...form, annual_budget: e.target.value })} />

@@ -149,6 +149,19 @@ export const ALL_SYSTEM_MODULES = [
   "reports_supplier_returns",
   "hrms",
   "employees",
+  "hr_attendance",
+  "hr_staffing",
+  "hr_leave",
+  "hr_approvals",
+  "hr_payroll",
+  "hr_recruitment",
+  "hr_organization",
+  "hr_training",
+  "hr_performance",
+  "hr_compliance",
+  "hr_grievances",
+  "hr_reports",
+  "hr_announcements",
   "patient_exp",
   "patient_messages",
 
@@ -513,6 +526,15 @@ const INITIAL_ROLES: AppRole[] = [
     ],
   },
 ]
+
+// Employee self-service ("My HR") for every staff login. Administrators use
+// HR & Staff instead; the page answers only from the signed-in user's own
+// record, so granting it widely exposes nothing.
+for (const role of INITIAL_ROLES) {
+  if (role.allowedModules !== ALL_SYSTEM_MODULES && !role.allowedModules.includes("my_hr")) {
+    role.allowedModules = [...role.allowedModules, "my_hr"]
+  }
+}
 
 export function getInitialUsers(): AppUser[] {
   const baseUsers: AppUser[] = [

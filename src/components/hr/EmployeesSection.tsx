@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
-import { Download, Fingerprint, Plus, Search, Upload } from "lucide-react"
+import { Download, Fingerprint, LayoutGrid, List, Phone, Plus, Search, Upload } from "lucide-react"
 import { hr, HrApiError } from "../../services/hr/client"
 import { EMPLOYEE_CATEGORIES, EMPLOYMENT_TYPES, categoryLabel, type EmployeeDetail, type EmployeeListItem, type Page } from "../../services/hr/types"
-import { Btn, Drawer, Empty, ErrorState, Field, fmtDate, filterCls, inputCls, Loading, PageHeader, Pager, Panel, StatusBadge, Table, errorText, useHr } from "./ui"
+import { Avatar, Btn, Drawer, Empty, ErrorState, Field, fmtDate, filterCls, inputCls, Loading, PageHeader, Pager, Panel, StatusBadge, Table, errorText, useHr } from "./ui"
 import useOrgRefs, { type OrgRefs } from "./useOrgRefs"
 import EmployeeProfile from "./EmployeeProfile"
 
 type Filters = { search: string; status: string; employee_category: string; department_id: string; branch_id: string; employment_type: string; unmapped: boolean }
 const NO_FILTERS: Filters = { search: "", status: "active", employee_category: "", department_id: "", branch_id: "", employment_type: "", unmapped: false }
 
-export default function EmployeesSection({ canEdit, initialFilters, openEmployeeId, onCloseEmployee }: {
+export default function EmployeesSection({ canEdit, initialFilters, openEmployeeId, onCloseEmployee, can }: {
   canEdit: boolean
+  can?: (p: string) => boolean
   initialFilters?: Partial<Filters>
   openEmployeeId?: string | null
   onCloseEmployee?: () => void
@@ -38,6 +39,25 @@ export default function EmployeesSection({ canEdit, initialFilters, openEmployee
     () => hr.get<Page<EmployeeListItem>>("/api/v1/hr/employees", { ...filters, unmapped: filters.unmapped || undefined, page, page_size: 25 }),
     [filters, page, version],
   )
+  const facets = useHr(
+    () => hr.get<{ employee_category: Record<string, number>; status: Record<string, number> }>("/api/v1/hr/employees/facets", { ...filters, unmapped: filters.unmapped || undefined }),
+    [filters, version],
+  )
+  const [view, setView] = useState<"table" | "cards">(() => {
+    try {
+      return (localStorage.getItem("hr.directory.view") as "table" | "cards") || "table"
+    } catch {
+      return "table"
+    }
+  })
+  const chooseView = (v: "table" | "cards") => {
+    setView(v)
+    try {
+      localStorage.setItem("hr.directory.view", v)
+    } catch {
+      /* per-browser preference only */
+    }
+  }
   const set = (patch: Partial<Filters>) => {
     setFilters((f) => ({ ...f, ...patch }))
     setPage(1)
@@ -49,6 +69,7 @@ export default function EmployeesSection({ canEdit, initialFilters, openEmployee
         employeeId={selected}
         canEdit={canEdit}
         refs={refs.data}
+        can={can}
         onBack={() => {
           setSelected(null)
           onCloseEmployee?.()
@@ -130,6 +151,22 @@ export default function EmployeesSection({ canEdit, initialFilters, openEmployee
             <input type="checkbox" checked={filters.unmapped} onChange={(e) => set({ unmapped: e.target.checked })} /> No biometric ID
           </label>
         </div>
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <Chip active={!filters.employee_category} onClick={() => set({ employee_category: "" })} label="All" n={Object.values(facets.data?.employee_category ?? {}).reduce((a, b) => a + b, 0)} />
+          {Object.entries(facets.data?.employee_category ?? {})
+            .sort((a, b) => b[1] - a[1])
+            .map(([k, n]) => (
+              <Chip key={k} active={filters.employee_category === k} onClick={() => set({ employee_category: filters.employee_category === k ? "" : k })} label={categoryLabel(k)} n={n} />
+            ))}
+          <div className="ml-auto inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="group" aria-label="View">
+            {(["table", "cards"] as const).map((v) => (
+              <button key={v} onClick={() => chooseView(v)} aria-pressed={view === v} className={`px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1 transition-all cursor-pointer ${view === v ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}>
+                {v === "table" ? <List className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+                {v === "table" ? "Table" : "Cards"}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {list.loading && !list.data ? (
           <Loading />
@@ -142,25 +179,55 @@ export default function EmployeesSection({ canEdit, initialFilters, openEmployee
           />
         ) : (
           <>
-            <Table head={["Code", "Name", "Category", "Designation", "Department", "Branch", "Joined", "Status", ""]}>
+            {view === "cards" ? (
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {list.data.items.map((e) => (
+                  <button key={e.id} onClick={() => setSelected(e.id)} className="text-left flex gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-xs transition bg-white cursor-pointer shadow-2xs">
+                    <Avatar name={e.full_name} />
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 truncate">{e.full_name}</span>
+                        {e.status !== "active" && <StatusBadge value={e.status} />}
+                      </span>
+                      <span className="block text-xs text-slate-600 truncate mt-0.5">{e.designation ?? categoryLabel(e.employee_category)}</span>
+                      <span className="block text-[11px] text-slate-400 truncate">{e.department ?? "No department"}{e.branch ? ` · ${e.branch}` : ""}</span>
+                      <span className="flex items-center gap-3 mt-2 text-[11px] text-slate-500">
+                        <span className="font-mono">{e.employee_code}</span>
+                        {e.phone && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{e.phone}</span>}
+                        <Fingerprint className={`w-3.5 h-3.5 ml-auto ${e.biometric_mapped ? "text-blue-600" : "text-slate-300"}`} aria-label={e.biometric_mapped ? "Biometric ID mapped" : "No biometric ID"} />
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+            <Table head={["Employee", "Category", "Designation", "Department", "Branch", "Joined", "Status", { label: "", align: "right" }]}>
               {list.data.items.map((e) => (
-                <tr key={e.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelected(e.id)}>
-                  <td className="px-4 py-2 font-mono text-xs text-slate-500">{e.employee_code}</td>
-                  <td className="px-4 py-2 text-slate-900 font-medium">{e.full_name}</td>
-                  <td className="px-4 py-2 text-slate-600">{categoryLabel(e.employee_category)}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.designation ?? "—"}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.department ?? "—"}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.branch ?? "—"}</td>
-                  <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{fmtDate(e.joining_date)}</td>
-                  <td className="px-4 py-2">
+                <tr key={e.id} className="hover:bg-slate-50/80 cursor-pointer transition-colors" onClick={() => setSelected(e.id)}>
+                  <td className="px-4 py-2.5">
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={e.full_name} size="sm" />
+                      <span>
+                        <span className="block text-slate-900 font-semibold">{e.full_name}</span>
+                        <span className="block font-mono text-[11px] text-slate-400">{e.employee_code}</span>
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-600">{categoryLabel(e.employee_category)}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{e.designation ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{e.department ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{e.branch ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(e.joining_date)}</td>
+                  <td className="px-4 py-2.5">
                     <StatusBadge value={e.status} />
                   </td>
-                  <td className="px-4 py-2 text-right" title={e.biometric_mapped ? "Biometric ID mapped" : "No biometric ID"}>
-                    <Fingerprint className={`w-4 h-4 inline ${e.biometric_mapped ? "text-[#007078]" : "text-slate-300"}`} />
+                  <td className="px-4 py-2.5 text-right" title={e.biometric_mapped ? "Biometric ID mapped" : "No biometric ID"}>
+                    <Fingerprint className={`w-4 h-4 inline ${e.biometric_mapped ? "text-blue-600" : "text-slate-300"}`} />
                   </td>
                 </tr>
               ))}
             </Table>
+            )}
             <Pager page={page} pageSize={25} total={list.data.total} onPage={setPage} />
           </>
         )}
@@ -500,5 +567,14 @@ function ImportEmployees({ onClose, onDone }: { onClose: () => void; onDone: () 
         </div>
       )}
     </Drawer>
+  )
+}
+
+function Chip({ label, n, active, onClick }: { label: string; n?: number; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-pressed={active} className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${active ? "bg-blue-50 border-blue-300 text-blue-700 shadow-2xs" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800"}`}>
+      {label}
+      {n !== undefined && <span className={`ml-1.5 tabular-nums ${active ? "text-blue-800" : "text-slate-400"}`}>{n}</span>}
+    </button>
   )
 }

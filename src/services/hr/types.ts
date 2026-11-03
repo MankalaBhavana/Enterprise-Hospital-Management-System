@@ -47,6 +47,8 @@ export type Department = {
   cost_center: string | null
   annual_budget: string | null
   status: string
+  hms_module: string | null
+  census_wards: string[]
   headcount: number
 }
 export type Unit = { id: string; department_id: string; code: string; name: string; unit_type: string | null; bed_capacity: number | null }
@@ -314,4 +316,15 @@ export type Dashboard = {
     pending_verification: number
   }
   recent_activity: { employee_id: string; employee_name: string; event_type: string; summary: string; occurred_at: string; actor: string | null }[]
+  workforce: {
+    on_leave_today: number
+    pending_leave: number
+    pending_approvals: number
+    open_exceptions: number
+    open_vacancies: number
+    candidates_in_pipeline: number
+    training_gaps: number
+    certificates_expiring_60d: number
+    last_payroll: { period: string; status: string; employees: number; net?: string } | null
+  }
 }
