@@ -15,7 +15,9 @@ import {
   findMatchingPatient,
 } from "../services/db"
 import PatientJourneyModal from "./PatientJourneyModal"
-import { HospAILogo } from "./HospAILogo"
+import { useBranding } from "./branding/DocumentBranding"
+import { OpCardPreview, cardBarcodeValue, opCardDataFor, printOpCard } from "./opcard/OpCard"
+import { openJourneyForCode } from "./opcard/JourneyScan"
 import { notifyOpRegistered, whatsAppHandoffUrl, smsHandoffUrl } from "../services/patientMessaging"
 
 // Accurate age calculation from Date of Birth
@@ -57,6 +59,8 @@ export default function Registration({
   // Database live state
   const [patients, setPatients] = useState<DBPatient[]>([])
   const [encounters, setEncounters] = useState<DBOPEncounter[]>([])
+  const branding = useBranding()
+  const [cardCode, setCardCode] = useState("")
   const [selectedEncounter, setSelectedEncounter] =
     useState<DBOPEncounter | null>(null)
 
@@ -1256,11 +1260,11 @@ export default function Registration({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 border-b border-[#E2E8F0] pb-3">
                   <div>
                     <h3 className="text-[15px] font-bold text-gray-900 flex items-center gap-2">
-                      <span>📖</span> Official Digital Outpatient (OP) Pass
+                      <span>🪪</span> OP Card
                     </h3>
                     <p className="text-[11.5px] text-[#64748B]">
-                      Lifetime UMR &amp; active visit OP number pass issued and
-                      saved to database.
+                      One card for life, valid at every department. Scan the
+                      barcode for the patient&apos;s OP / IP journey.
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1274,9 +1278,20 @@ export default function Registration({
                     <Btn
                       variant="outline"
                       size="sm"
-                      onClick={() => window.print()}
+                      onClick={() =>
+                        printOpCard(
+                          opCardDataFor(selectedEncounter.umr, {
+                            patientName: selectedEncounter.patientName,
+                            age: selectedEncounter.age,
+                            sex: selectedEncounter.sex,
+                            phone: selectedEncounter.phone,
+                            bloodGroup: selectedEncounter.bloodGroup,
+                          }),
+                          branding,
+                        )
+                      }
                     >
-                      <Icon.Download /> Print OP Pass
+                      <Icon.Download /> Print OP Card
                     </Btn>
                     {/* Reception's next desk is Appointments, where symptom triage
                         picks the doctor. This used to open the OP Clinical Journey
@@ -1304,92 +1319,56 @@ export default function Registration({
                   </div>
                 </div>
 
-                <div
-                  id="printable-op-pass"
-                  className="printable-card printable-area max-w-xl mx-auto bg-white border-2 border-[#94A3B8] text-gray-900 rounded p-6 shadow-lg relative overflow-hidden"
-                >
-                  {/* Top Header Accent Strip */}
-                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#1B4FD8]"></div>
-
-                  <div className="flex justify-between items-center border-b border-[#E2E8F0] pb-3.5 mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <HospAILogo variant="icon" className="w-10 h-10 shrink-0" />
-                      <div>
-                        <div className="font-bold text-[14px] text-gray-900">
-                          HospAI General Hospital
-                        </div>
-                        <div className="text-[10px] text-[#64748B]">
-                          Official Outpatient (OP) Record Pass
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase font-bold text-[#64748B]">
-                        Registration Date
-                      </div>
-                      <div className="text-[12px] font-mono font-bold text-gray-900">
-                        {selectedEncounter.registrationTime}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-[12.5px] mb-4">
-                    <div>
-                      <div className="text-[10px] uppercase text-[#64748B] font-bold tracking-wider">
-                        Patient Name
-                      </div>
-                      <div className="text-[16px] font-bold text-gray-900 mt-0.5">
-                        {selectedEncounter.patientName}
-                      </div>
-                      <div className="text-[11.5px] text-gray-600 mt-0.5 font-medium">
-                        Age: <strong>{selectedEncounter.age} yrs</strong> · Sex:{" "}
-                        <strong>{selectedEncounter.sex}</strong> · Phone:{" "}
-                        <strong>{selectedEncounter.phone}</strong>
-                      </div>
-                      <div className="text-[11px] font-semibold mt-1">
-                        Dept:{" "}
-                        <span
-                          className={
-                            selectedEncounter.dept &&
-                            selectedEncounter.dept !== "Awaiting Triage"
-                              ? "text-[#1B4FD8]"
-                              : "text-amber-600"
-                          }
-                        >
-                          {selectedEncounter.dept || "Awaiting AI Triage"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase text-[#64748B] font-bold tracking-wider">
-                        Permanent UMR (Lifetime)
-                      </div>
-                      <div className="text-[15px] font-mono font-bold text-[#1B4FD8] bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200 inline-block mt-0.5">
-                        {selectedEncounter.umr}
-                      </div>
-                      <div className="text-[10px] uppercase text-[#64748B] font-bold tracking-wider mt-2.5">
-                        Current Visit OP Number
-                      </div>
-                      <div className="text-[15px] font-mono font-bold text-[#D97706] bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
-                        {selectedEncounter.opNumber}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-3 border-t border-[#E2E8F0] text-[11px] text-[#64748B]">
-                    <span>
-                      Status:{" "}
-                      <strong className="text-[#166534] font-mono font-bold bg-green-50 px-2 py-0.5 rounded border border-green-200">
-                        {selectedEncounter.status}
-                      </strong>
-                    </span>
-                    <span className="font-mono text-gray-900 font-bold tracking-wider text-[12px]">
-                      Barcode: |||| ||| ||||| |||
-                    </span>
-                  </div>
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <OpCardPreview
+                    card={opCardDataFor(selectedEncounter.umr, {
+                      patientName: selectedEncounter.patientName,
+                      age: selectedEncounter.age,
+                      sex: selectedEncounter.sex,
+                      phone: selectedEncounter.phone,
+                      bloodGroup: selectedEncounter.bloodGroup,
+                    })}
+                    branding={branding}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openJourneyForCode(cardBarcodeValue(selectedEncounter.umr))}
+                    title="Opens what scanning the barcode opens: the OP journey, or the IP journey if the patient has been admitted"
+                    className="text-[12px] font-semibold text-[#1B4FD8] hover:underline cursor-pointer"
+                  >
+                    Open patient record (same as scanning the card) →
+                  </button>
                 </div>
               </div>
             )}
+
+            {/* Card scan / lookup. A USB or Bluetooth scanner works on any
+                screen; this field is for typing a code by hand. */}
+            <form
+              className="bg-white border-2 border-[#CBD5E1] rounded p-4 shadow-md flex flex-wrap items-center gap-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (cardCode.trim()) openJourneyForCode(cardCode.trim())
+                setCardCode("")
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-bold text-gray-900">Scan OP card</div>
+                <div className="text-[11.5px] text-[#64748B]">
+                  Scan the card barcode anywhere in the app, or type the UMR / OP number here. Opens the
+                  patient&apos;s complete record in a new tab, with the full history download and card print.
+                </div>
+              </div>
+              <input
+                value={cardCode}
+                onChange={(e) => setCardCode(e.target.value)}
+                placeholder="UMR or OP number"
+                className="border border-[#CBD5E1] rounded px-3 py-2 text-[12.5px] font-mono w-56 focus:outline-none focus:border-[#1B4FD8]"
+              />
+              <Btn variant="primary" size="sm" type="submit" disabled={!cardCode.trim()}>
+                Open record
+              </Btn>
+            </form>
 
             {/* Today's Registration Log Table */}
             <div className="bg-white border-2 border-[#CBD5E1] rounded shadow-md overflow-hidden">

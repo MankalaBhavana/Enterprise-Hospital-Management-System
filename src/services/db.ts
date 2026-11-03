@@ -1784,6 +1784,33 @@ class HospitalDatabase {
     })
   }
 
+  /**
+   * The front desk issues UMRs from a per-browser counter, so two desks can
+   * hand the same UMR to two different people. The backend detects that
+   * (`umr_conflict`) and files the newcomer under a server-issued id. Adopt
+   * that id here -- patient, encounters and the OP card all follow -- so every
+   * patient's card and barcode stay unique and resolve to their own record.
+   */
+  public adoptServerPatientId(localUmr: string, res: unknown): void {
+    const r = (res ?? {}) as { patient_id?: unknown ;umr_conflict?: unknown }
+    const serverId = typeof r.patient_id === "string" ? r.patient_id.trim() : ""
+    if (!r.umr_conflict || !serverId || serverId === localUmr) return
+    const patients = this.getPatients()
+    if (patients.some((p) => p.umr === serverId)) return
+    safeDbSetItem(
+      STORAGE_KEYS.PATIENTS,
+      JSON.stringify(patients.map((p) => (p.umr === localUmr ? { ...p, umr: serverId, updatedAt: new Date().toISOString() } : p))),
+    )
+    safeDbSetItem(
+      STORAGE_KEYS.ENCOUNTERS,
+      JSON.stringify(this.getEncounters().map((e) => (e.umr === localUmr ? { ...e, umr: serverId } : e))),
+    )
+    try {
+      window.dispatchEvent(new CustomEvent("hms:umr-reassigned", { detail: { from: localUmr, to: serverId } }))
+    } catch {}
+    this.notify()
+  }
+
   private notify() {
     this.listeners.forEach((fn) => fn())
 
@@ -2179,7 +2206,9 @@ class HospitalDatabase {
           chief_complaint: newEncounter.chiefComplaint || data.chiefComplaint || "OP Visit",
         },
       }),
-    }).catch(() => {})
+    })
+      .then((res) => this.adoptServerPatientId(newPatient.umr, res))
+      .catch(() => {})
 
     this.notify()
 
@@ -2352,7 +2381,9 @@ class HospitalDatabase {
           chief_complaint: newEncounter.chiefComplaint || "Revisit",
         },
       }),
-    }).catch(() => {})
+    })
+      .then((res) => this.adoptServerPatientId(umr, res))
+      .catch(() => {})
 
     this.notify()
 

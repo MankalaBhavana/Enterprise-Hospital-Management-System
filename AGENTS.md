@@ -60,6 +60,17 @@ schema, so it is not normalised into columns). See `ensure_icu_tables()` and
 Every recorded chart day is also emitted as an `icu` stage event by `get_patient_journey()`, so the
 flowsheet shows on the patient journey rather than living as a side file.
 
+**The Critical Care board holds no data of its own.** Beds and occupants come from Bed Management
+(`/api/beds`, every bed typed ICU or with ICU in its ward/room name; `classifyIcuUnit` puts it on
+MICU/SICU/CCU/NICU/PICU by name, anything else on **ICU Ward**). Vitals, trends, ventilator, GCS/RASS,
+intake/output, drug chart, care team, day plan and alerts are derived from today's flowsheet by
+[src/components/icu/icuLive.ts](src/components/icu/icuLive.ts); lab results come from `LabOrderDatabase`.
+Nothing uncharted is filled in -- it reads "Not charted". Admitting and moving beds happens in Bed
+Management; the ICU discharge form records the hand-off only. Drips and medication orders are written
+onto the drug chart (`appendChartRows`), and orders also go into the pharmacy queue as `Sent To Pharmacy`.
+The board polls beds every 10 s and charts every 15 s, and reacts at once to the flowsheet
+`BroadcastChannel`. The demo seed generators in `icuSeedData.ts` are no longer called anywhere.
+
 `localStorage` is kept as a **write-through cache only**, so a nurse mid-chart does not lose entries
 to a dropped network; the UI shows `Saved to record` / `Offline — saved locally` accordingly. Saves
 broadcast on a `BroadcastChannel` so other open tabs reload the same patient-day immediately.
@@ -288,6 +299,43 @@ without a blocking `alert()`. Arrival times go through
 [src/services/encounterTime.ts](src/services/encounterTime.ts): reception writes bare clock times
 ("10:30 AM", meaning today) and dated strings ("12-Jan-2026 09:15 AM"), and `new Date("10:30 AM")` is
 Invalid Date -- every wait timer read "--" and newest-first sorting was arbitrary.
+
+## OP card barcode → OP / IP journey
+
+The OP card (Registration → records, and OP Workflow step 1) is **one card for life, valid at every
+department**, so it carries nothing visit-specific: no department, doctor, OP number or visit status --
+only name, age · sex · blood group, phone, UMR, "since" date and a real **Code 128** barcode of the UMR
+([src/lib/code128.ts](src/lib/code128.ts), no library). The screen preview and the printout are the same
+HTML (`opCardHtml` in [src/components/opcard/OpCard.tsx](src/components/opcard/OpCard.tsx)); **Print OP
+Card** prints the card alone at ID-card size (CR80, 85.6 × 54 mm) from an isolated iframe, never the page
+around it.
+
+**Scanning it opens the patient's record page in a new tab** (`#/patient/<code>`, rendered by
+`main.tsx` outside the app shell, for browsers signed in to the HMS). `JourneyScanHost`
+([src/components/opcard/JourneyScan.tsx](src/components/opcard/JourneyScan.tsx), mounted in `App.tsx`)
+tells a scanner burst from typing by key timing; a UMR, OP number or backend patient id all resolve.
+The page ([src/components/patientRecord/](src/components/patientRecord/)) shows the complete end-to-end
+record -- OP visits (reception's, plus server visits not on this computer), admissions with transfers and
+discharge, consultations, prescriptions, lab results, ICU charts and hand-offs, bills and one merged
+timeline -- compiled by `compilePatientRecord` from every desk's store and the backend
+(`/api/patients/<id>/journey`, `/api/op/patients/<id>/history`, `/api/beds`, `/api/icu/<id>/flowsheets`, all
+raw `fetch`, never `apiFetch`'s mock). It refreshes itself, downloads the whole history as one branded
+PDF (`historyPdf.ts`), and prints the card alone. Scanning another card on the page switches patient.
+
+**The card also has a QR code** (`qrcode` package, `src/lib/qr.ts`) holding a link to that page, so a
+phone camera opens it. The link must be reachable from a phone: `publicAppOrigin()` uses
+`VITE_PUBLIC_APP_URL` if set, else the page's own origin, unless that is localhost -- then the machine's
+LAN address, which `vite.config.ts` publishes as `VITE_LAN_ORIGIN` (Docker/virtual interfaces skipped).
+A device that is not signed in sees a sign-in prompt; after login `App.tsx` returns it to that patient
+(`hospai_pending_patient_page`). Desk scanners: `useBarcodeScanner` accepts Enter, Tab or no
+terminator, USB or slower Bluetooth timing, and a scanned QR link; the card preview iframe is
+`tabIndex=-1` and click-through so it can never hold the focus a scanner types into.
+
+**Barcodes are unique per patient** because UMRs are. The front desk issues UMRs from a per-browser
+counter, so two desks could hand out the same one; the backend detects that on `/api/op/visits`
+(`umr_conflict`) and files the newcomer under a server-issued `PAT-…` id, and
+`db.adoptServerPatientId` re-keys that patient (and their encounters) to it, so their card follows.
+Backend timestamps without an offset are UTC; a visit's `appointment_date` is a calendar day.
 
 ## Clinical Summaries → discharge summary
 
