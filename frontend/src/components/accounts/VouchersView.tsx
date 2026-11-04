@@ -226,7 +226,7 @@ function PaymentVoucherModal({ onClose, onSaved }: { onClose: () => void; onSave
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" busy={action.busy} disabled={!ready} onClick={submit}>Submit for approval</Button></>}
     >
       <ErrorNote message={action.error} />
-      <div className="flex border border-[#D0D5DD] rounded-[6px] overflow-hidden w-fit">
+      <div className="flex border border-[#D0D5DD] rounded-none overflow-hidden w-fit">
         {(["supplier", "expense"] as const).map((m) => (
           <button key={m} onClick={() => setMode(m)} className={`px-3 py-1.5 text-[12.5px] ${mode === m ? "bg-[#1B4FD8] text-white" : "bg-white"}`}>
             {m === "supplier" ? "Pay a supplier invoice" : "Direct expense"}

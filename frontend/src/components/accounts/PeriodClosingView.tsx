@@ -85,29 +85,29 @@ export default function PeriodClosingView() {
           const exceptionsCount = ov.posting_exceptions || 0
           const pendingApprovals = ov.pending_approvals || 0
           return (
-            <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl space-y-3 shadow-xs">
+            <div className="bg-white border border-[#DDE2EC] p-5 rounded-none space-y-3 shadow-xs">
               <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-[#047857]" />
                 Financial Month-End Closure Pre-Flight Checklist
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-[#334155] pt-1">
-                <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${pendingApprovals === 0 ? "bg-[#F8FAFC] border-[#E2E8F0]" : "bg-[#FFFBEB] border-[#FDE68A]"}`}>
+                <div className={`flex items-center gap-2 p-2.5 rounded-none border ${pendingApprovals === 0 ? "bg-[#F8FAFC] border-[#E2E8F0]" : "bg-[#FFFBEB] border-[#FDE68A]"}`}>
                   <span className={`w-2 h-2 rounded-full ${pendingApprovals === 0 ? "bg-[#10B981]" : "bg-[#F59E0B]"}`} />
                   <span>
                     {pendingApprovals === 0 ? "All Vouchers Approved & Posted" : `${pendingApprovals} Voucher(s) Awaiting Approval`}
                   </span>
                 </div>
-                <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${exceptionsCount === 0 ? "bg-[#F8FAFC] border-[#E2E8F0]" : "bg-[#FEF2F2] border-[#FEE2E2]"}`}>
+                <div className={`flex items-center gap-2 p-2.5 rounded-none border ${exceptionsCount === 0 ? "bg-[#F8FAFC] border-[#E2E8F0]" : "bg-[#FEF2F2] border-[#FEE2E2]"}`}>
                   <span className={`w-2 h-2 rounded-full ${exceptionsCount === 0 ? "bg-[#10B981]" : "bg-[#EF4444]"}`} />
                   <span>
                     {exceptionsCount === 0 ? "Outbox Zero Posting Exceptions" : `${exceptionsCount} Posting Exception(s)`}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
+                <div className="flex items-center gap-2 p-2.5 rounded-none bg-[#F8FAFC] border border-[#E2E8F0]">
                   <span className="w-2 h-2 rounded-full bg-[#10B981]" />
                   <span>Double-Entry Trial Balance Invariant</span>
                 </div>
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
+                <div className="flex items-center gap-2 p-2.5 rounded-none bg-[#F8FAFC] border border-[#E2E8F0]">
                   <span className="w-2 h-2 rounded-full bg-[#10B981]" />
                   <span>Bank & Cash Reconciliations Reconciled</span>
                 </div>
@@ -184,7 +184,7 @@ export default function PeriodClosingView() {
                           </td>
                           <td className="py-2.5 px-3">
                             <span
-                              className={`px-2 py-0.5 rounded font-semibold text-[10px] ${
+                              className={`px-2 py-0.5 rounded-none font-semibold text-[10px] ${
                                 p.status === "closed"
                                   ? "bg-[#FEF2F2] text-[#B42318]"
                                   : "bg-[#ECFDF5] text-[#047857]"

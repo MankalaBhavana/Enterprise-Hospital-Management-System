@@ -57,7 +57,7 @@ export default function FinancialStatementsView() {
         subtitle="Live double-entry reports calculated directly from posted general ledger journals."
         actions={
           <div className="flex items-center gap-3">
-            <div className="flex border border-[#D0D5DD] rounded-[6px] overflow-hidden text-xs">
+            <div className="flex border border-[#D0D5DD] rounded-none overflow-hidden text-xs">
               {(
                 [
                   { key: "balance_sheet", label: "Balance Sheet" },
@@ -79,7 +79,7 @@ export default function FinancialStatementsView() {
             </div>
             <button
               onClick={exportCurrent}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#D0D5DD] rounded-[6px] text-xs font-semibold text-[#344054] hover:bg-gray-50 cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#D0D5DD] rounded-none text-xs font-semibold text-[#344054] hover:bg-gray-50 cursor-pointer shadow-xs"
             >
               <Download size={14} />
               CSV Export
@@ -92,7 +92,7 @@ export default function FinancialStatementsView() {
         <Loaded state={bsState}>
           {bs => (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white border border-[#DDE2EC] rounded-xl text-xs">
+              <div className="flex items-center justify-between p-3 bg-white border border-[#DDE2EC] rounded-none text-xs">
                 <span className="text-[#64748B]">As of: <strong className="text-[#0F172A]">{to}</strong></span>
                 <Pill tone={bs.balanced ? "green" : "red"}>
                   {bs.balanced ? "Invariant Balanced: Assets = Liabilities + Equity" : "Out of Balance"}
@@ -188,7 +188,7 @@ export default function FinancialStatementsView() {
         <Loaded state={pnlState}>
           {pnl => (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white border border-[#DDE2EC] rounded-xl text-xs">
+              <div className="flex items-center justify-between p-3 bg-white border border-[#DDE2EC] rounded-none text-xs">
                 <span className="text-[#64748B]">Period: <strong className="text-[#0F172A]">{from} to {to}</strong></span>
                 <span className={`font-bold ${pnl.surplus >= 0 ? "text-[#047857]" : "text-[#B42318]"}`}>
                   Net Surplus: <Money value={pnl.surplus} strong />

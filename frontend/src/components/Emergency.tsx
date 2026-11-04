@@ -462,15 +462,6 @@ export default function Emergency({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Refresh Button */}
-          <button
-            onClick={loadData}
-            title="Refresh ED Data"
-            className="p-1.5 border border-[#DDE2EC] rounded bg-white text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
-          >
-            <FiRefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#1B4FD8]" : ""}`} />
-          </button>
-
           {/* View Toggle */}
           <div className="flex border border-[#DDE2EC] rounded overflow-hidden">
             <button

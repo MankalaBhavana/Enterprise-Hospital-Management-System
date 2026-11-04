@@ -30,7 +30,7 @@ export default function JournalsView() {
         title="General ledger"
         subtitle="Every posted journal, in order. Posted entries cannot be edited or deleted — a mistake is corrected by a reversing entry, which keeps the audit trail intact."
         actions={
-          <div className="flex border border-[#D0D5DD] rounded-[6px] overflow-hidden">
+          <div className="flex border border-[#D0D5DD] rounded-none overflow-hidden">
             {(["register", "statement"] as const).map((t) => (
               <button
                 key={t}

@@ -77,19 +77,19 @@ export default function TaxManagementView() {
       <Loaded state={gstState}>
         {(summary) => (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+            <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
               <span className="text-xs text-[#64748B] font-medium">Output Tax Liability (Gross)</span>
               <div className="text-xl font-bold text-[#BE123C] mt-1">{formatINR(summary.output_tax)}</div>
               <div className="text-[11px] text-[#64748B] mt-1">Tax collected on Patient bills &amp; Pharmacy sales</div>
             </div>
 
-            <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+            <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
               <span className="text-xs text-[#64748B] font-medium">Eligible Input Tax Credit (ITC)</span>
               <div className="text-xl font-bold text-[#047857] mt-1">{formatINR(summary.input_credit)}</div>
               <div className="text-[11px] text-[#64748B] mt-1">Tax paid on Pharmacy GRNs &amp; Supplier purchases</div>
             </div>
 
-            <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+            <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
               <span className="text-xs text-[#64748B] font-medium">Net GST Payable / (Credit)</span>
               <div
                 className={`text-xl font-bold mt-1 ${
@@ -109,7 +109,7 @@ export default function TaxManagementView() {
       {/* Configuration & Tax Code Setup */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Hospital Entity Tax Registration */}
-        <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl space-y-4 shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-5 rounded-none space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
             <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
               <Building2 size={16} className="text-[#1B4FD8]" />
@@ -127,7 +127,7 @@ export default function TaxManagementView() {
                 type="text"
                 value={config.gstin}
                 onChange={(e) => setConfig({ ...config, gstin: e.target.value.toUpperCase() })}
-                className="w-full text-xs font-mono font-semibold px-3 py-2 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+                className="w-full text-xs font-mono font-semibold px-3 py-2 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
               />
             </div>
 
@@ -137,7 +137,7 @@ export default function TaxManagementView() {
                 type="text"
                 value={config.legalName}
                 onChange={(e) => setConfig({ ...config, legalName: e.target.value })}
-                className="w-full text-xs font-semibold px-3 py-2 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+                className="w-full text-xs font-semibold px-3 py-2 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
               />
             </div>
 
@@ -148,7 +148,7 @@ export default function TaxManagementView() {
                   type="text"
                   value={config.placeOfSupply}
                   onChange={(e) => setConfig({ ...config, placeOfSupply: e.target.value })}
-                  className="w-full text-xs font-semibold px-3 py-2 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+                  className="w-full text-xs font-semibold px-3 py-2 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
                 />
               </div>
               <div>
@@ -193,7 +193,7 @@ export default function TaxManagementView() {
                           </td>
                           <td className="py-2.5 px-3">
                             <span
-                              className={`px-2 py-0.5 rounded font-semibold text-[10px] uppercase ${
+                              className={`px-2 py-0.5 rounded-none font-semibold text-[10px] uppercase ${
                                 tc.kind === "gst"
                                   ? "bg-[#EFF6FF] text-[#1B4FD8]"
                                   : tc.kind === "tds"

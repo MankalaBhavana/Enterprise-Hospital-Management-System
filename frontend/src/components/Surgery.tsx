@@ -177,17 +177,17 @@ export default function Surgery() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => setIsStatOpen(true)}
-            className="px-3.5 py-2 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="px-3.5 py-2 rounded-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <span>🚨</span>
-            <span>Emergency STAT OR</span>
+            <span>Emergency STAT OT Reservation</span>
           </button>
           <button
             onClick={() => {
               setBookingRoom(null);
               setIsBookingOpen(true);
             }}
-            className="px-3.5 py-2 rounded-lg bg-[#1B4FD8] hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="px-3.5 py-2 rounded-none bg-[#1B4FD8] hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <span>📅</span>
             <span>+ Book Surgical Case</span>

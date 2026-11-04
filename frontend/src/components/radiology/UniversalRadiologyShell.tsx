@@ -256,7 +256,7 @@ export default function UniversalRadiologyShell({
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800">
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1B4FD8] to-purple-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
+              <div className="w-8 h-8 rounded-none bg-gradient-to-tr from-[#1B4FD8] to-purple-600 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
                 ⚡
               </div>
               <div className="truncate">
@@ -272,7 +272,7 @@ export default function UniversalRadiologyShell({
 
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors cursor-pointer mx-auto"
+            className="text-slate-400 hover:text-white p-1 rounded-none hover:bg-slate-800 transition-colors cursor-pointer mx-auto"
             title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             <Menu className="w-4 h-4" />
@@ -288,7 +288,7 @@ export default function UniversalRadiologyShell({
               <button
                 key={item.id}
                 onClick={() => handleNavigate(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-[12.5px] font-semibold transition-all cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-none text-[12.5px] font-semibold transition-all cursor-pointer ${
                   isActive
                     ? "bg-[#1B4FD8] text-white font-bold shadow-sm"
                     : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
@@ -356,7 +356,7 @@ export default function UniversalRadiologyShell({
                     <button
                       key={item.id}
                       onClick={() => handleNavigate(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] font-semibold ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-none text-[13px] font-semibold ${
                         isActive ? "bg-[#1B4FD8] text-white font-bold" : "text-slate-300 hover:bg-slate-800"
                       }`}
                     >
@@ -426,7 +426,7 @@ export default function UniversalRadiologyShell({
                     value={globalSearch}
                     onChange={(e) => setGlobalSearch(e.target.value)}
                     placeholder="Search templates, test name..."
-                    className="w-full pl-8 pr-3 py-1.5 bg-[#F8FAFC] border border-slate-300 rounded text-[12px] text-slate-900 focus:outline-none focus:border-blue-600 shadow-2xs"
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#F8FAFC] border border-slate-300 rounded-none text-[12px] text-slate-900 focus:outline-none focus:border-blue-600 shadow-2xs"
                   />
                   {globalSearch && (
                     <button
@@ -442,7 +442,7 @@ export default function UniversalRadiologyShell({
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent("hospai_rad_new_template"))
                   }}
-                  className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white px-3.5 py-1.5 rounded text-[12.5px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                  className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white px-3.5 py-1.5 rounded-none text-[12.5px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>+ New Template</span>
@@ -453,7 +453,7 @@ export default function UniversalRadiologyShell({
                 {activeView === "reporting" && (
                   <button
                     onClick={() => setShowTemplateImporterModal(true)}
-                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-1.5 rounded text-[12.5px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-none text-[12.5px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
                     title="Upload report format file to reproduce original layout"
                   >
                     <Upload className="w-3.5 h-3.5 text-blue-600" />
@@ -463,7 +463,7 @@ export default function UniversalRadiologyShell({
 
                 <button
                   onClick={() => setShowNewOrderModal(true)}
-                  className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white px-3.5 py-1.5 rounded text-[12.5px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                  className="bg-[#1B4FD8] hover:bg-[#1740B4] text-white px-3.5 py-1.5 rounded-none text-[12.5px] font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>+ Order Investigation</span>
@@ -471,7 +471,7 @@ export default function UniversalRadiologyShell({
 
                 <button
                   onClick={() => setTick((t) => t + 1)}
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 p-2 rounded text-[12.5px] shadow-2xs cursor-pointer transition-colors"
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 p-2 rounded-none text-[12.5px] shadow-2xs cursor-pointer transition-colors"
                   title="Refresh Department Data"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />

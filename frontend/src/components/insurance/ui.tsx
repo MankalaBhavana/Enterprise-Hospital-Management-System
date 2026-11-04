@@ -115,7 +115,7 @@ export function Choice({ active, title, sub, onClick }: { active: boolean; emoji
       role="radio"
       aria-checked={active}
       onClick={onClick}
-      className={`text-left rounded-[6px] border px-3 py-2.5 cursor-pointer transition-colors flex gap-2.5 ${active ? "border-blue-600 bg-blue-50/60" : "border-slate-200 bg-white hover:border-slate-300"}`}
+      className={`text-left rounded-none border px-3 py-2.5 cursor-pointer transition-colors flex gap-2.5 ${active ? "border-blue-600 bg-blue-50/60" : "border-slate-200 bg-white hover:border-slate-300"}`}
     >
       <span className={`mt-0.5 w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${active ? "border-blue-600" : "border-slate-300"}`}>
         {active && <span className="w-2 h-2 rounded-full bg-blue-600" />}
@@ -221,7 +221,7 @@ export function Field({ label, hint, children, span = 1 }: { label: string; hint
   )
 }
 
-const btnBase = "h-9 px-4 rounded-md text-[12.5px] font-semibold cursor-pointer transition-all duration-150 inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
+const btnBase = "h-9 px-4 rounded-none text-[12.5px] font-semibold cursor-pointer transition-all duration-150 inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
 export const btn = {
   primary: `${btnBase} bg-teal-700 hover:bg-teal-800 text-white shadow-xs focus:ring-2 focus:ring-teal-500/30`,
   soft: `${btnBase} bg-white hover:bg-slate-50 border border-slate-300/90 text-slate-800 focus:ring-2 focus:ring-slate-400/20`,
@@ -240,14 +240,14 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
   }, [onClose])
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={title} className={`bg-white w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-[8px] shadow-xl my-10`} onClick={(e) => e.stopPropagation()}>
-        <header className="px-6 pt-5 pb-3 flex items-center justify-between">
+      <div role="dialog" aria-modal="true" aria-label={title} className={`bg-white w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-none border border-slate-300 shadow-xl my-10`} onClick={(e) => e.stopPropagation()}>
+        <header className="px-6 pt-5 pb-3 flex items-center justify-between border-b border-slate-100">
           <h3 className="text-[16px] font-semibold text-slate-900">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-[6px] hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer">
+          <button type="button" onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-none hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer">
             <X size={16} />
           </button>
         </header>
-        <div className="px-6 pb-6">{children}</div>
+        <div className="px-6 pb-6 pt-4">{children}</div>
       </div>
     </div>
   )
@@ -267,7 +267,7 @@ export function Drawer({ title, subtitle, onClose, children, footer }: { title: 
             <h3 className="text-[16px] font-semibold text-slate-900">{title}</h3>
             {subtitle && <p className="text-[12.5px] text-slate-500 mt-0.5">{subtitle}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-[6px] hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer">
+          <button type="button" onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-none hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer">
             <X size={16} />
           </button>
         </header>

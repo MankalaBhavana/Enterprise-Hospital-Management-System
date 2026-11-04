@@ -18,6 +18,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react"
 import { PharmacyDatabase, AppBatch, AppMedicine } from "../../../services/pharmacyDb"
+import { db } from "../../../services/db"
 import toast from "react-hot-toast"
 import PageHeader from "../components/PageHeader"
 import InvoicePrintModal from "../components/InvoicePrintModal"
@@ -390,37 +391,10 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
         })
       }
 
-      // 2. If not found in catalog, auto-provision the medicine so it is NEVER dropped
+      // 2. If not found in catalog, do NOT auto-create records in Medicine Master
       if (!med) {
-        const cleanName = itemName.replace(/\b(tab|cap|inj|syr|tablet|capsule|injection|syrup)\b/gi, "").trim()
-        const newMedId = `MED-${Date.now()}-${itemIdx + 1}`
-        const createdMed: AppMedicine = {
-          id: newMedId,
-          medicineName: itemName,
-          brandName: cleanName || itemName,
-          genericName: cleanName || itemName,
-          dosageForm: ((item as any).dosageForm || (item as any).form || "TABLET").toUpperCase() as any,
-          strength: item.strength || (itemName.match(/\d+\s*(mg|mcg|ml|g)/i)?.[0] || ""),
-          manufacturer: "Standard Pharma",
-          categoryId: "General",
-          scheduleType: "H",
-          hsnCode: "3004 9099",
-          taxPercentage: 5,
-          mrp: 25,
-          purchasePrice: 18,
-          reorderLevel: 50,
-          stock: 100,
-          currentStock: 100,
-          unit: "Strip",
-          barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
-          storageCondition: "Room Temperature",
-          controlledSubstanceFlag: false,
-          activeStatus: "Active",
-          createdAt: new Date().toISOString(),
-        }
-        allMedicines.unshift(createdMed)
-        PharmacyDatabase.saveMedicines([createdMed, ...PharmacyDatabase.getMedicines().filter((x) => x.id !== createdMed.id)])
-        med = createdMed
+        toast.error(`"${itemName}" is not registered in Medicine Master. Please add it to the catalog first.`, { duration: 4000 })
+        return
       }
 
       // 3. Batch allocation & FEFO
@@ -457,28 +431,10 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
         }
       }
 
-      // If no batches exist with stock, auto-create a dispensary batch so doctor's prescribed item is ready to dispense
+      // If no batches exist with stock, do NOT auto-create dummy batches in database
       if (splits.length === 0) {
-        const year = new Date().getFullYear()
-        const futureDate = new Date()
-        futureDate.setFullYear(futureDate.getFullYear() + 2)
-        const expiryStr = futureDate.toISOString().split("T")[0]
-        const autoBatch: AppBatch = {
-          id: `BATCH-${Date.now()}-${itemIdx + 1}`,
-          medicineId: med.id,
-          batchNumber: `BAT-${year}-${Math.floor(1000 + Math.random() * 9000)}`,
-          expiryDate: expiryStr,
-          manufacturingDate: `${year}-01-01`,
-          mrp: (med as any).mrp ? Number((med as any).mrp) : 25,
-          purchasePrice: (med as any).purchasePrice ? Number((med as any).purchasePrice) : 18,
-          quantity: Math.max(100, reqQty * 10),
-          availableQuantity: Math.max(100, reqQty * 10),
-          location: "Shelf A-1",
-          createdAt: new Date().toISOString(),
-        }
-        allBatches.unshift(autoBatch)
-        PharmacyDatabase.saveBatches([autoBatch, ...PharmacyDatabase.getBatches().filter((x) => x.id !== autoBatch.id)])
-        splits = [{ batch: autoBatch, usedQty: reqQty }]
+        toast.error(`"${med.medicineName}" has no available stock in dispensary batches.`, { duration: 4000 })
+        return
       }
 
       const medMrp = (med as any).mrp !== undefined && (med as any).mrp !== null ? Number((med as any).mrp) : 25
@@ -1154,13 +1110,40 @@ export default function Dispensing({ onNavigate }: DispensingProps) {
       }
     })
 
+    const totalPrescribed = loadedRxMeta?.items?.length || 0
+    const isPartial = totalPrescribed > 0 && cart.length < totalPrescribed
+    const newDispensingStatus = isPartial ? "Partially Dispensed" : "Dispensed"
+
     if (rxId) {
       PharmacyDatabase.updatePrescription(rxId, {
-        status: "Dispensed",
-        dispensingStatus: "Dispensed",
+        status: newDispensingStatus,
+        dispensingStatus: newDispensingStatus,
         paidAmount: finalAmount,
         remainingDue: 0,
       } as any)
+    }
+
+    // Synchronize with Outpatient Clinical Journey encounter
+    try {
+      const allEncs = db.getEncounters()
+      const targetName = (patientName || loadedRxMeta?.patientName || "").toLowerCase().trim()
+      const matched = allEncs.find((e) =>
+        (loadedRxMeta?.visitId && e.id === loadedRxMeta.visitId) ||
+        (loadedRxMeta?.uhid && e.umr === loadedRxMeta.uhid) ||
+        (loadedRxMeta?.patientId && e.umr === loadedRxMeta.patientId) ||
+        (targetName && e.patientName.toLowerCase().trim() === targetName)
+      )
+      if (matched) {
+        db.updateEncounter(matched.id, {
+          pharmacyStatus: newDispensingStatus,
+          timestamps: {
+            ...matched.timestamps,
+            visitCompleted: matched.timestamps?.visitCompleted || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        })
+      }
+    } catch (e) {
+      console.warn("Could not sync encounter status", e)
     }
 
     // Immediately clear prescribing doctor details and time of arrival after completing dispense

@@ -2079,15 +2079,6 @@ export default function ErPage({
 
         {/* Top Right Action Controls */}
         <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={loadVisits}
-            className="px-3.5 py-2 bg-white border border-slate-200/90 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-            title="Refresh ED visits"
-          >
-            <FiRefreshCw className="text-[12px]" /> Refresh
-          </button>
-
           {/* New Registration Dropdown */}
           <div className="relative" ref={regMenuRef}>
             <button

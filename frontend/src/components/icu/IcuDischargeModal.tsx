@@ -318,12 +318,12 @@ export function IcuDischargeModal({
   return (
     <>
       <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div className="bg-white border border-slate-200/80 shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl animate-in zoom-in-95 duration-150">
+        <div className="bg-white border border-slate-200/80 shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden rounded-none animate-in zoom-in-95 duration-150">
           {/* Modal Header */}
           <div className="bg-gradient-to-r from-red-600 via-rose-600 to-rose-700 text-white px-6 py-4 flex items-center justify-between flex-shrink-0 shadow-sm">
             <div>
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-xs flex items-center justify-center text-lg">
+                <div className="w-8 h-8 rounded-none bg-white/10 backdrop-blur-xs flex items-center justify-center text-lg">
                   📋
                 </div>
                 <div>
@@ -341,7 +341,7 @@ export function IcuDischargeModal({
               <button
                 type="button"
                 onClick={() => setShowPdfPreview(true)}
-                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white font-bold text-xs rounded-none transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 title="Preview and print complete day-wise ICU flowsheet PDF"
               >
                 <span>🖨️ View / Print PDF</span>
@@ -349,7 +349,7 @@ export function IcuDischargeModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer text-sm font-bold"
+                className="w-8 h-8 rounded-none bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer text-sm font-bold"
               >
                 ✕
               </button>
@@ -361,13 +361,13 @@ export function IcuDischargeModal({
             <div className="flex items-center gap-2">
               <span className="font-medium">Patient:</span>
               <strong className="text-slate-900 font-bold text-sm">{patient.name || "Occupant"}</strong>
-              <span className="bg-slate-200/80 text-slate-700 px-2 py-0.5 rounded-full font-mono text-[11px]">
+              <span className="bg-slate-200/80 text-slate-700 px-2 py-0.5 rounded-none font-mono text-[11px]">
                 {patient.bed} · MRN {patient.mrn}
               </span>
             </div>
             <div className="text-slate-600 font-medium flex items-center gap-1.5">
               <span>Length of Stay:</span>
-              <span className="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full text-[11px]">
+              <span className="bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-none text-[11px]">
                 {patient.los}
               </span>
             </div>
@@ -402,7 +402,7 @@ export function IcuDischargeModal({
                     key={dest.id}
                     type="button"
                     onClick={() => setDischargeType(dest.id as any)}
-                    className={`p-3.5 text-left border rounded-xl transition-all cursor-pointer ${
+                    className={`p-3.5 text-left border rounded-none transition-all cursor-pointer ${
                       dischargeType === dest.id
                         ? "bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/20 text-rose-950 font-bold shadow-xs"
                         : "bg-white border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50/50"
@@ -419,14 +419,14 @@ export function IcuDischargeModal({
 
             {/* Destination Ward Selection if Ward Stepdown */}
             {dischargeType === "Ward Stepdown" && (
-              <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl p-4 space-y-2">
+              <div className="bg-blue-50/80 border border-blue-200/80 rounded-none p-4 space-y-2">
                 <label className="block text-[11px] font-bold text-blue-950 uppercase tracking-wider">
                   Target Stepdown Ward (Reception Bed Allocation)
                 </label>
                 <select
                   value={destinationWard}
                   onChange={(e) => setDestinationWard(e.target.value)}
-                  className="w-full bg-white border border-blue-300/80 rounded-lg px-3.5 py-2.5 text-xs font-bold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500/20 outline-none"
+                  className="w-full bg-white border border-blue-300/80 rounded-none px-3.5 py-2.5 text-xs font-bold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500/20 outline-none"
                 >
                   {wards.length === 0 && <option value="">No wards found in Bed Management</option>}
                   {wards.map((w) => (
@@ -447,7 +447,7 @@ export function IcuDischargeModal({
                 <select
                   value={dischargeCondition}
                   onChange={(e) => setDischargeCondition(e.target.value as any)}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-none px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                 >
                   <option value="Stable">Stable</option>
                   <option value="Improved">Improved</option>
@@ -464,7 +464,7 @@ export function IcuDischargeModal({
                   type="text"
                   value={attendingDoctor}
                   onChange={(e) => setAttendingDoctor(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-none px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                   required
                 />
               </div>
@@ -479,7 +479,7 @@ export function IcuDischargeModal({
                 <select
                   value={ventStatus}
                   onChange={(e) => setVentStatus(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-none px-3.5 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                 >
                   {initialVentStatus && <option value={initialVentStatus}>{initialVentStatus}</option>}
                   <option value="Weaned to Room Air">Weaned to Room Air</option>
@@ -498,7 +498,7 @@ export function IcuDischargeModal({
                   type="text"
                   value={nurseInCharge}
                   onChange={(e) => setNurseInCharge(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-none px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                   required
                 />
               </div>
@@ -512,7 +512,7 @@ export function IcuDischargeModal({
                 type="text"
                 value={infusionClearance}
                 onChange={(e) => setInfusionClearance(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                className="w-full bg-white border border-slate-200 rounded-none px-3.5 py-2.5 text-xs text-slate-800 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                 placeholder="e.g. All vasopressor drips stopped, peripheral lines intact..."
               />
             </div>
@@ -526,7 +526,7 @@ export function IcuDischargeModal({
                 rows={3}
                 value={clinicalSummaryNotes}
                 onChange={(e) => setClinicalSummaryNotes(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg p-3.5 text-xs text-slate-800 leading-relaxed font-sans focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
+                className="w-full bg-white border border-slate-200 rounded-none p-3.5 text-xs text-slate-800 leading-relaxed font-sans focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none"
                 required
               />
             </div>
@@ -536,7 +536,7 @@ export function IcuDischargeModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold rounded-xl cursor-pointer transition-colors"
+                className="px-4 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold rounded-none cursor-pointer transition-colors"
               >
                 Cancel
               </button>
@@ -545,7 +545,7 @@ export function IcuDischargeModal({
                 <button
                   type="button"
                   onClick={() => setShowPdfPreview(true)}
-                  className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs rounded-none shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                   title="Preview & print complete day-wise ICU journey flowsheet PDF"
                 >
                   <span>👁️ View &amp; Print Day-Wise Chart PDF</span>
@@ -553,7 +553,7 @@ export function IcuDischargeModal({
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-xs rounded-none shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <span>📋 Confirm ICU Discharge &amp; Send to Reception →</span>
                 </button>
@@ -614,7 +614,7 @@ export function IcuJourneyFlowsheetPdfModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto print:p-0 print:bg-white">
-      <div className="bg-white border border-slate-300 shadow-2xl w-full max-w-5xl my-auto flex flex-col max-h-[94vh] overflow-hidden rounded-xl print:max-h-none print:shadow-none print:border-0 print:m-0 print:w-full">
+      <div className="bg-white border border-slate-300 shadow-2xl w-full max-w-5xl my-auto flex flex-col max-h-[94vh] overflow-hidden rounded-none print:max-h-none print:shadow-none print:border-0 print:m-0 print:w-full">
         {/* Sticky Action Toolbar (Hidden during print) */}
         <div className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between flex-shrink-0 shadow-md print:hidden">
           <div className="flex items-center gap-2.5">
@@ -633,14 +633,14 @@ export function IcuJourneyFlowsheetPdfModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-none shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
             >
               <span>🖨️ Print / Save as PDF</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-none cursor-pointer transition-colors"
             >
               Close Preview
             </button>

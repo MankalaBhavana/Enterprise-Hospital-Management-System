@@ -9,6 +9,7 @@ import {
 import { Icon } from "./icons"
 import { Btn, Input } from "./shared"
 import PhoneInput from "./ui/PhoneInput"
+import { validatePhoneNumber } from "./ui/countryCodes"
 import {
   db,
   DBPatient,
@@ -244,12 +245,12 @@ export default function Registration({
     }
 
     const rawPhone = formData.phone || ""
-    const cleanDigits = rawPhone.replace(/\D/g, "")
-    if (cleanDigits.length < 7) {
-      toast.error("Please enter a valid mobile phone number.")
+    const phoneVal = validatePhoneNumber(rawPhone)
+    if (!phoneVal.isValid) {
+      toast.error(phoneVal.error || "Please enter a valid mobile phone number.")
       return
     }
-    const finalPhone = rawPhone.trim() || "+91 98765 43210"
+    const finalPhone = rawPhone.trim()
 
     // If ALL entered details match an existing record -> Route through Revisit under existing UMR
     if (matchingExistingPatient) {

@@ -1695,7 +1695,7 @@ export default function ICU({
             <button
               type="button"
               onClick={startDischarge}
-              className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+              className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white text-xs font-bold rounded-none shadow-xs hover:shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
             >
               <span>📋 Discharge / Step-down</span>
             </button>
@@ -1747,7 +1747,7 @@ export default function ICU({
       </div>
 
       {/* ── ICU bed census strip ─────────────────────────────────────────── */}
-      <div className="flex-shrink-0 bg-white border-b border-[#E2E8F0] px-6 py-2.5 flex items-stretch gap-2 overflow-x-auto">
+      <div className="flex-shrink-0 bg-white border-b border-[#E2E8F0] px-6 py-2.5 flex items-stretch gap-2 overflow-x-auto scrollbar-thin max-w-full">
         {filteredBeds.length === 0 && (
           <div className="text-[11.5px] text-[#64748B] py-2">
             No critical-care beds in {UNIT_LABEL[selectedUnit]}. Beds typed ICU
@@ -1768,7 +1768,7 @@ export default function ICU({
                 if (!selected) setSelectedFlowsheetDate("")
                 setSelectedBed(p.bed)
               }}
-              className={`relative flex-shrink-0 w-48 text-left border rounded-xl pl-3.5 pr-2.5 py-2.5 transition-all overflow-hidden ${
+              className={`relative flex-shrink-0 w-48 text-left border rounded-none pl-3.5 pr-2.5 py-2.5 transition-all overflow-hidden ${
                 occupied
                   ? "hover:shadow-md cursor-pointer"
                   : "border-dashed cursor-pointer opacity-70 hover:opacity-100"
@@ -1867,7 +1867,7 @@ export default function ICU({
 
       {!pt ? (
         <div className="flex-1 flex items-center justify-center p-10 bg-slate-50/50">
-          <div className="text-center max-w-md bg-white border border-slate-200 p-8 shadow-xs rounded-xl">
+          <div className="text-center max-w-md bg-white border border-slate-200 p-8 shadow-xs rounded-none">
             <div className="text-[15px] font-bold text-[#0F172A]">
               {bedsState === "loading"
                 ? "Loading critical-care beds…"
@@ -2020,7 +2020,7 @@ export default function ICU({
         </div>
       ) : !pt.name ? (
         <div className="flex-1 flex items-center justify-center p-10 bg-slate-50/50">
-          <div className="text-center max-w-md bg-white border border-slate-200 p-8 shadow-xs rounded-xl">
+          <div className="text-center max-w-md bg-white border border-slate-200 p-8 shadow-xs rounded-none">
             <div className="text-[15px] font-bold text-[#0F172A]">
               Bed {pt.bed} is {pt.bedStatus === "Maintenance" ? "under maintenance" : "available"}
             </div>

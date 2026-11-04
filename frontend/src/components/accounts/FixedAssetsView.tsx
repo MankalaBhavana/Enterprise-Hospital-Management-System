@@ -103,25 +103,25 @@ export default function FixedAssetsView() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Gross Fixed Asset Cost</span>
           <div className="text-xl font-bold text-[#0F172A] mt-1">{formatINRShort(totalCost)}</div>
           <div className="text-[11px] text-[#64748B] mt-0.5">{assets.length} Registered Assets</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Accumulated Depreciation</span>
           <div className="text-xl font-bold text-[#BE123C] mt-1">{formatINRShort(totalAcc)}</div>
           <div className="text-[11px] text-[#64748B] mt-0.5">Contra-Asset Balance</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Net Book Value (NBV)</span>
           <div className="text-xl font-bold text-[#047857] mt-1">{formatINRShort(totalNbv)}</div>
           <div className="text-[11px] text-[#047857] mt-0.5 font-semibold">Carrying Value on Balance Sheet</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Depreciation Methods</span>
           <div className="text-xl font-bold text-[#1B4FD8] mt-1">SLM &amp; WDV</div>
           <div className="text-[11px] text-[#64748B] mt-0.5">Automated Monthly Schedule</div>
@@ -129,7 +129,7 @@ export default function FixedAssetsView() {
       </div>
 
       {/* Asset Table */}
-      <div className="bg-white border border-[#DDE2EC] rounded-xl overflow-hidden shadow-xs">
+      <div className="bg-white border border-[#DDE2EC] rounded-none overflow-hidden shadow-xs">
         <div className="p-4 border-b border-[#F1F5F9] bg-[#FAFAFA] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="relative w-72">
             <Search className="absolute left-3 top-2.5 text-[#94A3B8]" size={14} />
@@ -138,7 +138,7 @@ export default function FixedAssetsView() {
               placeholder="Search asset code, name or cost centre..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+              className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
             />
           </div>
           <span className="text-xs text-[#64748B]">Showing {filtered.length} assets</span>

@@ -89,7 +89,7 @@ export default function SurgicalFlowStepper({
           <span className="text-xs font-bold text-[#1E3A6E] tracking-tight uppercase">
             End-to-End Surgical Patient Journey Pipeline
           </span>
-          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono font-medium">
+          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-none font-mono font-medium">
             Real-Time Clinical Flow
           </span>
         </div>
@@ -112,7 +112,7 @@ export default function SurgicalFlowStepper({
             <button
               key={stage.id}
               onClick={() => onSelectStage(isSelected ? null : stage.id)}
-              className={`text-left p-2.5 rounded-lg border transition-all cursor-pointer relative overflow-hidden group ${
+              className={`text-left p-2.5 rounded-none border transition-all cursor-pointer relative overflow-hidden group ${
                 isSelected
                   ? "bg-slate-900 text-white border-slate-900 shadow-sm ring-2 ring-blue-500/30"
                   : count > 0
@@ -123,7 +123,7 @@ export default function SurgicalFlowStepper({
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="text-sm">{stage.icon}</span>
                 <span
-                  className={`text-xs font-bold font-mono px-1.5 py-0.2 rounded ${
+                  className={`text-xs font-bold font-mono px-1.5 py-0.2 rounded-none ${
                     isSelected
                       ? "bg-blue-600 text-white"
                       : count > 0

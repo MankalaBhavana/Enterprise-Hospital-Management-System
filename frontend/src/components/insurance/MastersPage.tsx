@@ -96,7 +96,7 @@ function InsurerForm({ initial, notify, onDone }: { initial: InsuranceCompanyCon
   return (
     <div className="space-y-5 max-h-[80vh] overflow-y-auto pr-1">
       {/* SECTION 1: COMPANY IDENTIFICATION */}
-      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+      <div className="bg-slate-50 p-4 rounded-none border border-slate-200 space-y-3">
         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
           <Building2 size={14} className="text-blue-600" /> Insurer Profile &amp; Network Status
         </h4>
@@ -134,12 +134,12 @@ function InsurerForm({ initial, notify, onDone }: { initial: InsuranceCompanyCon
       </div>
 
       {/* SECTION 2: PRE-AUTH FORM CONFIGURATION (CRITICAL FOR PRE-AUTH VIEW) */}
-      <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200 space-y-3">
+      <div className="bg-blue-50/70 p-4 rounded-none border border-blue-200 space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold text-blue-950 uppercase tracking-wider flex items-center gap-1.5">
             <FileCheck2 size={15} className="text-blue-600" /> Pre-Authorization Form Template &amp; Document Mapping
           </h4>
-          <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2.5 py-0.5 rounded-full border border-blue-300">
+          <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2.5 py-0.5 rounded-none border border-blue-300">
             Auto-Loads in Pre-Auth Desk
           </span>
         </div>
@@ -177,13 +177,13 @@ function InsurerForm({ initial, notify, onDone }: { initial: InsuranceCompanyCon
             <input className={fieldCls} type="url" value={f.portalUrl ?? ""} placeholder="e.g. https://provider.insurer.com" onChange={(e) => set("portalUrl", e.target.value)} />
           </Field>
 
-          <div className="col-span-2 bg-white p-3 rounded-lg border border-blue-200/80 space-y-2">
+          <div className="col-span-2 bg-white p-3 rounded-none border border-blue-200/80 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800">
                 Official Pre-Authorization Form Template Document (PDF / Scan)
               </label>
               {f.preAuthFormDocumentName && (
-                <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-none border border-emerald-200">
                   ✓ {f.preAuthFormDocumentName}
                 </span>
               )}
@@ -196,7 +196,7 @@ function InsurerForm({ initial, notify, onDone }: { initial: InsuranceCompanyCon
                 placeholder="e.g. Care_Health_Cashless_PreAuth_V4.2.pdf"
                 onChange={(e) => set("preAuthFormDocumentName", e.target.value)}
               />
-              <label className="h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs">
+              <label className="h-9 px-3.5 rounded-none bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs">
                 <span>Upload PDF Form</span>
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleFileUpload} />
               </label>
@@ -206,7 +206,7 @@ function InsurerForm({ initial, notify, onDone }: { initial: InsuranceCompanyCon
       </div>
 
       {/* SECTION 3: CONTACTS, SLAS & REQUIRED DOCUMENTS */}
-      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+      <div className="bg-slate-50 p-4 rounded-none border border-slate-200 space-y-3">
         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
           Desk Contacts, SLAs &amp; Required Checklist
         </h4>
@@ -549,7 +549,7 @@ export default function MastersPage({ section = "insurers" }: { section?: Master
         {/* Page Title & Subtitle */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm shrink-0">
+            <div className="w-11 h-11 rounded-none bg-blue-600 text-white flex items-center justify-center shadow-sm shrink-0">
               <Building2 size={22} className="fill-white/20" />
             </div>
             <div>
@@ -564,7 +564,7 @@ export default function MastersPage({ section = "insurers" }: { section?: Master
         </div>
 
         {/* Tab Navigation Controls Bar */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-2 shadow-2xs">
+        <div className="bg-white border border-slate-200/90 rounded-none p-2 shadow-2xs">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none" role="tablist">
             {SECTIONS.map((x) => {
               const Icon = SECTION_TAB[x].icon
@@ -576,7 +576,7 @@ export default function MastersPage({ section = "insurers" }: { section?: Master
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setTab(x)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 ${
+                  className={`px-4 py-2.5 rounded-none text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 ${
                     isActive
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
@@ -598,7 +598,7 @@ export default function MastersPage({ section = "insurers" }: { section?: Master
         </div>
 
         {/* Section Description */}
-        <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3.5 flex items-center gap-2.5 text-xs text-blue-900 font-medium">
+        <div className="bg-blue-50/60 border border-blue-200/80 rounded-none p-3.5 flex items-center gap-2.5 text-xs text-blue-900 font-medium">
           <Sparkles size={16} className="text-blue-600 shrink-0" />
           <span>{meta.subtitle}</span>
         </div>
@@ -624,7 +624,7 @@ const statusTag = (s: "Active" | "Inactive") => (
   </span>
 )
 const editBtn = (onClick: () => void) => (
-  <button type="button" className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer" onClick={onClick}>
+  <button type="button" className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-none shadow-2xs transition-colors cursor-pointer" onClick={onClick}>
     Edit
   </button>
 )
@@ -651,7 +651,7 @@ function InsurersSection({ m, notify }: { m: M; notify: Notify }) {
           <InsurerForm initial={edit} notify={notify} onDone={() => (setEdit(null), m.reload())} />
         </Modal>
       )}
-      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xs overflow-hidden">
+      <div className="bg-white border border-slate-200/90 rounded-none shadow-2xs overflow-hidden">
         <div className="p-4 border-b border-slate-200/80 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-bold text-slate-900">Empaneled Insurance Companies</h3>
@@ -668,13 +668,13 @@ function InsurersSection({ m, notify }: { m: M; notify: Notify }) {
                 placeholder="Search insurer or TPA…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 h-8.5 text-xs bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
+                className="w-full pl-9 pr-3 h-8.5 text-xs bg-white border border-slate-200 rounded-none text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
               />
             </div>
 
             <button
               type="button"
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-none transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               onClick={() => setEdit(blankInsurer())}
             >
               <Plus size={14} />
@@ -1272,12 +1272,12 @@ function SopRulesSection() {
   return (
     <div className="space-y-5">
       {/* SOP Section Header Banner */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-none p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <BookOpen className="text-emerald-400" size={20} />
             <h3 className="text-base font-extrabold tracking-tight">Insurance Department Operating Guidelines &amp; Duty Handover SOPs</h3>
-            <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+            <span className="px-2.5 py-0.5 rounded-none text-[10.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
               Department Master Standard
             </span>
           </div>
@@ -1294,7 +1294,7 @@ function SopRulesSection() {
               placeholder="Filter rules &amp; SLAs…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 h-8.5 text-xs bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-200/60 focus:bg-white focus:text-slate-900 focus:outline-none transition-all"
+              className="w-full pl-9 pr-3 h-8.5 text-xs bg-white/10 border border-white/20 rounded-none text-white placeholder-blue-200/60 focus:bg-white focus:text-slate-900 focus:outline-none transition-all"
             />
           </div>
         </div>
@@ -1305,22 +1305,22 @@ function SopRulesSection() {
         {filteredCategories.map((cat) => {
           const Icon = cat.icon
           return (
-            <div key={cat.id} className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
+            <div key={cat.id} className="bg-white border border-slate-200/90 rounded-none p-5 shadow-2xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-none bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                     <Icon size={16} />
                   </div>
                   <h4 className="text-sm font-extrabold text-slate-900">{cat.title}</h4>
                 </div>
-                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-none border border-blue-100">
                   {cat.badge}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {cat.rules.map((rule) => (
-                  <div key={rule.id} className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2">
+                  <div key={rule.id} className="p-4 rounded-none border border-slate-200/80 bg-slate-50/50 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />

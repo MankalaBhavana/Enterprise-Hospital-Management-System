@@ -55,7 +55,7 @@ function isIcuBed(activeBed?: string | null): boolean {
 function LocationBadge({ row }: { row: PatientRow }) {
   if (row.care_stream === "ER") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-[#FEE2E2] text-[#B91C1C]">
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[11px] font-semibold bg-[#FEE2E2] text-[#B91C1C]">
         ER {row.active_er_visit_no ? `· ${row.active_er_visit_no}` : ""}
         {row.er_triage_category ? ` · ${row.er_triage_category}` : ""}
       </span>
@@ -65,7 +65,7 @@ function LocationBadge({ row }: { row: PatientRow }) {
     const icu = isIcuBed(row.active_bed);
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold ${
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[11px] font-semibold ${
           icu ? "bg-[#EDE9FE] text-[#5B21B6]" : "bg-[#EFF6FF] text-[#1E40AF]"
         }`}
       >
@@ -74,7 +74,7 @@ function LocationBadge({ row }: { row: PatientRow }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-[#F1F5F9] text-[#334155]">
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[11px] font-semibold bg-[#F1F5F9] text-[#334155]">
       OP {row.appointment_dept ? `· ${row.appointment_dept}` : ""}
     </span>
   );
@@ -176,7 +176,7 @@ function PatientDirectory({
           ))}
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] rounded">
+        <div className="bg-white border border-[#DDE2EC] rounded-none">
           {loading ? (
             <p className="text-[12.5px] text-[#64748B] p-4">Loading patients...</p>
           ) : rows.length === 0 ? (
@@ -855,7 +855,7 @@ export default function PatientChart({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base font-semibold text-gray-900">{rowDisplayName(selectedRow)}</span>
                 {patient?.allergies && (
-                  <span className="bg-[#FEE2E2] text-[#B91C1C] text-[11px] font-semibold px-2 py-0.5 rounded border border-[#FECACA]">
+                  <span className="bg-[#FEE2E2] text-[#B91C1C] text-[11px] font-semibold px-2 py-0.5 rounded-none border border-[#FECACA]">
                     ⚠ Allergy: {patient.allergies}
                   </span>
                 )}
@@ -905,7 +905,7 @@ export default function PatientChart({
                       ) : (
                         <div className="flex flex-wrap gap-1.5">
                           {allergyList.map((a) => (
-                            <span key={a} className="bg-[#FEE2E2] text-[#B91C1C] text-[11px] font-semibold px-2 py-0.5 rounded border border-[#FECACA]">
+                            <span key={a} className="bg-[#FEE2E2] text-[#B91C1C] text-[11px] font-semibold px-2 py-0.5 rounded-none border border-[#FECACA]">
                               {a}
                             </span>
                           ))}
@@ -1059,7 +1059,7 @@ export default function PatientChart({
             {tab === "Day-wise" && (
               <div className="w-full space-y-4">
                 {sortedDates.length === 0 ? (
-                  <div className="bg-white border border-[#DDE2EC] rounded p-8 text-center">
+                  <div className="bg-white border border-[#DDE2EC] rounded-none p-8 text-center">
                     <p className="text-[13px] font-semibold text-gray-800">No evaluations recorded yet</p>
                     <p className="text-[12px] text-[#64748B] mt-1">Use "Add Evaluation" above to log today's clinical evaluation and treatment.</p>
                   </div>
@@ -1079,7 +1079,7 @@ export default function PatientChart({
                                   {new Date(entry.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                                 <span
-                                  className="text-[11px] font-semibold px-1.5 py-px rounded"
+                                  className="text-[11px] font-semibold px-1.5 py-px rounded-none"
                                   style={{ backgroundColor: color.bg, color: color.text }}
                                 >
                                   {entry.type}
@@ -1100,7 +1100,7 @@ export default function PatientChart({
 
             {tab === "Timeline" && (
               <div className="max-w-2xl">
-                <div className="bg-white border border-[#DDE2EC] rounded p-4">
+                <div className="bg-white border border-[#DDE2EC] rounded-none p-4">
                   {emr.timeline.length === 0 ? (
                     <p className="text-[12.5px] text-[#64748B]">No journey events recorded yet.</p>
                   ) : (
@@ -1182,7 +1182,7 @@ export default function PatientChart({
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {allergyList.map((a) => (
-                      <span key={a} className="bg-[#FEE2E2] text-[#B91C1C] text-[12px] font-semibold px-3 py-1 rounded border border-[#FECACA]">
+                      <span key={a} className="bg-[#FEE2E2] text-[#B91C1C] text-[12px] font-semibold px-3 py-1 rounded-none border border-[#FECACA]">
                         ⚠ {a}
                       </span>
                     ))}
@@ -1241,7 +1241,7 @@ export default function PatientChart({
                       {emr.certificates
                         .filter((c) => c.certificate_type === "discharge_summary")
                         .map((c) => (
-                          <div key={c.id} className="border border-[#DDE2EC] rounded">
+                          <div key={c.id} className="border border-[#DDE2EC] rounded-none">
                             <button
                               type="button"
                               className="w-full text-left px-3 py-2 flex items-center justify-between"
@@ -1271,13 +1271,13 @@ export default function PatientChart({
                       {emr.documents
                         .filter((d) => d.doc_type === "clinical_audio_note")
                         .map((d) => (
-                          <div key={d.id} className="border border-[#DDE2EC] rounded p-3">
+                          <div key={d.id} className="border border-[#DDE2EC] rounded-none p-3">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-[11px] text-[#94A3B8] font-mono">{formatDateTimeIST(d.created_at)}</span>
                             </div>
                             <audio controls className="w-full h-8" src={`${API_BASE}/api/documents/${d.id}/file`} />
                             {d.ocr_text && (
-                              <p className="text-[12px] text-gray-700 mt-2 bg-[#F8FAFC] p-2 rounded border border-[#F1F5F9]">
+                              <p className="text-[12px] text-gray-700 mt-2 bg-[#F8FAFC] p-2 rounded-none border border-[#F1F5F9]">
                                 <strong className="text-[11px] uppercase tracking-wide text-gray-500 block mb-0.5">Transcript</strong>
                                 {d.ocr_text}
                               </p>

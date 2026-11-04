@@ -144,6 +144,7 @@ export interface DBOPEncounter {
     timestamp: string
   }[]
   status: "Registered" | "Symptoms Captured" | "AI Recommended" | "Awaiting Doctor" | "Doctor Assigned" | "In Queue" | "Vitals Recorded" | "Awaiting Consultation" | "Under Consultation" | "Consultation Completed" | "Post-Consultation" | "Awaiting Billing" | "Billing Completed" | "Awaiting Investigation" | "OP Completed"
+  pharmacyStatus?: "In Queue" | "Processing" | "Ready" | "Partially Dispensed" | "Dispensed" | "Rejected" | string
 
   timestamps: {
     arrival: string

@@ -103,7 +103,7 @@ export default function AccountsModule({ initialTab = "dashboard" }: AccountsMod
       <div className="bg-white border-b border-[#DDE2EC] px-6 py-4 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl text-[#1B4FD8] shadow-xs">
+            <div className="p-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-none text-[#1B4FD8] shadow-xs">
               <Landmark size={24} />
             </div>
             <div>
@@ -111,7 +111,7 @@ export default function AccountsModule({ initialTab = "dashboard" }: AccountsMod
                 <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-none">
                   Accounts & Financial Management
                 </h1>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-[#166534] text-white uppercase tracking-wider">
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-none bg-[#166534] text-white uppercase tracking-wider">
                   ENTERPRISE ERP
                 </span>
               </div>
@@ -122,7 +122,7 @@ export default function AccountsModule({ initialTab = "dashboard" }: AccountsMod
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-[#A7F3D0] text-[#047857] text-[12px] font-medium">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#ECFDF5] border border-[#A7F3D0] text-[#047857] text-[12px] font-medium">
               <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
               <span>General Ledger Active</span>
             </div>
@@ -140,7 +140,7 @@ export default function AccountsModule({ initialTab = "dashboard" }: AccountsMod
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-none text-xs font-semibold transition whitespace-nowrap cursor-pointer ${
                   isActive
                     ? "bg-[#1B4FD8] text-white shadow-md shadow-blue-500/20 ring-1 ring-blue-400/40"
                     : "bg-white text-[#475569] border border-[#CBD5E1] hover:text-[#0F172A] hover:bg-gray-50 shadow-xs"

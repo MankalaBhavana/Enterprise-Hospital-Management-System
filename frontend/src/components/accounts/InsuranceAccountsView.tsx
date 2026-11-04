@@ -108,25 +108,25 @@ export default function InsuranceAccountsView() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Total Claimed Value</span>
           <div className="text-xl font-bold text-[#0F172A] mt-1">{formatINRShort(totalClaimed)}</div>
           <div className="text-[11px] text-[#64748B] mt-0.5">{claims.length} Total Insurance Cases</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">TPA Approved Sum</span>
           <div className="text-xl font-bold text-[#047857] mt-1">{formatINRShort(totalApproved)}</div>
           <div className="text-[11px] text-[#047857] mt-0.5 font-semibold">Pre-Auth Guaranteed</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Settled &amp; Received</span>
           <div className="text-xl font-bold text-[#1B4FD8] mt-1">{formatINRShort(totalSettled)}</div>
           <div className="text-[11px] text-[#1B4FD8] mt-0.5 font-semibold">Credited to Bank Account</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Pending TPA Receivables</span>
           <div className="text-xl font-bold text-[#BE123C] mt-1">{formatINRShort(totalPending)}</div>
           <div className="text-[11px] text-[#BE123C] mt-0.5 font-semibold">Awaiting Insurer Remittance</div>
@@ -134,7 +134,7 @@ export default function InsuranceAccountsView() {
       </div>
 
       {/* Filter and Table */}
-      <div className="bg-white border border-[#DDE2EC] rounded-xl overflow-hidden shadow-xs">
+      <div className="bg-white border border-[#DDE2EC] rounded-none overflow-hidden shadow-xs">
         <div className="p-4 border-b border-[#F1F5F9] bg-[#FAFAFA] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-64">
@@ -144,7 +144,7 @@ export default function InsuranceAccountsView() {
                 placeholder="Search invoice, patient or TPA..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+                className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
               />
             </div>
             <div className="w-48">
@@ -359,7 +359,7 @@ function PostSettlementModal({
     >
       <ErrorNote message={action.error} />
       <div className="space-y-3">
-        <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-xs space-y-1">
+        <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-none text-xs space-y-1">
           <div className="flex justify-between">
             <span className="text-[#64748B]">Patient:</span>
             <span className="font-semibold text-[#0F172A]">{claim.patientName}</span>

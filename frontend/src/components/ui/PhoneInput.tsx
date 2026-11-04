@@ -5,6 +5,7 @@ import {
   DEFAULT_COUNTRY_CODE,
   splitPhoneNumber,
   combinePhoneNumber,
+  formatNationalDigits,
   CountryCode,
 } from "./countryCodes"
 
@@ -14,8 +15,9 @@ export interface PhoneInputProps {
   onCountryCodeChange?: (countryCode: string) => void
   onChange?: (
     value: string,
-    meta?: { countryCode: string; nationalNumber: string; country?: CountryCode }
+    meta?: { countryCode: string; nationalNumber: string; country?: CountryCode; isValid?: boolean }
   ) => void
+  onValidChange?: (isValid: boolean) => void
   format?: "combined" | "national"
   placeholder?: string
   disabled?: boolean
@@ -35,6 +37,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   countryCode: controlledCode,
   onCountryCodeChange,
   onChange,
+  onValidChange,
   format = "combined",
   placeholder,
   disabled = false,
@@ -56,6 +59,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   const [internalCode, setInternalCode] = React.useState<string>(
     controlledCode || parsed.countryCode || DEFAULT_COUNTRY_CODE
   )
+  const [isTouched, setIsTouched] = React.useState(false)
 
   // Keep internal code in sync if controlled or if parsed code changed from a prefixed value
   React.useEffect(() => {
@@ -75,21 +79,40 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     )
   }, [activeCode])
 
+  // Extract pure digits from current national number
+  const currentDigits = React.useMemo(() => {
+    return parsed.nationalNumber.replace(/\D/g, "").slice(0, activeCountry.digitsLength)
+  }, [parsed.nationalNumber, activeCountry.digitsLength])
+
+  const isValid = currentDigits.length === activeCountry.digitsLength
+  const isPartiallyFilled = isTouched && currentDigits.length > 0 && !isValid
+
+  React.useEffect(() => {
+    if (onValidChange) {
+      onValidChange(isValid)
+    }
+  }, [isValid, onValidChange])
+
   const handleCodeChange = (newCode: string) => {
     setInternalCode(newCode)
     if (onCountryCodeChange) {
       onCountryCodeChange(newCode)
     }
-    const country = COUNTRY_CODES.find((c) => c.dialCode === newCode)
+    const country = COUNTRY_CODES.find((c) => c.dialCode === newCode) || activeCountry
+    // Re-slice digits to the new country length
+    const slicedDigits = currentDigits.slice(0, country.digitsLength)
+    const formatted = formatNationalDigits(slicedDigits, country)
+    const outValue =
+      format === "combined"
+        ? combinePhoneNumber(newCode, formatted)
+        : formatted
+
     if (onChange) {
-      const outValue =
-        format === "combined"
-          ? combinePhoneNumber(newCode, parsed.nationalNumber)
-          : parsed.nationalNumber
       onChange(outValue, {
         countryCode: newCode,
-        nationalNumber: parsed.nationalNumber,
+        nationalNumber: formatted,
         country,
+        isValid: slicedDigits.length === country.digitsLength,
       })
     }
   }
@@ -98,28 +121,33 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     let raw = e.target.value
 
     // If user pasted a number that starts with +, extract country code automatically
+    let codeToUse = activeCode
     if (raw.trim().startsWith("+")) {
       const autoParsed = splitPhoneNumber(raw, activeCode)
-      setInternalCode(autoParsed.countryCode)
+      codeToUse = autoParsed.countryCode
+      setInternalCode(codeToUse)
       if (onCountryCodeChange) {
-        onCountryCodeChange(autoParsed.countryCode)
+        onCountryCodeChange(codeToUse)
       }
       raw = autoParsed.nationalNumber
     }
 
-    // Keep numbers, spaces, and hyphens clean
-    const cleaned = raw.replace(/[^\d\s-]/g, "")
+    const country = COUNTRY_CODES.find((c) => c.dialCode === codeToUse) || activeCountry
+    // Strictly cap digits to the selected country's required national length
+    const rawDigits = raw.replace(/\D/g, "").slice(0, country.digitsLength)
+    const formatted = formatNationalDigits(rawDigits, country)
+    const valid = rawDigits.length === country.digitsLength
 
-    const country = COUNTRY_CODES.find((c) => c.dialCode === activeCode)
     if (onChange) {
       const outValue =
         format === "combined"
-          ? combinePhoneNumber(activeCode, cleaned)
-          : cleaned
+          ? combinePhoneNumber(codeToUse, formatted)
+          : formatted
       onChange(outValue, {
-        countryCode: activeCode,
-        nationalNumber: cleaned,
+        countryCode: codeToUse,
+        nationalNumber: formatted,
         country,
+        isValid: valid,
       })
     }
   }
@@ -131,11 +159,22 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     lg: "h-10 text-[13px]",
   }[size]
 
+  // Formatted display value in input
+  const displayValue = React.useMemo(() => {
+    if (!currentDigits) return ""
+    return formatNationalDigits(currentDigits, activeCountry)
+  }, [currentDigits, activeCountry])
+
   return (
     <div
       className={cn(
-        "inline-flex items-center w-full rounded border border-[#CBD5E1] bg-white transition-all shadow-2xs",
-        "focus-within:border-[#1B4FD8] focus-within:ring-2 focus-within:ring-[#1B4FD8]/20 focus-within:outline-none",
+        "inline-flex items-center w-full rounded-none border bg-white transition-all shadow-2xs relative",
+        isPartiallyFilled
+          ? "border-red-500 focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20"
+          : isValid
+          ? "border-emerald-500/80 focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20"
+          : "border-[#CBD5E1] focus-within:border-[#1B4FD8] focus-within:ring-2 focus-within:ring-[#1B4FD8]/20",
+        "focus-within:outline-none",
         disabled && "opacity-60 bg-gray-100 cursor-not-allowed",
         className
       )}
@@ -147,7 +186,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
           sizeClasses,
           selectClassName
         )}
-        title="Select Country Dial Code (Default: India +91)"
+        title={`Selected: ${activeCountry.name} (${activeCode}) - ${activeCountry.digitsLength} digits required`}
       >
         <span className="mr-1 text-sm leading-none" role="img" aria-label={activeCountry.name}>
           {activeCountry.flag}
@@ -179,7 +218,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
         >
           {COUNTRY_CODES.map((c) => (
             <option key={`${c.code}-${c.dialCode}`} value={c.dialCode}>
-              {c.flag} {c.name} ({c.dialCode})
+              {c.flag} {c.name} ({c.dialCode}) - {c.digitsLength} digits
             </option>
           ))}
         </select>
@@ -189,24 +228,53 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
       <input
         type="tel"
         inputMode="numeric"
-        value={parsed.nationalNumber}
+        value={displayValue}
         onChange={handleNumberChange}
+        onBlur={() => setIsTouched(true)}
         placeholder={
           placeholder ||
-          (activeCode === "+91" ? "98765 43210" : "Enter phone number")
+          (activeCode === "+91"
+            ? "98765 43210"
+            : activeCode === "+1"
+            ? "234 567 8901"
+            : `${activeCountry.digitsLength}-digit number`)
         }
         disabled={disabled}
         required={required}
         id={id}
         name={name}
-        maxLength={maxLength || (activeCode === "+91" ? 14 : 18)}
+        maxLength={activeCountry.digitsLength + 4} // allow for spacing
         autoFocus={autoFocus}
         className={cn(
-          "w-full h-full px-2.5 py-1 text-slate-900 bg-transparent placeholder-slate-400 focus:outline-none",
+          "w-full h-full px-2.5 py-1 text-slate-900 bg-transparent placeholder-slate-400 focus:outline-none font-mono",
           sizeClasses,
           inputClassName
         )}
       />
+
+      {/* Real-time Validation Checkmark indicator (matches design in Issue 1) */}
+      {isValid && (
+        <div
+          className="pr-2 flex items-center text-emerald-600 font-bold select-none shrink-0"
+          title={`Valid ${activeCountry.name} mobile number (${activeCountry.digitsLength} digits)`}
+        >
+          <span className="text-[13px] bg-emerald-50 text-emerald-600 border border-emerald-300 w-4 h-4 rounded-full flex items-center justify-center font-bold">
+            ✓
+          </span>
+        </div>
+      )}
+
+      {/* Invalid Warning indicator when user blurred with incomplete number */}
+      {isPartiallyFilled && (
+        <div
+          className="pr-2 flex items-center text-red-500 font-bold select-none shrink-0"
+          title={`Needs ${activeCountry.digitsLength} digits (entered ${currentDigits.length})`}
+        >
+          <span className="text-[10px] bg-red-50 text-red-600 border border-red-300 px-1 py-0.2 font-mono">
+            {currentDigits.length}/{activeCountry.digitsLength}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

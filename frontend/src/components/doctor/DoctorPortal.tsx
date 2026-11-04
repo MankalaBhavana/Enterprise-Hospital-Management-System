@@ -1166,7 +1166,7 @@ function PortalHeader({
               value={doctor.id}
               onChange={(e) => onSwitchDoctor?.(e.target.value)}
               aria-label="Switch Doctor Workspace"
-              className="h-6 px-2 text-[11px] font-semibold border border-[#CBD5E1] rounded-[6px] bg-[#F8FAFC] hover:bg-white text-[#1E293B] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1B4FD8]"
+              className="h-6 px-2 text-[11px] font-semibold border border-[#CBD5E1] rounded-none bg-[#F8FAFC] hover:bg-white text-[#1E293B] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1B4FD8]"
             >
               <optgroup label="Switch Doctor Workspace">
                 {allDoctors.map((doc) => (
@@ -1183,7 +1183,7 @@ function PortalHeader({
         </div>
       </div>
 
-      <div className="hidden md:flex items-stretch divide-x divide-[#EEF1F6] rounded-[10px] border border-[#EEF1F6] bg-[#F8FAFC]">
+      <div className="hidden md:flex items-stretch divide-x divide-[#EEF1F6] rounded-none border border-[#EEF1F6] bg-[#F8FAFC]">
         {stats.map((st) => (
           <div key={st.label} className="px-3 py-1.5 text-center min-w-[70px]">
             <div className={`text-[16px] font-bold leading-none tabular-nums ${st.tone}`}>{st.value}</div>
@@ -1193,7 +1193,7 @@ function PortalHeader({
       </div>
 
       <div className="flex items-center gap-2 ml-auto flex-wrap">
-        <div className="flex p-0.5 rounded-[10px] bg-[#F1F5F9]" role="tablist" aria-label="Workspace view">
+        <div className="flex p-0.5 rounded-none bg-[#F1F5F9]" role="tablist" aria-label="Workspace view">
           {[
             { key: "live" as const, label: "Live board", badge: attentionCount },
             { key: "patient" as const, label: "Patient", badge: 0 },
@@ -1204,7 +1204,7 @@ function PortalHeader({
               role="tab"
               aria-selected={view === option.key}
               onClick={() => onView(option.key)}
-              className={`h-8 px-3 text-[12.5px] font-semibold rounded-[8px] transition-colors flex items-center gap-1.5 cursor-pointer ${
+              className={`h-8 px-3 text-[12.5px] font-semibold rounded-none transition-colors flex items-center gap-1.5 cursor-pointer ${
                 view === option.key
                   ? "bg-white text-[#1B4FD8] shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
                   : "text-[#64748B] hover:text-[#334155]"
@@ -1219,14 +1219,14 @@ function PortalHeader({
           ))}
         </div>
         {unreadCount > 0 && (
-          <span className="h-8 px-2.5 rounded-[8px] bg-[#EFF6FF] text-[#1D4ED8] text-[12px] font-semibold inline-flex items-center gap-1.5" title="New appointments you have not opened yet">
+          <span className="h-8 px-2.5 rounded-none bg-[#EFF6FF] text-[#1D4ED8] text-[12px] font-semibold inline-flex items-center gap-1.5" title="New appointments you have not opened yet">
             <Icon.Bell className="w-3.5 h-3.5" /> {unreadCount} new
           </span>
         )}
         <button
           type="button"
           onClick={() => setIsLeaveModalOpen(true)}
-          className="h-8 px-3 text-[12.5px] font-semibold rounded-[8px] border border-[#DDE2EC] bg-white text-[#334155] hover:bg-[#F8FAFC] inline-flex items-center gap-1.5 cursor-pointer"
+          className="h-8 px-3 text-[12.5px] font-semibold rounded-none border border-[#DDE2EC] bg-white text-[#334155] hover:bg-[#F8FAFC] inline-flex items-center gap-1.5 cursor-pointer"
           title="Apply for clinical or personal leave"
         >
           <Icon.Calendar className="w-3.5 h-3.5 text-[#64748B]" /> Apply leave
@@ -1334,10 +1334,10 @@ function PatientInbox({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, UMR, OP no. or complaint"
             aria-label="Search my patients"
-            className="w-full h-9 pl-8 pr-3 rounded-[8px] border border-[#DDE2EC] bg-[#F8FAFC] text-[12.5px] focus:outline-none focus:border-[#1B4FD8] focus:bg-white"
+            className="w-full h-9 pl-8 pr-3 rounded-none border border-[#DDE2EC] bg-[#F8FAFC] text-[12.5px] focus:outline-none focus:border-[#1B4FD8] focus:bg-white"
           />
         </div>
-        <div className="flex p-1 rounded-[10px] bg-[#F1F5F9] gap-1" role="tablist" aria-label="Patient lists">
+        <div className="flex p-1 rounded-none bg-[#F1F5F9] gap-1" role="tablist" aria-label="Patient lists">
           {(
             [
               ["queue", "My queue", notifications.length, notifications.length > 0 ? "bg-[#DBEAFE] text-[#1D4ED8]" : "bg-slate-200 text-slate-600"],
@@ -1351,7 +1351,7 @@ function PatientInbox({
               role="tab"
               aria-selected={tab === key}
               onClick={() => onTab(key)}
-              className={`flex-1 h-8 rounded-[7px] text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              className={`flex-1 h-8 rounded-none text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                 tab === key
                   ? "bg-white text-[#0F172A] shadow-sm ring-1 ring-black/5"
                   : "text-[#64748B] hover:text-[#334155] hover:bg-white/50"
@@ -1369,7 +1369,7 @@ function PatientInbox({
       {notice && (
         <div
           role="status"
-          className={`mx-3 mt-3 rounded-[8px] border px-3 py-2 text-[12px] flex items-start gap-2 ${
+          className={`mx-3 mt-3 rounded-none border px-3 py-2 text-[12px] flex items-start gap-2 ${
             notice.ok ? "bg-[#F0FDF4] border-[#BBF7D0] text-[#15803D]" : "bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]"
           }`}
         >
@@ -1423,7 +1423,7 @@ function PatientInbox({
                       )}
                       <span className="font-bold text-[13px] text-[#0F172A] truncate">{notification.patientName}</span>
                       <span
-                        className={`ml-auto text-[10px] font-semibold px-1.5 py-[1px] rounded-[5px] border shrink-0 ${
+                        className={`ml-auto text-[10px] font-semibold px-1.5 py-[1px] rounded-none border shrink-0 ${
                           notification.isNewPatient ? "bg-[#DCFCE7] text-[#15803D] border-[#BBF7D0]" : "bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE]"
                         }`}
                       >
@@ -1477,12 +1477,12 @@ function PatientInbox({
               </>
             )
             return tab === "unclaimed" ? (
-              <div key={notification.id} className="rounded-[10px] border border-[#FDE68A] bg-gradient-to-br from-[#FFFDF5] to-[#FEF3C7]/20 p-3 shadow-xs">
+              <div key={notification.id} className="rounded-none border border-[#FDE68A] bg-gradient-to-br from-[#FFFDF5] to-[#FEF3C7]/20 p-3 shadow-xs">
                 {card}
                 <button
                   type="button"
                   onClick={() => onClaim(notification)}
-                  className="mt-2.5 w-full h-8 rounded-[7px] bg-[#1B4FD8] text-white text-[12px] font-semibold hover:bg-[#1740B4] cursor-pointer shadow-xs transition-colors"
+                  className="mt-2.5 w-full h-8 rounded-none bg-[#1B4FD8] text-white text-[12px] font-semibold hover:bg-[#1740B4] cursor-pointer shadow-xs transition-colors"
                 >
                   Take patient
                 </button>
@@ -1492,7 +1492,7 @@ function PatientInbox({
                 key={notification.id}
                 type="button"
                 onClick={() => onSelect(notification)}
-                className={`w-full text-left rounded-[10px] border px-3 py-2.5 transition-all cursor-pointer border-l-[4px] ${
+                className={`w-full text-left rounded-none border px-3 py-2.5 transition-all cursor-pointer border-l-[4px] ${
                   active
                     ? "bg-white border-[#2563EB] ring-2 ring-[#2563EB]/30 shadow-sm"
                     : inRoom
@@ -1526,7 +1526,7 @@ function EmptyWorkspace({
   return (
     <div className="flex-1 flex items-center justify-center p-10">
       <div className="text-center max-w-md">
-        <div className="w-14 h-14 mx-auto rounded-[16px] bg-[#EFF6FF] border border-[#DBEAFE] flex items-center justify-center">
+        <div className="w-14 h-14 mx-auto rounded-none bg-[#EFF6FF] border border-[#DBEAFE] flex items-center justify-center">
           <Icon.Stethoscope className="w-6 h-6 text-[#1B4FD8]" />
         </div>
         <h2 className="mt-4 text-[16px] font-semibold text-[#0F172A]">Select a patient to begin</h2>
@@ -1538,7 +1538,7 @@ function EmptyWorkspace({
         <button
           type="button"
           onClick={onBackToBoard}
-          className="mt-4 h-9 px-4 rounded-[8px] border border-[#DDE2EC] bg-white text-[12.5px] font-medium text-[#334155] hover:bg-[#F8FAFC] cursor-pointer"
+          className="mt-4 h-9 px-4 rounded-none border border-[#DDE2EC] bg-white text-[12.5px] font-medium text-[#334155] hover:bg-[#F8FAFC] cursor-pointer"
         >
           Back to the live board
         </button>
@@ -2702,7 +2702,7 @@ function ConsultationConversation({
               placeholder={
                 "Since when has this been going on?\nI have had fever since 3 days, doctor.\nAny cough or throat pain?\nMy throat pain is there from yesterday."
               }
-              className="w-full border border-[#E2E8F0] rounded-lg p-3 text-[12.5px] leading-relaxed focus:outline-none focus:border-[#1B4FD8] text-[#0F172A]"
+              className="w-full border border-[#E2E8F0] rounded-none p-3 text-[12.5px] leading-relaxed focus:outline-none focus:border-[#1B4FD8] text-[#0F172A]"
             />
             <div className="flex gap-2">
               <Btn
@@ -2739,7 +2739,7 @@ function ConsultationConversation({
                 <button
                   type="button"
                   onClick={() => setSpeakerViewFilter("all")}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-none transition-colors cursor-pointer ${
                     speakerViewFilter === "all"
                       ? "bg-white text-[#0F172A] shadow-2xs"
                       : "text-[#64748B] hover:text-[#0F172A]"
@@ -2750,7 +2750,7 @@ function ConsultationConversation({
                 <button
                   type="button"
                   onClick={() => setSpeakerViewFilter("doctor")}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-none transition-colors cursor-pointer ${
                     speakerViewFilter === "doctor"
                       ? "bg-[#1B4FD8] text-white shadow-2xs"
                       : "text-[#64748B] hover:text-[#0F172A]"
@@ -2761,7 +2761,7 @@ function ConsultationConversation({
                 <button
                   type="button"
                   onClick={() => setSpeakerViewFilter("patient")}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-none transition-colors cursor-pointer ${
                     speakerViewFilter === "patient"
                       ? "bg-[#16A34A] text-white shadow-2xs"
                       : "text-[#64748B] hover:text-[#0F172A]"
@@ -2839,8 +2839,8 @@ function ConsultationConversation({
                         }`}
                       >
                         <div
-                          className={`border rounded-xl px-3 py-2 ${style.bubble} ${
-                            mine ? "rounded-tl-sm" : "rounded-tr-sm"
+                          className={`border rounded-none px-3 py-2 ${style.bubble} ${
+                            mine ? "" : ""
                           } ${
                             shaky
                               ? "border-dashed border-[#FCD34D] bg-[#FFFDF5]"
@@ -2858,7 +2858,7 @@ function ConsultationConversation({
                           }`}
                         >
                           <span
-                            className={`text-[9.5px] font-bold uppercase tracking-wide border px-1.5 rounded ${style.chip}`}
+                            className={`text-[9.5px] font-bold uppercase tracking-wide border px-1.5 rounded-none ${style.chip}`}
                           >
                             {style.label}
                           </span>
@@ -2924,7 +2924,7 @@ function ConsultationConversation({
                     <div className="w-7 h-7 rounded-full bg-[#CBD5E1] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                       …
                     </div>
-                    <p className="text-[12.5px] text-[#64748B] italic border border-dashed border-[#E2E8F0] rounded-lg px-3 py-2">
+                    <p className="text-[12.5px] text-[#64748B] italic border border-dashed border-[#E2E8F0] rounded-none px-3 py-2">
                       {interim}
                     </p>
                   </div>
@@ -2953,7 +2953,7 @@ function ConsultationConversation({
                   Copy
                 </button>
               )}
-              <div className="flex bg-[#F1F5F9] rounded-md p-0.5">
+              <div className="flex bg-[#F1F5F9] rounded-none p-0.5">
                 {[
                   { key: "note" as const, label: "Note" },
                   { key: "soap" as const, label: "SOAP" },
@@ -2962,7 +2962,7 @@ function ConsultationConversation({
                     key={option.key}
                     type="button"
                     onClick={() => setNoteView(option.key)}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-none transition-colors cursor-pointer ${
                       noteView === option.key
                         ? "bg-white text-[#1B4FD8] shadow-sm"
                         : "text-[#64748B]"
@@ -3076,7 +3076,7 @@ function ConsultationConversation({
 
               {/* What the conversation did not cover. Prompts, not scores. */}
               {Object.values(summary.coverage).some((covered) => !covered) && (
-                <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-lg p-2.5">
+                <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-none p-2.5">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-[#92400E]">
                     Not heard in this conversation
                   </div>
@@ -3101,7 +3101,7 @@ function ConsultationConversation({
                 </div>
               )}
 
-              <p className="text-[11px] text-[#64748B] bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5 leading-relaxed">
+              <p className="text-[11px] text-[#64748B] bg-[#F8FAFC] border border-[#E2E8F0] rounded-none p-2.5 leading-relaxed">
                 <span className="font-semibold text-[#334155]">
                   Nothing here is an order.
                 </span>{" "}
@@ -3113,7 +3113,7 @@ function ConsultationConversation({
         </section>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E2E8F0] rounded-xl px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E2E8F0] rounded-none px-4 py-3 shadow-sm">
         <Btn variant="outline" size="sm" onClick={onBack}>
           ← Patient history
         </Btn>
@@ -3324,7 +3324,7 @@ function PrescriptionSheetStep({
     <div className="max-w-[1400px] mx-auto space-y-4">
       {/* Context carried forward from the conversation */}
       {voiceSummary?.chiefComplaint && (
-        <div className="bg-[#F8FAFF] border border-[#DBEAFE] rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="bg-[#F8FAFF] border border-[#DBEAFE] rounded-none px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#1D4ED8]">
             From the consultation
           </span>
@@ -3347,7 +3347,7 @@ function PrescriptionSheetStep({
       )}
 
       {aiStatus && !aiStatus.online && (
-        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl px-4 py-3 flex flex-wrap items-start gap-x-3 gap-y-1">
+        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-none px-4 py-3 flex flex-wrap items-start gap-x-3 gap-y-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#92400E] mt-0.5">
             Reading offline
           </span>
@@ -3369,7 +3369,7 @@ function PrescriptionSheetStep({
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
         {/* The sheet */}
-        <section className="xl:col-span-7 bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
+        <section className="xl:col-span-7 bg-white border border-[#E2E8F0] rounded-none shadow-sm overflow-hidden">
           <header className="px-4 py-3 border-b border-[#F1F5F9] flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-[14px] font-bold text-[#0F172A]">
@@ -3399,7 +3399,7 @@ function PrescriptionSheetStep({
                   key={mode.key}
                   type="button"
                   onClick={() => onSheetMode(mode.key)}
-                  className={`relative text-left border rounded-lg px-3 py-2.5 transition-all cursor-pointer ${
+                  className={`relative text-left border rounded-none px-3 py-2.5 transition-all cursor-pointer ${
                     active
                       ? "border-[#1B4FD8] bg-[#F8FAFF] ring-1 ring-[#1B4FD8]/20"
                       : "border-[#E2E8F0] bg-white hover:border-[#CBD5E1]"
@@ -3445,7 +3445,7 @@ function PrescriptionSheetStep({
                   placeholder={
                     "Diagnosis: Acute pharyngitis\n\nRx:\nAzithromycin 500mg OD 3 days after food\nParacetamol 650mg TDS 5 days\n\nInvestigations:\nComplete Blood Count (CBC)\n\nAdvice: warm saline gargles, review in 5 days"
                   }
-                  className="w-full border border-[#E2E8F0] rounded-lg p-4 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-[#1B4FD8]/10 text-[#0F172A] bg-[#FCFCFD]"
+                  className="w-full border border-[#E2E8F0] rounded-none p-4 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-[#1B4FD8]/10 text-[#0F172A] bg-[#FCFCFD]"
                 />
 
                 <details className="group">
@@ -3552,7 +3552,7 @@ function PrescriptionSheetStep({
                 {uploadedRx ? (
                   <div className="space-y-3">
                     {uploadedRx.kind === "document" ? (
-                      <div className="border border-[#E2E8F0] rounded-lg bg-[#F8FAFC] p-8 text-center">
+                      <div className="border border-[#E2E8F0] rounded-none bg-[#F8FAFC] p-8 text-center">
                         <div className="text-3xl mb-2">📄</div>
                         <div className="text-[13px] font-bold text-[#334155]">
                           {uploadedRx.name}
@@ -3566,10 +3566,10 @@ function PrescriptionSheetStep({
                       <img
                         src={uploadedRx.dataUrl}
                         alt={`Prescription for ${notification.patientName}`}
-                        className="w-full max-h-[460px] object-contain bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg"
+                        className="w-full max-h-[460px] object-contain bg-[#F8FAFC] border border-[#E2E8F0] rounded-none"
                       />
                     )}
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-none px-3 py-2">
                       <span className="text-[#475569] font-medium truncate">
                         {uploadedRx.name} · {formatBytes(uploadedRx.size)}
                         {splitting && (
@@ -3614,7 +3614,7 @@ function PrescriptionSheetStep({
                     }}
                     onDragLeave={() => setDragging(false)}
                     onDrop={handleDrop}
-                    className={`w-full border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
+                    className={`w-full border-2 border-dashed rounded-none p-12 text-center transition-colors cursor-pointer ${
                       dragging
                         ? "border-[#1B4FD8] bg-[#EFF6FF]"
                         : "border-[#CBD5E1] hover:border-[#1B4FD8] hover:bg-[#F8FAFF]"
@@ -3647,7 +3647,7 @@ function PrescriptionSheetStep({
                 <span className="text-[12.5px] font-semibold text-[#334155]">
                   Consultation video
                 </span>
-                <span className="text-[9.5px] font-bold uppercase tracking-wide bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-1.5 py-0.5 rounded">
+                <span className="text-[9.5px] font-bold uppercase tracking-wide bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-1.5 py-0.5 rounded-none">
                   Optional
                 </span>
                 {hasVideo && (
@@ -3675,7 +3675,7 @@ function PrescriptionSheetStep({
                     <video
                       src={video.objectUrl}
                       controls
-                      className="w-full max-h-72 bg-black rounded-lg"
+                      className="w-full max-h-72 bg-black rounded-none"
                     />
                     <div className="flex items-center justify-between text-[11.5px]">
                       <span className="text-[#475569] font-medium truncate">
@@ -3694,7 +3694,7 @@ function PrescriptionSheetStep({
                   <button
                     type="button"
                     onClick={() => videoInputRef.current?.click()}
-                    className="w-full border border-dashed border-[#CBD5E1] rounded-lg p-4 text-center text-[12px] font-semibold text-[#475569] hover:border-[#1B4FD8] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                    className="w-full border border-dashed border-[#CBD5E1] rounded-none p-4 text-center text-[12px] font-semibold text-[#475569] hover:border-[#1B4FD8] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
                   >
                     Upload a consultation video
                   </button>
@@ -3706,7 +3706,7 @@ function PrescriptionSheetStep({
 
         {/* What was read off the sheet */}
         <section className="xl:col-span-5 space-y-4 sticky top-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-[#E2E8F0] rounded-none shadow-sm overflow-hidden">
             <header className="px-4 py-3 border-b border-[#F1F5F9] flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-[13px] font-bold text-[#0F172A]">
@@ -3750,7 +3750,7 @@ function PrescriptionSheetStep({
                 {medications.map((medication, index) => (
                   <li
                     key={index}
-                    className="bg-white border border-[#DCFCE7] rounded-lg px-2.5 py-2 flex items-start justify-between gap-2"
+                    className="bg-white border border-[#DCFCE7] rounded-none px-2.5 py-2 flex items-start justify-between gap-2"
                   >
                     <div className="min-w-0">
                       <span className="text-[12px] font-bold text-[#0F172A]">
@@ -3771,7 +3771,7 @@ function PrescriptionSheetStep({
                           .join(" · ") || "as directed"}
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono font-bold bg-[#F0FDF4] text-[#15803D] px-1.5 py-0.5 rounded flex-shrink-0">
+                    <span className="text-[10px] font-mono font-bold bg-[#F0FDF4] text-[#15803D] px-1.5 py-0.5 rounded-none flex-shrink-0">
                       ×{medication.quantity}
                     </span>
                   </li>
@@ -3788,7 +3788,7 @@ function PrescriptionSheetStep({
                 {labTests.map((test, index) => (
                   <li
                     key={index}
-                    className="bg-white border border-[#FDE68A] rounded-lg px-2.5 py-2 flex items-start justify-between gap-2"
+                    className="bg-white border border-[#FDE68A] rounded-none px-2.5 py-2 flex items-start justify-between gap-2"
                   >
                     <div className="min-w-0">
                       <span className="text-[12px] font-bold text-[#0F172A]">
@@ -3801,7 +3801,7 @@ function PrescriptionSheetStep({
                         )}
                       </div>
                     </div>
-                    <span className="text-[10.5px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded flex-shrink-0">
+                    <span className="text-[10.5px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-none flex-shrink-0">
                       Lab Order
                     </span>
                   </li>
@@ -3809,7 +3809,7 @@ function PrescriptionSheetStep({
               </OrderGroup>
 
               {split?.diagnosis && (
-                <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-lg p-2.5">
+                <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-none p-2.5">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] mb-0.5">
                     Provisional Diagnosis
                   </div>
@@ -3820,7 +3820,7 @@ function PrescriptionSheetStep({
               )}
 
               {split?.advice && (
-                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5">
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-none p-2.5">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-[#475569] mb-0.5">
                     Patient Advice &amp; Follow-up
                   </div>
@@ -3831,7 +3831,7 @@ function PrescriptionSheetStep({
               )}
 
               {split?.unclassified.length ? (
-                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-2.5">
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-none p-2.5">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1">
                     Could not be placed — file these by hand
                   </div>
@@ -3884,7 +3884,7 @@ function PrescriptionSheetStep({
               the sheet is written, because the routing is the part of the
               workflow a doctor cannot see from their own desk -- particularly
               that an unpaid investigation never reaches the laboratory. */}
-          <div className="bg-white border border-[#E2E8F0] rounded-xl shadow-sm p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-none shadow-sm p-4">
             <h3 className="text-[12px] font-bold text-[#0F172A] mb-3">
               When you send this
             </h3>
@@ -4011,7 +4011,7 @@ function OrderGroup({
         }
 
   return (
-    <div className={`border rounded-lg p-3 ${palette.box}`}>
+    <div className={`border rounded-none p-3 ${palette.box}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className={`text-[12px] font-bold ${palette.head}`}>

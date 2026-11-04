@@ -78,19 +78,19 @@ export default function BudgetingView() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Annual Allocated Budget</span>
           <div className="text-xl font-bold text-[#0F172A] mt-1">{formatINRShort(totalAnnualBudget)}</div>
           <div className="text-[11px] text-[#64748B] mt-0.5">{rows.length} Budget Targets Configured</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Actual Ledger YTD</span>
           <div className="text-xl font-bold text-[#1B4FD8] mt-1">{formatINRShort(totalActual)}</div>
           <div className="text-[11px] text-[#1B4FD8] mt-0.5 font-semibold">Live General Ledger Postings</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Overall Net Variance</span>
           <div className={`text-xl font-bold mt-1 ${totalVariance >= 0 ? "text-[#047857]" : "text-[#BE123C]"}`}>
             {totalVariance >= 0 ? "+" : ""}{formatINRShort(totalVariance)}
@@ -98,7 +98,7 @@ export default function BudgetingView() {
           <div className="text-[11px] text-[#64748B] mt-0.5">Budget minus Actuals</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Fiscal Elapsed</span>
           <div className="text-xl font-bold text-[#0F172A] mt-1">
             {budgetState.data?.months_elapsed ?? 0} Months
@@ -108,7 +108,7 @@ export default function BudgetingView() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-[#DDE2EC] rounded-xl overflow-hidden shadow-xs">
+      <div className="bg-white border border-[#DDE2EC] rounded-none overflow-hidden shadow-xs">
         <div className="p-4 border-b border-[#F1F5F9] bg-[#FAFAFA] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="relative w-72">
@@ -118,7 +118,7 @@ export default function BudgetingView() {
                 placeholder="Search code, account or cost centre..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+                className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
               />
             </div>
             <div className="w-40">

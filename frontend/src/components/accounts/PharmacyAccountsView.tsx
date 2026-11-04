@@ -112,7 +112,7 @@ export default function PharmacyAccountsView() {
 
       {/* Dynamic Financial KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Inventory Stock Valuation</span>
           <div className="text-xl font-bold text-[#1B4FD8] mt-1">{formatINRShort(stockValuation)}</div>
           <div className="text-[11px] text-[#64748B] mt-1">
@@ -120,7 +120,7 @@ export default function PharmacyAccountsView() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Total Pharmacy Sales Revenue</span>
           <div className="text-xl font-bold text-[#047857] mt-1">{formatINRShort(totalSalesOperational)}</div>
           <div className="text-[11px] text-[#047857] mt-1 font-semibold">
@@ -128,13 +128,13 @@ export default function PharmacyAccountsView() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">Total GRN Inward Purchases</span>
           <div className="text-xl font-bold text-[#BE123C] mt-1">{formatINRShort(totalGrnInwarded)}</div>
           <div className="text-[11px] text-[#64748B] mt-1">{grns.length} Verified Goods Receipts</div>
         </div>
 
-        <div className="bg-white border border-[#DDE2EC] p-5 rounded-xl shadow-xs">
+        <div className="bg-white border border-[#DDE2EC] p-5 rounded-none shadow-xs">
           <span className="text-xs text-[#64748B] font-medium">COGS &amp; Gross Margin</span>
           <div className="text-xl font-bold text-[#0F172A] mt-1">
             {totalSalesOperational > 0
@@ -146,9 +146,9 @@ export default function PharmacyAccountsView() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border border-[#DDE2EC] rounded-xl overflow-hidden shadow-xs">
+      <div className="bg-white border border-[#DDE2EC] rounded-none overflow-hidden shadow-xs">
         <div className="p-4 border-b border-[#F1F5F9] bg-[#FAFAFA] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="flex border border-[#D0D5DD] rounded-[6px] overflow-hidden text-xs">
+          <div className="flex border border-[#D0D5DD] rounded-none overflow-hidden text-xs">
             <button
               onClick={() => setActiveTab("journals")}
               className={`px-3 py-1.5 font-medium cursor-pointer transition ${
@@ -182,7 +182,7 @@ export default function PharmacyAccountsView() {
               placeholder="Search items, bills or suppliers..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+              className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
             />
           </div>
         </div>

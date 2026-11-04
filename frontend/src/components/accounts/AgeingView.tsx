@@ -44,7 +44,7 @@ export default function AgeingView({ ledger }: { ledger: "AR" | "AP" }) {
                 ))}
               </Grid>
               <div className="flex items-center justify-between gap-2">
-                <div className="flex border border-[#D0D5DD] rounded-[6px] overflow-hidden">
+                <div className="flex border border-[#D0D5DD] rounded-none overflow-hidden">
                   {(["party", "document"] as const).map((v) => (
                     <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 text-[12.5px] ${view === v ? "bg-[#1B4FD8] text-white" : "bg-white"}`}>
                       {v === "party" ? (isAR ? "By payer" : "By supplier") : "By document"}

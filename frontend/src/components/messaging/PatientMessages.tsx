@@ -107,7 +107,7 @@ function StatusStrip({ status }: { status: MessagingStatus | null }) {
   if (!status) return <div className="mt-3 text-[12px] text-[#94A3B8]">Checking the messaging service...</div>
   if (!status.reachable) {
     return (
-      <div className="mt-3 text-[12px] text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] rounded-[6px] px-3 py-2 flex gap-2">
+      <div className="mt-3 text-[12px] text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] rounded-none px-3 py-2 flex gap-2">
         <AlertTriangle size={14} className="flex-shrink-0 mt-px" />
         <span>
           {status.reason} Messages are being kept here as <strong>queued</strong>; nothing has
@@ -127,7 +127,7 @@ function StatusStrip({ status }: { status: MessagingStatus | null }) {
       {items.map(([label, ok]) => (
         <span
           key={label}
-          className={`text-[11.5px] px-2 py-1 rounded-[6px] border inline-flex items-center gap-1 ${
+          className={`text-[11.5px] px-2 py-1 rounded-none border inline-flex items-center gap-1 ${
             ok ? "text-[#15803D] bg-[#F0FDF4] border-[#BBF7D0]" : "text-[#92400E] bg-[#FFFBEB] border-[#FDE68A]"
           }`}
         >
@@ -223,12 +223,12 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search patient, phone, UMR"
-          className="h-9 px-3 text-[13px] border border-[#DDE2EC] rounded-[6px] bg-white w-full sm:w-64"
+          className="h-9 px-3 text-[13px] border border-[#DDE2EC] rounded-none bg-white w-full sm:w-64"
         />
         <select
           value={channel}
           onChange={(e) => setChannel(e.target.value as any)}
-          className="h-9 px-2 text-[13px] border border-[#DDE2EC] rounded-[6px] bg-white"
+          className="h-9 px-2 text-[13px] border border-[#DDE2EC] rounded-none bg-white"
         >
           <option value="all">All channels</option>
           <option value="sms">SMS</option>
@@ -238,7 +238,7 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="h-9 px-2 text-[13px] border border-[#DDE2EC] rounded-[6px] bg-white"
+          className="h-9 px-2 text-[13px] border border-[#DDE2EC] rounded-none bg-white"
         >
           <option value="all">All statuses</option>
           {(Object.keys(STATUS_STYLE) as NotificationStatus[]).map((s) => (
@@ -252,7 +252,7 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
             type="button"
             onClick={refresh}
             disabled={!!busy}
-            className="h-9 px-3 text-[12.5px] border border-[#DDE2EC] bg-white rounded-[6px] hover:bg-[#F8FAFC] inline-flex items-center gap-1.5 disabled:opacity-50"
+            className="h-9 px-3 text-[12.5px] border border-[#DDE2EC] bg-white rounded-none hover:bg-[#F8FAFC] inline-flex items-center gap-1.5 disabled:opacity-50"
           >
             <RefreshCw size={13} className={busy === "refresh" ? "animate-spin" : ""} /> Delivery status
           </button>
@@ -260,7 +260,7 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
             type="button"
             onClick={retry}
             disabled={!!busy || queuedCount === 0}
-            className="h-9 px-3 text-[12.5px] font-medium bg-[#1B4FD8] text-white rounded-[6px] hover:bg-[#1740B4] inline-flex items-center gap-1.5 disabled:opacity-50"
+            className="h-9 px-3 text-[12.5px] font-medium bg-[#1B4FD8] text-white rounded-none hover:bg-[#1740B4] inline-flex items-center gap-1.5 disabled:opacity-50"
           >
             <RotateCcw size={13} className={busy === "retry" ? "animate-spin" : ""} /> Retry queued ({queuedCount})
           </button>
@@ -268,7 +268,7 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
       </div>
       {note && <p className="text-[12px] text-[#475569]">{note}</p>}
 
-      <div className="bg-white border border-[#DDE2EC] rounded-[8px] overflow-hidden">
+      <div className="bg-white border border-[#DDE2EC] rounded-none overflow-hidden">
         {shown.length === 0 ? (
           <div className="p-8 text-center text-[12.5px] text-[#94A3B8]">
             {messages.length === 0
@@ -305,7 +305,7 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
                         {m.documentTitle ? ` · ${m.documentTitle}` : ""} · {formatDateTimeIST(m.createdAt)}
                       </div>
                     </div>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-[6px] border inline-flex items-center gap-1 ${st.cls}`}>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-none border inline-flex items-center gap-1 ${st.cls}`}>
                       {st.icon} {st.label}
                     </span>
                   </div>
@@ -323,7 +323,7 @@ function MessagesTab({ onStatusChange }: { onStatusChange: () => void }) {
                     )}
                   </div>
                   {open && (
-                    <pre className="mt-2 ml-7 whitespace-pre-wrap font-sans text-[12.5px] text-gray-800 bg-[#F8FAFC] border border-[#EEF1F6] rounded-[6px] p-3">
+                    <pre className="mt-2 ml-7 whitespace-pre-wrap font-sans text-[12.5px] text-gray-800 bg-[#F8FAFC] border border-[#EEF1F6] rounded-none p-3">
                       {previewMessage(m.message, !!m.documentTitle)}
                     </pre>
                   )}
@@ -368,7 +368,7 @@ function TemplatesTab() {
 
   return (
     <div className="space-y-4 max-w-[900px]">
-      <section className="bg-white border border-[#DDE2EC] rounded-[8px] p-4">
+      <section className="bg-white border border-[#DDE2EC] rounded-none p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">Hospital details used in messages</h2>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {(
@@ -385,7 +385,7 @@ function TemplatesTab() {
               <input
                 value={settings[key]}
                 onChange={(e) => update({ ...settings, [key]: e.target.value })}
-                className="mt-1 w-full h-9 px-3 text-[13px] border border-[#DDE2EC] rounded-[6px]"
+                className="mt-1 w-full h-9 px-3 text-[13px] border border-[#DDE2EC] rounded-none"
               />
             </label>
           ))}
@@ -405,7 +405,7 @@ function TemplatesTab() {
               const auto = def.automatic ? (rule?.auto ?? true) : false
               const template = rule?.template || def.template
               return (
-                <div key={kind} className="bg-white border border-[#DDE2EC] rounded-[8px] p-4">
+                <div key={kind} className="bg-white border border-[#DDE2EC] rounded-none p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-[13.5px] font-medium text-gray-900">{def.label}</div>
@@ -438,7 +438,7 @@ function TemplatesTab() {
                     value={template}
                     onChange={(e) => setRule(kind, { template: e.target.value })}
                     rows={3}
-                    className="mt-3 w-full px-3 py-2 text-[12.5px] leading-snug border border-[#DDE2EC] rounded-[6px] font-mono"
+                    className="mt-3 w-full px-3 py-2 text-[12.5px] leading-snug border border-[#DDE2EC] rounded-none font-mono"
                   />
                   <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
                     <div className="text-[11px] text-[#94A3B8]">
@@ -470,7 +470,7 @@ function TemplatesTab() {
         <button
           type="button"
           onClick={save}
-          className="h-9 px-4 text-[13px] font-medium bg-[#1B4FD8] text-white rounded-[6px] hover:bg-[#1740B4]"
+          className="h-9 px-4 text-[13px] font-medium bg-[#1B4FD8] text-white rounded-none hover:bg-[#1740B4]"
         >
           Save
         </button>
@@ -532,7 +532,7 @@ function FeedbackTab() {
           <strong className="text-gray-900"> Average {avg.toFixed(1)} / 5 from {rated.length} ratings.</strong>
         )}
       </p>
-      <div className="bg-white border border-[#DDE2EC] rounded-[8px] overflow-hidden">
+      <div className="bg-white border border-[#DDE2EC] rounded-none overflow-hidden">
         {rows.length === 0 ? (
           <div className="p-8 text-center text-[12.5px] text-[#94A3B8]">No replies yet.</div>
         ) : (
@@ -557,7 +557,7 @@ function FeedbackTab() {
                 </div>
                 {r.status && (
                   <span
-                    className={`text-[11px] px-2 py-0.5 rounded-[6px] border ${
+                    className={`text-[11px] px-2 py-0.5 rounded-none border ${
                       r.status === "Escalated"
                         ? "text-[#B91C1C] bg-[#FEF2F2] border-[#FECACA]"
                         : "text-[#475569] bg-[#F1F5F9] border-[#E2E8F0]"
@@ -683,7 +683,7 @@ function SetupTab({ status, onSaved }: { status: MessagingStatus | null ;onSaved
 
   return (
     <div className="space-y-4 max-w-[900px]">
-      <section className="bg-white border border-[#DDE2EC] rounded-[8px] p-4">
+      <section className="bg-white border border-[#DDE2EC] rounded-none p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">What sending needs</h2>
         <ol className="mt-3 space-y-3">
           {steps.map((s) => (
@@ -706,7 +706,7 @@ function SetupTab({ status, onSaved }: { status: MessagingStatus | null ;onSaved
         </ol>
       </section>
 
-      <section className="bg-white border border-[#DDE2EC] rounded-[8px] p-4">
+      <section className="bg-white border border-[#DDE2EC] rounded-none p-4">
         <h2 className="text-[14px] font-semibold text-gray-900">Twilio account</h2>
         {loadError ? (
           <p className="mt-2 text-[12.5px] text-[#92400E]">{loadError}</p>
@@ -740,7 +740,7 @@ function SetupTab({ status, onSaved }: { status: MessagingStatus | null ;onSaved
                     value={form[key]}
                     placeholder={ph}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                    className="mt-1 w-full h-9 px-3 text-[13px] border border-[#DDE2EC] rounded-[6px]"
+                    className="mt-1 w-full h-9 px-3 text-[13px] border border-[#DDE2EC] rounded-none"
                   />
                 </label>
               ))}
@@ -750,7 +750,7 @@ function SetupTab({ status, onSaved }: { status: MessagingStatus | null ;onSaved
                 type="button"
                 onClick={save}
                 disabled={saving || !form.account_sid || !form.whatsapp_from}
-                className="h-9 px-4 text-[13px] font-medium bg-[#1B4FD8] text-white rounded-[6px] hover:bg-[#1740B4] disabled:opacity-50"
+                className="h-9 px-4 text-[13px] font-medium bg-[#1B4FD8] text-white rounded-none hover:bg-[#1740B4] disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save account"}
               </button>
@@ -792,7 +792,7 @@ function HospitalLogoField() {
 
   return (
     <div className="mt-4 pt-4 border-t border-[#EEF1F6] flex flex-wrap items-center gap-4">
-      <div className="h-14 min-w-14 px-2 rounded-[8px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-center">
+      <div className="h-14 min-w-14 px-2 rounded-none border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-center">
         <HospitalMark branding={branding} height={40} />
       </div>
       <div className="min-w-0 flex-1">
@@ -803,7 +803,7 @@ function HospitalLogoField() {
         {message && <div className={`mt-1 text-[11.5px] ${message.ok ? "text-[#15803D]" : "text-[#B91C1C]"}`}>{message.text}</div>}
       </div>
       <div className="flex items-center gap-2">
-        <label className={`h-9 px-3 inline-flex items-center rounded-[6px] bg-[#1B4FD8] text-white text-[12.5px] font-medium cursor-pointer hover:bg-[#1740B4] ${busy ? "opacity-60 pointer-events-none" : ""}`}>
+        <label className={`h-9 px-3 inline-flex items-center rounded-none bg-[#1B4FD8] text-white text-[12.5px] font-medium cursor-pointer hover:bg-[#1740B4] ${busy ? "opacity-60 pointer-events-none" : ""}`}>
           {busy ? "Saving…" : branding.hospitalLogo ? "Replace logo" : "Upload logo"}
           <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" className="hidden" onChange={onFile} />
         </label>
@@ -814,7 +814,7 @@ function HospitalLogoField() {
               saveHospitalLogo(null)
               setMessage({ ok: true, text: "Logo removed. Documents show the hospital's initials instead." })
             }}
-            className="h-9 px-3 rounded-[6px] border border-[#DDE2EC] text-[12.5px] font-medium text-[#475569] hover:bg-[#F8FAFC] cursor-pointer"
+            className="h-9 px-3 rounded-none border border-[#DDE2EC] text-[12.5px] font-medium text-[#475569] hover:bg-[#F8FAFC] cursor-pointer"
           >
             Remove
           </button>

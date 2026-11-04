@@ -150,7 +150,7 @@ export function Card({
   className?: string
 }) {
   return (
-    <section className={`bg-white border border-[#DDE2EC] rounded-[8px] ${className}`}>
+    <section className={`bg-white border border-[#DDE2EC] rounded-none ${className}`}>
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[#EEF1F6]">
           <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
@@ -180,7 +180,7 @@ export function Stat({
   return (
     <Tag
       onClick={onClick}
-      className={`text-left bg-white border border-[#DDE2EC] rounded-[8px] px-4 py-3 ${onClick ? "hover:border-[#1B4FD8] cursor-pointer" : ""}`}
+      className={`text-left bg-white border border-[#DDE2EC] rounded-none px-4 py-3 ${onClick ? "hover:border-[#1B4FD8] cursor-pointer" : ""}`}
     >
       <div className="text-[11.5px] text-[#64748B]">{label}</div>
       <div className={`text-[19px] font-semibold tabular-nums mt-1 ${toneClass}`}>{value}</div>
@@ -199,7 +199,7 @@ export function Grid({ children, cols = 4 }: { children: React.ReactNode; cols?:
 export function ErrorNote({ message, onRetry }: { message: string | null | undefined; onRetry?: () => void }) {
   if (!message) return null
   return (
-    <div className="flex items-start gap-2 bg-[#FEF3F2] border border-[#FECDCA] text-[#B42318] rounded-[6px] px-3 py-2 text-[12.5px]">
+    <div className="flex items-start gap-2 bg-[#FEF3F2] border border-[#FECDCA] text-[#B42318] rounded-none px-3 py-2 text-[12.5px]">
       <AlertTriangle size={15} className="mt-0.5 shrink-0" />
       <span className="flex-1">{message}</span>
       {onRetry && (
@@ -214,7 +214,7 @@ export function ErrorNote({ message, onRetry }: { message: string | null | undef
 export function Notice({ message, onClose }: { message: string | null; onClose: () => void }) {
   if (!message) return null
   return (
-    <div className="flex items-start gap-2 bg-[#ECFDF3] border border-[#ABEFC6] text-[#067647] rounded-[6px] px-3 py-2 text-[12.5px]">
+    <div className="flex items-start gap-2 bg-[#ECFDF3] border border-[#ABEFC6] text-[#067647] rounded-none px-3 py-2 text-[12.5px]">
       <span className="flex-1">{message}</span>
       <button onClick={onClose} aria-label="Dismiss">
         <X size={14} />
@@ -257,7 +257,7 @@ const PILL_TONES = {
 
 export function Pill({ tone = "neutral", children }: { tone?: keyof typeof PILL_TONES; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[4px] border text-[11px] font-medium whitespace-nowrap ${PILL_TONES[tone]}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-none border text-[11px] font-medium whitespace-nowrap ${PILL_TONES[tone]}`}>
       {children}
     </span>
   )
@@ -369,7 +369,7 @@ export function Button({
     <button
       {...props}
       disabled={props.disabled || busy}
-      className={`inline-flex items-center justify-center gap-1.5 border rounded-[6px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${props.className || ""}`}
+      className={`inline-flex items-center justify-center gap-1.5 border rounded-none font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${props.className || ""}`}
     >
       {busy && <Loader2 size={13} className="animate-spin" />}
       {children}
@@ -378,7 +378,7 @@ export function Button({
 }
 
 const controlClass =
-  "w-full border border-[#D0D5DD] rounded-[6px] bg-white px-2.5 py-1.5 text-[12.5px] text-gray-900 focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-[#1B4FD8]/10"
+  "w-full border border-[#D0D5DD] rounded-none bg-white px-2.5 py-1.5 text-[12.5px] text-gray-900 focus:outline-none focus:border-[#1B4FD8] focus:ring-2 focus:ring-[#1B4FD8]/10"
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -452,7 +452,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 overflow-y-auto" onMouseDown={onClose}>
       <div
-        className={`bg-white rounded-[8px] border border-[#DDE2EC] shadow-xl w-full ${wide ? "max-w-4xl" : "max-w-lg"} mt-12`}
+        className={`bg-white rounded-none border border-[#DDE2EC] shadow-xl w-full ${wide ? "max-w-4xl" : "max-w-lg"} mt-12`}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={title}
@@ -464,7 +464,7 @@ export function Modal({
           </button>
         </header>
         <div className="p-4 space-y-3">{children}</div>
-        {footer && <footer className="flex justify-end gap-2 px-4 py-3 border-t border-[#EEF1F6] bg-[#F8FAFC] rounded-b-[8px]">{footer}</footer>}
+        {footer && <footer className="flex justify-end gap-2 px-4 py-3 border-t border-[#EEF1F6] bg-[#F8FAFC] rounded-none">{footer}</footer>}
       </div>
     </div>
   )

@@ -354,15 +354,11 @@ export default function LaboratoryManagementSuite({
             <button
               type="button"
               onClick={() => setShowGuide(!showGuide)}
-              className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-none text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
             >
               <HelpCircle className="w-3.5 h-3.5 text-[#7552B8]" />
               <span>{showGuide ? "Hide Guide" : "How Lab Works"}</span>
             </button>
-
-            <div className="px-3 py-1.5 bg-purple-50/70 border border-purple-100 text-[#7552B8] rounded-xl text-xs font-semibold">
-              Duty: <span className="font-bold">{technician}</span>
-            </div>
           </div>
         </div>
 

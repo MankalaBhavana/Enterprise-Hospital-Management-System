@@ -2354,7 +2354,7 @@ export default function BedManagementPage({
                                   return null
 
                                 return (
-                                  <div className="mb-4 p-3.5 bg-gradient-to-br from-amber-50/90 via-orange-50/50 to-blue-50/50 border border-amber-200/90 rounded-xl shadow-xs">
+                                  <div className="mb-4 p-3.5 bg-gradient-to-br from-amber-50/90 via-orange-50/50 to-blue-50/50 border border-amber-200/90 rounded-none shadow-xs">
                                     <div className="flex items-center justify-between mb-2">
                                       <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                                         <FiZap className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
@@ -2369,7 +2369,7 @@ export default function BedManagementPage({
                                       {notifs.map((n) => (
                                         <div
                                           key={n.id}
-                                          className="p-2.5 bg-white border border-amber-200 hover:border-blue-500 rounded-lg flex items-center justify-between gap-3 transition-all hover:shadow-xs"
+                                          className="p-2.5 bg-white border border-amber-200 hover:border-blue-500 rounded-none flex items-center justify-between gap-3 transition-all hover:shadow-xs"
                                         >
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
@@ -2377,10 +2377,10 @@ export default function BedManagementPage({
                                                 {n.patient_name}{" "}
                                                 {n.patient_last_name || ""}
                                               </span>
-                                              <span className="text-[10px] font-mono text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.2 rounded">
+                                              <span className="text-[10px] font-mono text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.2 rounded-none">
                                                 {n.patient_id}
                                               </span>
-                                              <span className="text-[9.5px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-red-100 text-red-800">
+                                              <span className="text-[9.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-none bg-red-100 text-red-800">
                                                 {n.priority}
                                               </span>
                                             </div>
@@ -2418,7 +2418,7 @@ export default function BedManagementPage({
                                                   : "4",
                                               )
                                             }}
-                                            className="px-3 py-1 text-xs font-bold bg-[#1B4FD8] hover:bg-[#153eb5] text-white rounded-md transition-colors shrink-0 shadow-xs cursor-pointer flex items-center gap-1"
+                                            className="px-3 py-1 text-xs font-bold bg-[#1B4FD8] hover:bg-[#153eb5] text-white rounded-none transition-colors shrink-0 shadow-xs cursor-pointer flex items-center gap-1"
                                           >
                                             ⚡ Auto-Fill
                                           </button>
@@ -2427,17 +2427,17 @@ export default function BedManagementPage({
                                       {pendingEr.map((req) => (
                                         <div
                                           key={req.id}
-                                          className="p-2.5 bg-white border border-blue-200 hover:border-blue-500 rounded-lg flex items-center justify-between gap-3 transition-all hover:shadow-xs"
+                                          className="p-2.5 bg-white border border-blue-200 hover:border-blue-500 rounded-none flex items-center justify-between gap-3 transition-all hover:shadow-xs"
                                         >
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
                                               <span className="text-xs font-bold text-[#0F172A] truncate">
                                                 {erRequestPatientLabel(req)}
                                               </span>
-                                              <span className="text-[10px] font-mono text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.2 rounded">
+                                              <span className="text-[10px] font-mono text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.2 rounded-none">
                                                 {req.visit_no}
                                               </span>
-                                              <span className="text-[9.5px] font-bold uppercase px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">
+                                              <span className="text-[9.5px] font-bold uppercase px-1.5 py-0.2 rounded-none bg-blue-100 text-blue-800">
                                                 {req.requested_level_of_care}
                                               </span>
                                             </div>
@@ -2477,7 +2477,7 @@ export default function BedManagementPage({
                                                   : "4",
                                               )
                                             }}
-                                            className="px-3 py-1 text-xs font-bold bg-[#1B4FD8] hover:bg-[#153eb5] text-white rounded-md transition-colors shrink-0 shadow-xs cursor-pointer flex items-center gap-1"
+                                            className="px-3 py-1 text-xs font-bold bg-[#1B4FD8] hover:bg-[#153eb5] text-white rounded-none transition-colors shrink-0 shadow-xs cursor-pointer flex items-center gap-1"
                                           >
                                             ⚡ Auto-Fill
                                           </button>

@@ -114,7 +114,7 @@ export default function ReceiptsView() {
 
               {/* Autocomplete dropdown */}
               {patientSuggestionsOpen && matchedPatients.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[#CBD5E1] rounded-lg shadow-xl mt-1 overflow-hidden divide-y divide-[#F1F5F9]">
+                <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[#CBD5E1] rounded-none shadow-xl mt-1 overflow-hidden divide-y divide-[#F1F5F9]">
                   {matchedPatients.map((p) => (
                     <button
                       key={p.umr}
@@ -135,7 +135,7 @@ export default function ReceiptsView() {
 
             {/* Quick Bill Selector if bills exist */}
             {patientClaims.length > 0 && (
-              <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-xs space-y-1.5">
+              <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-none text-xs space-y-1.5">
                 <div className="font-semibold text-[#475569] flex justify-between">
                   <span>Open Bills for this Patient:</span>
                   <span className="text-[11px] text-[#1B4FD8]">{patientClaims.length} Found</span>

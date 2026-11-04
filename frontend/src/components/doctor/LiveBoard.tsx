@@ -117,7 +117,7 @@ export default function LiveBoard({
         .map((c) => {
           const warn = InsuranceEngineService.checkThresholdWarning(c);
           return (
-            <div key={c.id} className="bg-amber-50 border border-amber-300 text-amber-900 text-[12.5px] px-4 py-3 rounded-[10px] flex items-center justify-between font-medium">
+            <div key={c.id} className="bg-amber-50 border border-amber-300 text-amber-900 text-[12.5px] px-4 py-3 rounded-none flex items-center justify-between font-medium">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={15} className="text-amber-700 shrink-0" />
                 <span className="font-bold text-amber-800">Pre-auth threshold:</span>
@@ -131,7 +131,7 @@ export default function LiveBoard({
         })}
 
       {feedback && (
-        <div className="bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E40AF] text-[12.5px] px-3.5 py-2.5 rounded-[10px] flex items-start gap-2">
+        <div className="bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E40AF] text-[12.5px] px-3.5 py-2.5 rounded-none flex items-start gap-2">
           <span className="flex-1">{feedback}</span>
           <button type="button" onClick={() => setFeedback(null)} className="font-bold">✕</button>
         </div>
@@ -139,7 +139,7 @@ export default function LiveBoard({
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
         {/* ── Live queue ───────────────────────────────────────────────── */}
-        <section className="xl:col-span-2 bg-white border border-[#DDE2EC] rounded-[12px] overflow-hidden flex flex-col">
+        <section className="xl:col-span-2 bg-white border border-[#DDE2EC] rounded-none overflow-hidden flex flex-col">
           <div className="px-4 py-2.5 border-b border-[#DDE2EC] flex items-center justify-between">
             <h3 className="text-[13.5px] font-semibold text-[#0F172A]">My live queue</h3>
             <span className="flex items-center gap-1.5 text-[11px] text-[#64748B]">
@@ -161,7 +161,7 @@ export default function LiveBoard({
                     {board.active.encounter.umr} · {board.active.encounter.opNumber}
                   </div>
                 </div>
-                <div className="text-right bg-white/10 backdrop-blur-xs px-2.5 py-1.5 rounded-lg border border-white/20">
+                <div className="text-right bg-white/10 backdrop-blur-xs px-2.5 py-1.5 rounded-none border border-white/20">
                   <div className="text-[10px] text-blue-100 font-medium uppercase tracking-wider">Consulting</div>
                   <div className="text-[16px] font-bold font-mono text-white">
                     {formatElapsed(encounterArrivalIso(board.active.encounter) || board.active.encounter.timestamps?.arrival, now)}
@@ -172,7 +172,7 @@ export default function LiveBoard({
                 <button
                   type="button"
                   onClick={() => onGoToSheet(board.active!.encounter.id)}
-                  className="px-3 py-1.5 rounded-md bg-white text-blue-700 text-[12px] font-bold hover:bg-blue-50 transition-colors shadow-xs cursor-pointer"
+                  className="px-3 py-1.5 rounded-none bg-white text-blue-700 text-[12px] font-bold hover:bg-blue-50 transition-colors shadow-xs cursor-pointer"
                 >
                   Open consultation
                 </button>
@@ -182,7 +182,7 @@ export default function LiveBoard({
                     holdPatient(board.active!.encounter.id);
                     setFeedback(`${board.active!.encounter.patientName} put back in the queue.`);
                   }}
-                  className="px-3 py-1.5 rounded-md bg-white/15 text-white text-[12px] font-semibold hover:bg-white/25 transition-colors border border-white/20 cursor-pointer"
+                  className="px-3 py-1.5 rounded-none bg-white/15 text-white text-[12px] font-semibold hover:bg-white/25 transition-colors border border-white/20 cursor-pointer"
                 >
                   Put on hold
                 </button>
@@ -213,7 +213,7 @@ export default function LiveBoard({
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span
-                            className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                            className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-none ${
                               index === 0
                                 ? "bg-amber-100 text-amber-900 border border-amber-300 font-extrabold"
                                 : index === 1
@@ -227,7 +227,7 @@ export default function LiveBoard({
                             {entry.encounter.patientName}
                           </span>
                           <span
-                            className={`text-[10px] font-bold px-1.5 py-[1px] rounded-[5px] border ${
+                            className={`text-[10px] font-bold px-1.5 py-[1px] rounded-none border ${
                               entry.isNewPatient ? "bg-[#DCFCE7] text-[#15803D] border-[#BBF7D0]" : "bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE]"
                             }`}
                           >
@@ -267,7 +267,7 @@ export default function LiveBoard({
         </section>
 
         {/* ── Alerts ───────────────────────────────────────────────────── */}
-        <section className="xl:col-span-3 bg-white border border-[#DDE2EC] rounded-[12px] overflow-hidden flex flex-col">
+        <section className="xl:col-span-3 bg-white border border-[#DDE2EC] rounded-none overflow-hidden flex flex-col">
           <div className="px-4 py-2.5 border-b border-[#DDE2EC] flex items-center justify-between gap-2 flex-wrap">
             <div>
               <h3 className="text-[13.5px] font-semibold text-[#0F172A]">
@@ -400,13 +400,13 @@ function LivePulse({ board, now }: { board: ReturnType<typeof buildDoctorLiveBoa
   ];
 
   return (
-    <div className="bg-white border border-[#DDE2EC] rounded-[12px] px-4 py-3 shadow-xs">
+    <div className="bg-white border border-[#DDE2EC] rounded-none px-4 py-3 shadow-xs">
       <div className="flex items-center justify-between mb-2.5">
         <h3 className="text-[13.5px] font-bold text-[#0F172A] flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           Clinic Pulse Right Now
         </h3>
-        <span className="text-[11px] font-mono text-[#64748B] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+        <span className="text-[11px] font-mono text-[#64748B] bg-slate-100 px-2 py-0.5 rounded-none border border-slate-200">
           {new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </span>
       </div>
@@ -414,7 +414,7 @@ function LivePulse({ board, now }: { board: ReturnType<typeof buildDoctorLiveBoa
         {tiles.map(tile => {
           const IconComponent = tile.icon;
           return (
-            <div key={tile.label} className={`border rounded-[10px] px-3 py-2.5 shadow-xs transition-transform hover:-translate-y-0.5 ${tile.cardStyle}`}>
+            <div key={tile.label} className={`border rounded-none px-3 py-2.5 shadow-xs transition-transform hover:-translate-y-0.5 ${tile.cardStyle}`}>
               <div className="flex items-center justify-between">
                 <span className={`text-[20px] font-extrabold leading-none tabular-nums ${tile.numStyle}`}>{tile.value}</span>
                 <IconComponent size={16} className={tile.labelStyle} />
@@ -457,7 +457,7 @@ function AlertRow({
           const KindIcon = KIND_ICONS[alert.kind];
           return (
             <span
-              className="w-8 h-8 rounded-[9px] flex items-center justify-center shrink-0"
+              className="w-8 h-8 rounded-none flex items-center justify-center shrink-0"
               style={{ backgroundColor: alert.severity === "info" ? "#F1F5F9" : "#FFFFFF", color: style.text, border: `1px solid ${style.border}` }}
             >
               <KindIcon size={15} />
@@ -469,7 +469,7 @@ function AlertRow({
             <span className="text-[12.5px] font-semibold text-gray-900">{alert.title}</span>
             {alert.severity !== "info" && (
               <span
-                className="text-[10px] font-semibold px-1.5 py-[1px] rounded-[5px] border"
+                className="text-[10px] font-semibold px-1.5 py-[1px] rounded-none border"
                 style={{ color: style.text, borderColor: style.border, backgroundColor: "#FFFFFF" }}
               >
                 {style.label}

@@ -53,7 +53,7 @@ export default function PostingAuditView() {
         subtitle="Real-time monitor of operational accounting events, failed posting exception queues, and immutable double-entry ledger audit trails."
         actions={
           <div className="flex items-center gap-2">
-            <div className="flex border border-[#D0D5DD] rounded-[6px] overflow-hidden text-xs">
+            <div className="flex border border-[#D0D5DD] rounded-none overflow-hidden text-xs">
               <button
                 onClick={() => setActiveTab("exceptions")}
                 className={`px-3 py-1.5 font-medium cursor-pointer transition ${
@@ -91,19 +91,19 @@ export default function PostingAuditView() {
               <div className="space-y-4">
                 {/* Outbox Status Banner */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+                  <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
                     <span className="text-xs text-[#64748B] font-medium">Pending Exceptions</span>
                     <div className="text-xl font-bold text-[#BE123C] mt-1">{list.length}</div>
                     <div className="text-[11px] text-[#64748B] mt-0.5">Require review or manual correction</div>
                   </div>
-                  <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+                  <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
                     <span className="text-xs text-[#64748B] font-medium">Outbox Integration Status</span>
                     <div className="text-xl font-bold text-[#047857] mt-1 flex items-center gap-2">
                       <CheckCircle2 size={20} className="text-[#10B981]" /> Active
                     </div>
                     <div className="text-[11px] text-[#64748B] mt-0.5">Billing & Pharmacy feeds streaming</div>
                   </div>
-                  <div className="bg-white border border-[#DDE2EC] p-4 rounded-xl shadow-xs">
+                  <div className="bg-white border border-[#DDE2EC] p-4 rounded-none shadow-xs">
                     <span className="text-xs text-[#64748B] font-medium">Auto-Recovery Engine</span>
                     <div className="text-xl font-bold text-[#1B4FD8] mt-1">Idempotent</div>
                     <div className="text-[11px] text-[#64748B] mt-0.5">Safe retry without double-posting</div>
@@ -214,7 +214,7 @@ export default function PostingAuditView() {
                         placeholder="Search audit trail by actor, action or entity..."
                         value={auditQuery}
                         onChange={(e) => setAuditQuery(e.target.value)}
-                        className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#1B4FD8] bg-white"
+                        className="w-full text-xs pl-8 pr-3 py-1.5 border border-[#CBD5E1] rounded-none focus:outline-none focus:border-[#1B4FD8] bg-white"
                       />
                     </div>
                   </div>
@@ -246,7 +246,7 @@ export default function PostingAuditView() {
                               {item.actor}
                             </td>
                             <td className="py-2.5 px-3">
-                              <span className="px-2 py-0.5 rounded text-[10.5px] font-semibold bg-[#EFF6FF] text-[#1B4FD8]">
+                              <span className="px-2 py-0.5 rounded-none text-[10.5px] font-semibold bg-[#EFF6FF] text-[#1B4FD8]">
                                 {item.action}
                               </span>
                             </td>
@@ -293,12 +293,12 @@ export default function PostingAuditView() {
           }
         >
           <div className="space-y-3">
-            <div className="text-xs text-[#B42318] p-2.5 bg-[#FEF2F2] border border-[#FEE2E2] rounded-lg">
+            <div className="text-xs text-[#B42318] p-2.5 bg-[#FEF2F2] border border-[#FEE2E2] rounded-none">
               <strong>Failure:</strong> {selectedPayload.reason}
             </div>
             <div>
               <label className="text-xs font-semibold text-[#475569] block mb-1">Payload JSON</label>
-              <pre className="p-3 bg-[#0F172A] text-[#E2E8F0] rounded-lg text-xs font-mono max-h-72 overflow-y-auto">
+              <pre className="p-3 bg-[#0F172A] text-[#E2E8F0] rounded-none text-xs font-mono max-h-72 overflow-y-auto">
                 {JSON.stringify(selectedPayload.payload, null, 2)}
               </pre>
             </div>

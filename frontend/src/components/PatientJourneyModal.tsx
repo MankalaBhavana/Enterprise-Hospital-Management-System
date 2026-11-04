@@ -3,6 +3,7 @@ import { db, DBOPEncounter } from "../services/db"
 import { DoctorPortalDatabase } from "../services/doctorPortalDb"
 import { encounterArrivalMs } from "../services/encounterTime"
 import { BillingDatabase, RadiologyStudyRecord } from "../services/billingDb"
+import { PharmacyDatabase } from "../services/pharmacyDb"
 import { printRadiologyDocument } from "../utils/radiologyPrint"
 import RadiologyReportPdfModal from "./radiology/RadiologyReportPdfModal"
 import { Icon } from "./icons"
@@ -23,16 +24,21 @@ export default function PatientJourneyModal({
   const [activeTab, setActiveTab] =
     useState<"current_journey" | "previous_consultations">("current_journey")
   const [selectedReportStudy, setSelectedReportStudy] = useState<RadiologyStudyRecord | null>(null)
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
 
   React.useEffect(() => {
     const unsubDb = db.subscribe(() => setTick((t) => t + 1))
     const unsubDoc = DoctorPortalDatabase.subscribe(() => setTick((t) => t + 1))
     const unsubBilling = BillingDatabase.onUpdate(() => setTick((t) => t + 1))
+    const handlePharm = () => setTick((t) => t + 1)
+    window.addEventListener("hospai_pharmacy_updated", handlePharm)
+    window.addEventListener("storage", handlePharm)
     return () => {
       unsubDb()
       unsubDoc()
       unsubBilling()
+      window.removeEventListener("hospai_pharmacy_updated", handlePharm)
+      window.removeEventListener("storage", handlePharm)
     }
   }, [])
 
@@ -675,26 +681,91 @@ export default function PatientJourneyModal({
               )}
 
               {/* 8. PHARMACY & DISPENSING */}
-              <div className="relative group">
-                <div className="absolute -left-[31px] top-0 w-6 h-6 rounded-none bg-[#06B6D4] text-white flex items-center justify-center text-xs font-bold ring-4 ring-white shadow-xs">
-                  8
-                </div>
-                <div className="bg-white border border-[#CBD5E1] rounded-none p-4 shadow-2xs space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <div className="font-bold text-[13.5px] text-gray-900 flex items-center gap-1.5">
-                      <span>💊</span> Pharmacy Dispensing & Visit Status
+              {(() => {
+                const prescriptions = PharmacyDatabase.getPrescriptions()
+                const targetName = (liveEncounter.patientName || "").toLowerCase().trim()
+                const matchedRx = prescriptions.find(
+                  (p) =>
+                    (p.visitId && p.visitId === liveEncounter.id) ||
+                    (p.uhid && p.uhid === liveEncounter.umr) ||
+                    (p.patientId && p.patientId === liveEncounter.umr) ||
+                    ((liveEncounter as any).prescriptionId && p.id === (liveEncounter as any).prescriptionId) ||
+                    (targetName && p.patientName && p.patientName.toLowerCase().trim() === targetName)
+                )
+
+                const isDispensed =
+                  matchedRx?.status === "Dispensed" ||
+                  matchedRx?.dispensingStatus === "Dispensed" ||
+                  liveEncounter.pharmacyStatus === "Dispensed" ||
+                  liveEncounter.status === "OP Completed"
+
+                const isPartial =
+                  (matchedRx?.status as string) === "Partially Dispensed" ||
+                  (matchedRx?.dispensingStatus as string) === "Partially Dispensed" ||
+                  liveEncounter.pharmacyStatus === "Partially Dispensed"
+
+                const isReady =
+                  matchedRx?.status === "Ready For Dispensing" ||
+                  matchedRx?.dispensingStatus === "Ready" ||
+                  liveEncounter.pharmacyStatus === "Ready"
+
+                const isProcessing =
+                  matchedRx?.status === "Preparing" ||
+                  matchedRx?.dispensingStatus === "Preparing" ||
+                  (matchedRx?.status as string) === "Processing" ||
+                  liveEncounter.pharmacyStatus === "Processing"
+
+                return (
+                  <div className="relative group">
+                    <div className="absolute -left-[31px] top-0 w-6 h-6 rounded-none bg-[#06B6D4] text-white flex items-center justify-center text-xs font-bold ring-4 ring-white shadow-xs">
+                      8
                     </div>
-                    <span className="font-mono text-[11.5px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-none border border-cyan-200">
-                      {liveEncounter.timestamps?.visitCompleted || liveEncounter.status}
-                    </span>
+                    <div className="bg-white border border-[#CBD5E1] rounded-none p-4 shadow-2xs space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <div className="font-bold text-[13.5px] text-gray-900 flex items-center gap-1.5">
+                          <span>💊</span> Pharmacy Dispensing & Visit Status
+                        </div>
+                        {isDispensed ? (
+                          <span className="font-mono text-[11.5px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-none border border-emerald-300 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Dispensed
+                          </span>
+                        ) : isPartial ? (
+                          <span className="font-mono text-[11.5px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-none border border-amber-300 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Partially Dispensed
+                          </span>
+                        ) : isReady ? (
+                          <span className="font-mono text-[11.5px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-none border border-blue-300 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            Ready
+                          </span>
+                        ) : isProcessing ? (
+                          <span className="font-mono text-[11.5px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-none border border-indigo-300 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            In Process
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[11.5px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-none border border-cyan-200">
+                            In Queue
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-gray-700">
+                        {isDispensed && matchedRx
+                          ? `Prescription ${matchedRx.id} dispensed by Central Pharmacy (${matchedRx.items?.length || 0} item(s)).`
+                          : isDispensed
+                          ? "Prescription dispensed by Central Pharmacy. Outpatient departure counselled."
+                          : isPartial && matchedRx
+                          ? `Prescription ${matchedRx.id} partially dispensed (${matchedRx.items?.length || 0} item(s)).`
+                          : liveEncounter.prescription && liveEncounter.prescription.length > 0
+                          ? "Prescriptions routed to outpatient pharmacy queue."
+                          : "Outpatient visit recorded in hospital system."}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[12px] text-gray-700">
-                    {liveEncounter.prescription && liveEncounter.prescription.length > 0
-                      ? "Prescriptions routed to outpatient pharmacy queue."
-                      : "Outpatient visit recorded in hospital system."}
-                  </p>
-                </div>
-              </div>
+                )
+              })()}
             </div>
           </div>
         )}
