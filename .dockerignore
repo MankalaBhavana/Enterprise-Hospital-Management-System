@@ -8,12 +8,11 @@ dist
 **/dist
 pgdata
 scratch
-tests
+frontend/tests
 *.log
 *.pdf
 pharmacy_dashboard_current.txt
 temp_dash*
 temp_dashboard.txt
-Pharmacy Management System UI_UX
-keppler-backend
-dpi-ocr-backend
+backend
+ocr-backend
