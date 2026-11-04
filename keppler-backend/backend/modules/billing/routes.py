@@ -81,6 +81,10 @@ def billing_create_invoice():
     validation_error = validate_required_fields(payload, ["module", "total_amount"])
     if validation_error:
         return validation_error
+    module = str(payload.get("module") or "").strip().upper()
+    if module not in {"OP", "IP", "LAB", "PHARMACY", "ER", "OT"}:
+        return jsonify({"error": "module must be one of OP, IP, LAB, PHARMACY, ER, OT"}), 400
+    payload["module"] = module
     invoice_no = (
         payload.get("invoice_no") or new_invoice_no("INV")
     )
@@ -264,12 +268,15 @@ def billing_record_payment(invoice_id):
     validation_error = validate_required_fields(payload, ["amount", "payment_mode"])
     if validation_error:
         return validation_error
+    payment_mode = str(payload.get("payment_mode") or "").strip().lower()
+    if payment_mode not in {"cash", "card", "upi", "bank"}:
+        return jsonify({"error": "payment_mode must be one of cash, card, upi, bank"}), 400
     try:
         payment_id = record_invoice_payment(
             invoice_id,
             {
                 "amount": payload.get("amount", 0),
-                "payment_mode": payload.get("payment_mode", "cash"),
+                "payment_mode": payment_mode,
                 "gateway_ref": payload.get("gateway_ref"),
                 "converted_from_mode": payload.get("converted_from_mode"),
                 "converted_to_mode": payload.get("converted_to_mode"),

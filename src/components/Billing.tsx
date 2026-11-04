@@ -2336,7 +2336,7 @@ export default function Billing({
 /* =========================================================================
    UNIFIED PATIENT BILL -- real consolidated bill across every department
    that has invoiced this patient, backed by /api/billing/umr-ledger/<id>
-   (hospital-backend/backend/modules/billing/routes.py). This is real data,
+   (keppler-backend/backend/modules/billing/routes.py). This is real data,
    not the local BillingDatabase mock the rest of this file still reads from.
    ========================================================================= */
 interface RealInvoiceItem {

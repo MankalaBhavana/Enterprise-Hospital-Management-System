@@ -411,7 +411,7 @@ function describe(err: unknown): string {
 }
 
 // ── Browser-side fallback ────────────────────────────────────────────────────
-// Mirrors the server's keyword split (hospital-backend/backend/ai/service.py).
+// Mirrors the server's keyword split (keppler-backend/backend/ai/service.py).
 // Same conservative rule: a line it cannot place goes to neither list.
 
 const LAB_KEYWORDS = [

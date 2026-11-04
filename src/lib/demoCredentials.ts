@@ -5,7 +5,7 @@
  *
  *  - The **local RBAC store** (`RoleDatabase`), which decides which modules the
  *    signed-in user can navigate to. Every account in it uses `password123`.
- *  - The **backend** (`create_default_users` in `hospital-backend/backend/core/auth.py`),
+ *  - The **backend** (`create_default_users` in `keppler-backend/backend/core/auth.py`),
  *    which issues the session cookie that authenticated APIs require -- the AI
  *    prescription splitter and Smart OCR among them. It seeds four accounts,
  *    each with its own password, and none of them is `password123`.

@@ -247,6 +247,8 @@ def create_prescription():
 
     if not patient_id or not medicines_json:
         return jsonify({"error": "patient_id and medicines_json are required"}), 400
+    if not isinstance(medicines_json, str):
+        medicines_json = __import__("json").dumps(medicines_json)
     from utils.database import get_patient
 
     if not get_patient(patient_id, hospital_id=current_hospital_id()):

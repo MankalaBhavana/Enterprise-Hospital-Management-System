@@ -4,8 +4,8 @@
 # or logs. Usage: scripts/sync-backend.sh [/path/to/dev/keppler-backend]
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="${1:-$(readlink -f "$ROOT/hospital-backend" 2>/dev/null || true)}"
-[ -n "$SRC" ] && [ -f "$SRC/docker-compose.yml" ] || { echo "Usage: $0 /path/to/keppler-backend"; exit 1; }
+SRC="${1:-}"
+[ -n "$SRC" ] && [ -f "$SRC/docker-compose.yml" ] || { echo "Usage: $0 /path/to/keppler-backend (a separate dev checkout)"; exit 1; }
 [ "$(readlink -f "$SRC")" != "$(readlink -f "$ROOT/keppler-backend")" ] || { echo "Source is the shipped copy itself."; exit 1; }
 # The shipped gateway trusts the web server's X-Real-IP (deploy/); keep that change.
 GW_KEEP="$(mktemp)"; cp "$ROOT/keppler-backend/gateway/nginx.conf" "$GW_KEEP"

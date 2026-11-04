@@ -511,7 +511,7 @@ export default defineConfig({
     port: parseInt(process.env.PORT || "8443"),
     strictPort: true,
     allowedHosts: [".trycloudflare.com", "all"],
-    watch: { ignored: ["**/hospital-backend/**", "**/archive/**"] },
+    watch: { ignored: ["**/keppler-backend/**", "**/dpi-ocr-backend/**"] },
     warmup: {
       clientFiles: ["./src/main.tsx", "./src/App.tsx"],
     },

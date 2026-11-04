@@ -12,7 +12,7 @@
  *  - Page 12 & 13: Operation Record & Surgeon Procedure Notes
  *  - Page 14: Recovery Evaluation & Modified Aldrete Score (0-10) + Ward Handover
  *
- * Backed by the real `/api/ot/cases` routes (hospital-backend/backend/modules/ot/routes.py) --
+ * Backed by the real `/api/ot/cases` routes (keppler-backend/backend/modules/ot/routes.py) --
  * every stage-transition button routes through PATCH .../status, which is the
  * server-side gate: it rejects (409) unless the relevant booklet section
  * (PAC opinion, WHO checklist signatures, Aldrete score) actually proves the

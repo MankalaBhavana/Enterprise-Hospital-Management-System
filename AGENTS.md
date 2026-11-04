@@ -1,6 +1,6 @@
 # Enterprise Hospital Management System
 
-React + Vite + Tailwind CSS frontend for a hospital management system, backed by a microservice backend (see `hospital-backend/`, symlinked to `keppler-backend/`).
+React + Vite + Tailwind CSS frontend for a hospital management system, backed by a microservice backend (`keppler-backend/`, bundled in this repo).
 
 ## Production deployment
 
@@ -41,7 +41,7 @@ The backend is 9 independent Flask services (auth, patients, appointments, er, b
 
 **Frontend serving**: `dpi-ocr-frontend/` runs as its own Vite dev server on port 3000 rather than a Docker-built static bundle, since `npm run build` was blocked in this environment. `npm run dev` starts it automatically via [scripts/dev.mjs](scripts/dev.mjs) and deliberately leaves it running when the HMS server stops (stop it with `npm run dev:stop`); to run it alone use `cd dpi-ocr-frontend && npx vite --port 3000 --host 0.0.0.0`. Its dependencies must be installed with `npm install --legacy-peer-deps` — it's a React 18 tree and plain `npm ci` fails on a React 19 peer conflict (`@emotion/react` / `@figma/astraui-kit` / `@mui/*`). A 502 on `/keppler-ocr` or `/api` means this server is down or its `node_modules` are missing; its own `vite.config.ts` sets `base: '/keppler-ocr/'`. Port 3000 isn't directly reachable from a browser outside this sandbox (only `$PORT`/8443 is forwarded), so it's reverse-proxied through the host dev server instead of loaded cross-port: [vite.config.ts](vite.config.ts) proxies `/keppler-ocr` (with `ws: true` for its HMR) and `/api` (the OCR app proxies `/api` to its own backend itself) to `http://localhost:3000`. `DpiOcrPortal.tsx` points its iframe at `/keppler-ocr/` by default; `VITE_DPI_OCR_URL` overrides it.
 
-**Backend**: merged into `keppler-backend`'s docker compose stack (`hospital-backend/docker-compose.yml`, alongside the 9 hospital microservices), as `ocr-postgres`, `ocr-redis`, `ocr-qdrant`, `ocr-api` (port 7620), and `ocr-worker` — see the "Keppler AI (dpi-ocr)" section near the bottom of that file. `ocr-api`/`ocr-worker` reuse the already-built `dpi-ocr--main-api`/`dpi-ocr--main-worker` images (`build: context: ./dpi-ocr`, a symlink to this repo's `dpi-ocr-backend/`, in case a fresh clone needs to build them) rather than rebuilding, and point `VLLM_BASE_URL` at the already-running `vllm-qwen-7b` container on port 8700. Bring the whole stack up with `cd keppler-backend && docker compose up -d`; on a brand-new `ocr-postgres` volume, run migrations once with `docker exec keppler-backend-ocr-api-1 alembic upgrade head` (the API returns 500s on auth routes until this has run — `relation "users" does not exist`). Check status with `docker ps --filter name=keppler-backend-ocr`.
+**Backend**: merged into `keppler-backend`'s docker compose stack (`keppler-backend/docker-compose.yml`, alongside the 9 hospital microservices), as `ocr-postgres`, `ocr-redis`, `ocr-qdrant`, `ocr-api` (port 7620), and `ocr-worker` — see the "Keppler AI (dpi-ocr)" section near the bottom of that file. `ocr-api`/`ocr-worker` reuse the already-built `dpi-ocr--main-api`/`dpi-ocr--main-worker` images (`build: context: ./dpi-ocr`, a symlink to this repo's `dpi-ocr-backend/`, in case a fresh clone needs to build them) rather than rebuilding, and point `VLLM_BASE_URL` at the already-running `vllm-qwen-7b` container on port 8700. Bring the whole stack up with `cd keppler-backend && docker compose up -d`; on a brand-new `ocr-postgres` volume, run migrations once with `docker exec keppler-backend-ocr-api-1 alembic upgrade head` (the API returns 500s on auth routes until this has run — `relation "users" does not exist`). Check status with `docker ps --filter name=keppler-backend-ocr`.
 
 The standalone deployment this was originally merged from (Docker project `dpi-ocr--main`, built from `/home/kalpra/Videos/dpi-ocr--main (2)/dpi-ocr--main`) is fully retired — its api/worker/frontend containers are removed/stopped; only its postgres/redis/qdrant are left stopped-but-not-removed in case that old test data is ever needed back.
 
@@ -114,7 +114,7 @@ agree there**, and for a long time they did not:
 
 - the **local RBAC store** (`RoleDatabase`), which decides which modules the signed-in
   user may navigate to -- every account in it uses `password123`;
-- the **backend** (`create_default_users` in `hospital-backend/backend/core/auth.py`),
+- the **backend** (`create_default_users` in `keppler-backend/backend/core/auth.py`),
   which issues the session cookie authenticated APIs need. It seeds `employee`,
   `admin`, `staff` and `doctor`, each with its own password, none of them `password123`.
 
